@@ -14,7 +14,7 @@
 
   let catalog = $state<CasesResponse | null>(null);
   let models = $state<Models | null>(null);
-  let name = $state('Benchmark de démo');
+  let name = $state('');
   let chosenModels = $state<string[]>([]);
   let chosenCases = $state<string[]>([]);
   let busy = $state(false);
@@ -57,7 +57,10 @@
           return api.setCaseModels(caseId, selections);
         }),
       );
-      await launch(name, chosenCases);
+      // A benchmark is a batch of answers: its name is optional, the date and content already identify it.
+      const modelWord = picks.length > 1 ? 'modèles' : 'modèle';
+      const caseWord = chosenCases.length > 1 ? 'scénarios' : 'scénario';
+      await launch(name.trim() || `${picks.length} ${modelWord}, ${chosenCases.length} ${caseWord}`, chosenCases);
       await refreshCampaigns();
     } catch (startError) {
       error = errorMessage(startError);
@@ -94,8 +97,8 @@
   <Notice message={error} />
   <form onsubmit={start}>
     <label class="field">
-      Nom
-      <input class="input" bind:value={name} required maxlength="80" />
+      Nom (facultatif)
+      <input class="input" bind:value={name} maxlength="80" placeholder="Généré automatiquement" />
     </label>
 
     <fieldset>
