@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -145,9 +146,26 @@ func (o *Ollama) Models(ctx context.Context) ([]Model, error) {
 	}
 	models := make([]Model, 0, len(out.Models))
 	for _, m := range out.Models {
-		models = append(models, Model{Name: m.Name, SizeBytes: m.Size, Family: m.Details.Family, Quant: m.Details.Quant})
+		models = append(models, Model{Name: m.Name, SizeBytes: m.Size, Family: m.Details.Family, Quant: m.Details.Quant, Vision: o.vision(ctx, m.Name)})
 	}
 	return models, nil
+}
+
+// vision asks the server whether a model reads images, nil when it cannot tell.
+func (o *Ollama) vision(ctx context.Context, name string) *bool {
+	resp, err := postJSON(ctx, o.BaseURL+"/api/show", "", map[string]any{"model": name})
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Capabilities []string `json:"capabilities"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || out.Capabilities == nil {
+		return nil
+	}
+	capable := slices.Contains(out.Capabilities, "vision")
+	return &capable
 }
 
 // Pull downloads a model, reporting progress until the server closes the stream.

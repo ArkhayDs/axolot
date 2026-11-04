@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"mime/multipart"
 	"net/http"
@@ -36,7 +37,7 @@ func TestValidateChat(t *testing.T) {
 		{"ends with assistant", chatRequest{Model: "m", Messages: []provider.Message{user, assistant}}, false},
 		{"document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: "texte"}}, true},
 		{"blank document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: " "}}, false},
-		{"oversized document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: strings.Repeat("é", chatDocumentRunes+1)}}, false},
+		{"oversized document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: strings.Repeat("é", chatDocumentCost+1)}}, false},
 		{"too many passages", chatRequest{Model: "m", Messages: []provider.Message{user}, Passages: make([]rag.Hit, chatMaxPassages+1)}, false},
 	}
 	for _, tt := range tests {
@@ -104,16 +105,24 @@ func TestChatMessagesWithDocumentAndPassagesKeepsBoth(t *testing.T) {
 }
 
 func TestFitDocument(t *testing.T) {
-	short := strings.Repeat("é", chatDocumentRunes)
-	if kept, chars, truncated := fitDocument(short); kept != short || chars != chatDocumentRunes || truncated {
+	atLimit := strings.Repeat("é", chatDocumentCost)
+	if kept, chars, truncated := fitDocument(atLimit); kept != atLimit || chars != chatDocumentCost || truncated {
 		t.Errorf("text at the limit changed: chars %d, truncated %v", chars, truncated)
 	}
-	kept, chars, truncated := fitDocument(short + "é")
+	kept, chars, truncated := fitDocument(atLimit + "é")
 	if !truncated || !strings.HasSuffix(kept, chatCutNotice) || !utf8.ValidString(kept) {
 		t.Errorf("cut text: truncated %v, valid %v", truncated, utf8.ValidString(kept))
 	}
-	if utf8.RuneCountInString(kept) != chatDocumentRunes || chars >= chatDocumentRunes {
-		t.Errorf("cut text has %d runes, chars %d", utf8.RuneCountInString(kept), chars)
+	if documentCost(kept) > chatDocumentCost || chars >= chatDocumentCost {
+		t.Errorf("cut text costs %d, chars %d", documentCost(kept), chars)
+	}
+}
+
+func TestFitDocumentKeepsLessOfANumericTable(t *testing.T) {
+	_, prose, _ := fitDocument(strings.Repeat("a", chatDocumentCost*2))
+	_, table, truncated := fitDocument(strings.Repeat("1;", chatDocumentCost))
+	if !truncated || table*tokenCost > prose {
+		t.Errorf("table kept %d runes, prose %d", table, prose)
 	}
 }
 
@@ -138,7 +147,7 @@ func postFile(t *testing.T, handler http.HandlerFunc, name string, content []byt
 }
 
 func TestChatDocumentExtractsAndTruncates(t *testing.T) {
-	rec := postFile(t, (&Server{}).chatDocument, "long note.txt", []byte(strings.Repeat("a", chatDocumentRunes+10)))
+	rec := postFile(t, (&Server{}).chatDocument, "long note.txt", []byte(strings.Repeat("a", chatDocumentCost+10)))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
 	}
@@ -150,7 +159,7 @@ func TestChatDocumentExtractsAndTruncates(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "long note.txt" || !got.Truncated || got.TotalChars != chatDocumentRunes+10 {
+	if got.Name != "long note.txt" || !got.Truncated || got.TotalChars != chatDocumentCost+10 {
 		t.Errorf("response = %+v", got)
 	}
 }
@@ -175,6 +184,69 @@ func TestChatDocumentRefusals(t *testing.T) {
 				t.Errorf("status = %d, body = %s", rec.Code, rec.Body)
 			}
 		})
+	}
+}
+
+// pngHeader is enough for the content sniffing to recognize a PNG.
+var pngHeader = []byte("\x89PNG\r\n\x1a\nrest")
+
+func TestValidateChatImage(t *testing.T) {
+	encode := base64.StdEncoding.EncodeToString
+	tests := []struct {
+		name    string
+		encoded string
+		valid   bool
+	}{
+		{"png", encode(pngHeader), true},
+		{"jpeg", encode([]byte("\xff\xd8\xff\xe0rest")), true},
+		{"text renamed as image", encode([]byte("bonjour")), false},
+		{"svg", encode([]byte("<svg xmlns='http://www.w3.org/2000/svg'></svg>")), false},
+		{"not base64", "%%%", false},
+		{"over the limit", encode(append(pngHeader, make([]byte, chatMaxImage)...)), false},
+		{"at the limit", encode(append(pngHeader, make([]byte, chatMaxImage-len(pngHeader))...)), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateChatImage(tt.encoded) == ""; got != tt.valid {
+				t.Errorf("valid = %v, want %v", got, tt.valid)
+			}
+		})
+	}
+}
+
+func TestValidateChatRefusesAnImageSmuggledInHistory(t *testing.T) {
+	body := chatRequest{Model: "m", Messages: []provider.Message{{Role: "user", Content: "x", Images: []string{"abc"}}}}
+	if validateChat(body) == "" {
+		t.Fatal("image accepted inside messages")
+	}
+}
+
+func TestChatMessagesPutsTheImageOnTheCurrentQuestionOnly(t *testing.T) {
+	got := chatMessages(chatRequest{
+		Messages: []provider.Message{
+			{Role: "user", Content: "Avant"},
+			{Role: "assistant", Content: "Réponse"},
+			{Role: "user", Content: "Que vois-tu ?"},
+		},
+		Image: "abc",
+	})
+	if len(got) != 3 || len(got[0].Images) != 0 || len(got[2].Images) != 1 || got[2].Content != "Que vois-tu ?" {
+		t.Fatalf("messages = %+v", got)
+	}
+}
+
+func TestChatImageUpload(t *testing.T) {
+	rec := postFile(t, (&Server{}).chatImage, "capture.txt", pngHeader)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "image/png") {
+		t.Errorf("png by content: status %d, body %s", rec.Code, rec.Body)
+	}
+	rec = postFile(t, (&Server{}).chatImage, "faux.png", []byte("bonjour"))
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("text named png: status %d", rec.Code)
+	}
+	rec = postFile(t, (&Server{}).chatImage, "lourd.png", append(pngHeader, make([]byte, chatMaxImage+chatImageOverhead)...))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("oversized body: status %d", rec.Code)
 	}
 }
 

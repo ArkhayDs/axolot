@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
 	"github.com/arkhayds/axolot/internal/rag"
@@ -19,6 +18,8 @@ const (
 	chatMaxTurns  = 40
 	// chatMaxPassages matches the highest top_k the settings accept.
 	chatMaxPassages = 20
+	// chatMaxBody fits one image in base64 on top of the regular JSON limit.
+	chatMaxBody = maxJSONBody + (chatMaxImage/3+1)*4
 )
 
 // chatRequest is one free question sent to one model.
@@ -29,6 +30,7 @@ type chatRequest struct {
 	Messages   []provider.Message `json:"messages"`
 	Passages   []rag.Hit          `json:"passages"`
 	Document   *chatAttachment    `json:"document"`
+	Image      string             `json:"image"`
 }
 
 // chatAttachment is the text of a document read for one turn, sent back by the client since nothing is kept on the server.
@@ -50,6 +52,9 @@ func validateChat(body chatRequest) string {
 		if message.Role != "user" && message.Role != "assistant" {
 			return "Rôle de message invalide"
 		}
+		if len(message.Images) > 0 {
+			return "Image refusée hors de la question courante"
+		}
 		if strings.TrimSpace(message.Content) == "" {
 			return "Message vide"
 		}
@@ -60,8 +65,11 @@ func validateChat(body chatRequest) string {
 	if len(body.Passages) > chatMaxPassages {
 		return "Trop de passages"
 	}
-	if doc := body.Document; doc != nil && (strings.TrimSpace(doc.Text) == "" || utf8.RuneCountInString(doc.Text) > chatDocumentRunes) {
+	if doc := body.Document; doc != nil && (strings.TrimSpace(doc.Text) == "" || documentCost(doc.Text) > chatDocumentCost) {
 		return "Document vide ou trop long"
+	}
+	if body.Image != "" {
+		return validateChatImage(body.Image)
 	}
 	return ""
 }
@@ -74,16 +82,20 @@ func chatMessages(body chatRequest) []provider.Message {
 	if body.Document != nil {
 		excerpts = append([]rag.Hit{{Chunk: rag.Chunk{File: body.Document.Name, Content: body.Document.Text}}}, excerpts...)
 	}
-	if len(excerpts) == 0 {
-		return body.Messages
-	}
-	built := rag.BuildMessages("", body.Messages[last].Content, excerpts)
+	current := body.Messages[last]
 	messages := make([]provider.Message, 0, len(body.Messages)+1)
-	if len(body.Passages) > 0 {
-		messages = append(messages, built[0])
+	if len(excerpts) > 0 {
+		built := rag.BuildMessages("", current.Content, excerpts)
+		if len(body.Passages) > 0 {
+			messages = append(messages, built[0])
+		}
+		current = built[1]
+	}
+	if body.Image != "" {
+		current.Images = []string{body.Image}
 	}
 	messages = append(messages, body.Messages[:last]...)
-	return append(messages, built[1])
+	return append(messages, current)
 }
 
 // claimChat reserves the GPU for a chat answer; it refuses while a campaign runs, whose timings would be falsified.
@@ -107,7 +119,7 @@ func (s *Server) releaseChat() {
 // chat streams one answer as newline-delimited JSON, and stops when the browser cancels.
 func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	var body chatRequest
-	if !readJSON(w, r, &body) {
+	if !readJSONLimit(w, r, &body, chatMaxBody) {
 		return
 	}
 	if msg := validateChat(body); msg != "" {

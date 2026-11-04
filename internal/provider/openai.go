@@ -3,8 +3,10 @@ package provider
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -32,7 +34,7 @@ type openAIChunk struct {
 func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)) (ChatResult, error) {
 	body := map[string]any{
 		"model":          req.Model,
-		"messages":       req.Messages,
+		"messages":       openAIMessages(req.Messages),
 		"stream":         true,
 		"stream_options": map[string]any{"include_usage": true},
 		"temperature":    Temperature,
@@ -82,6 +84,29 @@ func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	result.TotalMs = msSince(start)
 	setOpenAIRate(&result)
 	return result, err
+}
+
+// openAIMessages turns a message with images into content parts, the only form this API accepts for them.
+func openAIMessages(messages []Message) []any {
+	out := make([]any, 0, len(messages))
+	for _, message := range messages {
+		if len(message.Images) == 0 {
+			out = append(out, message)
+			continue
+		}
+		parts := []map[string]any{{"type": "text", "text": message.Content}}
+		for _, image := range message.Images {
+			parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]string{"url": imageDataURL(image)}})
+		}
+		out = append(out, map[string]any{"role": message.Role, "content": parts})
+	}
+	return out
+}
+
+// imageDataURL wraps a base64 picture, its media type sniffed from the first bytes.
+func imageDataURL(image string) string {
+	head, _ := base64.StdEncoding.DecodeString(image[:min(len(image), 88)])
+	return "data:" + http.DetectContentType(head) + ";base64," + image
 }
 
 // setOpenAIRate computes tokens/s over the generation phase, once TTFT and usage are both known.

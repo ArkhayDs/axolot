@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -122,5 +123,87 @@ func TestPullReportsProgressAndError(t *testing.T) {
 	err := (&Ollama{BaseURL: srv.URL}).Pull(context.Background(), "m", func(p PullProgress) { steps = append(steps, p) })
 	if err == nil || len(steps) != 1 || steps[0].Total != 10 {
 		t.Fatalf("err=%v steps=%v", err, steps)
+	}
+}
+
+// captureChat runs one chat against a fake server and returns the decoded request body.
+func captureChat(t *testing.T, build func(url string) Provider, messages []Message) map[string]any {
+	t.Helper()
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Error(err)
+		}
+		fmt.Fprintln(w, `{"done":true}`)
+	}))
+	defer server.Close()
+	if _, err := build(server.URL).Chat(context.Background(), ChatRequest{Model: "m", Messages: messages}, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	return got
+}
+
+func TestOllamaSendsImagesOnTheMessage(t *testing.T) {
+	got := captureChat(t, func(url string) Provider { return &Ollama{BaseURL: url} }, []Message{{Role: "user", Content: "Quoi ?", Images: []string{"abcd"}}})
+	message := got["messages"].([]any)[0].(map[string]any)
+	if images := message["images"].([]any); len(images) != 1 || images[0] != "abcd" {
+		t.Errorf("message = %v", message)
+	}
+}
+
+func TestOpenAISendsImagesAsContentParts(t *testing.T) {
+	png := base64.StdEncoding.EncodeToString([]byte("\x89PNG\r\n\x1a\nrest"))
+	got := captureChat(t, func(url string) Provider { return &OpenAI{BaseURL: url} }, []Message{
+		{Role: "user", Content: "Avant"},
+		{Role: "user", Content: "Quoi ?", Images: []string{png}},
+	})
+	messages := got["messages"].([]any)
+	if plain := messages[0].(map[string]any); plain["content"] != "Avant" {
+		t.Errorf("plain message = %v", plain)
+	}
+	parts := messages[1].(map[string]any)["content"].([]any)
+	if len(parts) != 2 || parts[0].(map[string]any)["text"] != "Quoi ?" {
+		t.Fatalf("parts = %v", parts)
+	}
+	url := parts[1].(map[string]any)["image_url"].(map[string]any)["url"]
+	if url != "data:image/png;base64,"+png {
+		t.Errorf("url = %v", url)
+	}
+}
+
+func TestOllamaModelsReportVision(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tags" {
+			fmt.Fprint(w, `{"models":[{"name":"voit"},{"name":"aveugle"},{"name":"ancien"}]}`)
+			return
+		}
+		var body struct {
+			Model string `json:"model"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		switch body.Model {
+		case "voit":
+			fmt.Fprint(w, `{"capabilities":["completion","vision"]}`)
+		case "aveugle":
+			fmt.Fprint(w, `{"capabilities":["completion"]}`)
+		default:
+			fmt.Fprint(w, `{}`)
+		}
+	}))
+	defer server.Close()
+	models, err := (&Ollama{BaseURL: server.URL}).Models(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if models[0].Vision == nil || !*models[0].Vision {
+		t.Errorf("voit = %v", models[0].Vision)
+	}
+	if models[1].Vision == nil || *models[1].Vision {
+		t.Errorf("aveugle = %v", models[1].Vision)
+	}
+	if models[2].Vision != nil {
+		t.Errorf("ancien = %v, want unknown", *models[2].Vision)
 	}
 }

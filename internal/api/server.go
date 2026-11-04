@@ -81,6 +81,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/chat", s.chat)
 	mux.HandleFunc("POST /api/chat/search", s.chatSearch)
 	mux.HandleFunc("POST /api/chat/document", s.chatDocument)
+	mux.HandleFunc("POST /api/chat/image", s.chatImage)
 	mux.Handle("/", spa(cfg.Static))
 	return sameOrigin(mux)
 }
@@ -266,7 +267,12 @@ func pathID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 
 // readJSON decodes a bounded body, answering 400 on failure.
 func readJSON(w http.ResponseWriter, r *http.Request, out any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBody)
+	return readJSONLimit(w, r, out, maxJSONBody)
+}
+
+// readJSONLimit decodes a body bounded by limit, for the one route carrying more than plain text.
+func readJSONLimit(w http.ResponseWriter, r *http.Request, out any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	if err := json.NewDecoder(r.Body).Decode(out); err != nil {
 		writeError(w, http.StatusBadRequest, "Requête invalide")
 		return false

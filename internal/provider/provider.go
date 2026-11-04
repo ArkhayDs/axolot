@@ -20,9 +20,11 @@ const maxErrorBody = 2048
 const Temperature = 0.3
 
 // Message is one chat turn.
+// Images are base64 pictures, Ollama's wire format; the OpenAI provider converts them.
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	Images  []string `json:"images,omitempty"`
 }
 
 // ChatRequest describes one generation; Schema forces structured output when set.
@@ -44,12 +46,13 @@ type ChatResult struct {
 	TokPerSec    *float64
 }
 
-// Model is an installed or served model.
+// Model is an installed or served model; a nil Vision means the server cannot tell whether it reads images.
 type Model struct {
 	Name      string `json:"name"`
 	SizeBytes int64  `json:"size_bytes"`
 	Family    string `json:"family,omitempty"`
 	Quant     string `json:"quantization,omitempty"`
+	Vision    *bool  `json:"vision,omitempty"`
 }
 
 // PullProgress is one step of a model download.

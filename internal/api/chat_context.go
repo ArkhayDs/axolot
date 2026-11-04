@@ -2,14 +2,17 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"path"
+	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
@@ -19,10 +22,47 @@ import (
 const (
 	// chatReserveTokens leaves room for the question, the passages and a short history.
 	chatReserveTokens = 2048
-	// chatDocumentRunes bounds an attached document; 3 runes per token is pessimistic for French prose.
-	chatDocumentRunes = (provider.ContextWindow - chatMaxTokens - chatReserveTokens) * 3
-	chatCutNotice     = "\n\n[Document tronqué : la suite n'a pas été transmise.]"
+	// chatDocumentCost bounds an attached document, in the units of runeCost.
+	chatDocumentCost = (provider.ContextWindow - chatMaxTokens - chatReserveTokens) * tokenCost
+	tokenCost        = 3
+	chatCutNotice    = "\n\n[Document tronqué : la suite n'a pas été transmise.]"
+	chatMaxImage     = 10 << 20
+	// chatImageOverhead lets a file of exactly the limit through, with its multipart envelope.
+	chatImageOverhead = 1 << 16
 )
+
+// chatImageTypes are the formats model servers decode.
+var chatImageTypes = []string{"image/png", "image/jpeg", "image/webp"}
+
+// validateChatImage returns a user-facing message, empty when the base64 holds an accepted picture.
+// The content is sniffed: a name or a client type proves nothing.
+func validateChatImage(encoded string) string {
+	if base64.StdEncoding.DecodedLen(len(encoded)) > chatMaxImage+2 {
+		return "Image trop volumineuse (10 Mo max)"
+	}
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || !slices.Contains(chatImageTypes, http.DetectContentType(raw)) {
+		return "Ce fichier n'est pas une image PNG, JPEG ou WebP"
+	}
+	if len(raw) > chatMaxImage {
+		return "Image trop volumineuse (10 Mo max)"
+	}
+	return ""
+}
+
+// chatImage checks a picture for one turn and returns it in base64; it is never stored.
+func (s *Server) chatImage(w http.ResponseWriter, r *http.Request) {
+	name, raw, ok := readChatFile(w, r, chatMaxImage+chatImageOverhead, "Image manquante ou trop volumineuse (10 Mo max)")
+	if !ok {
+		return
+	}
+	encoded := base64.StdEncoding.EncodeToString(raw)
+	if msg := validateChatImage(encoded); msg != "" {
+		writeError(w, http.StatusUnprocessableEntity, msg+" : "+name)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"name": name, "media_type": http.DetectContentType(raw), "size": len(raw), "data": encoded})
+}
 
 // readChatFile reads the uploaded file of a multipart body into memory.
 // The limit stays under FormFile's 32 Mo memory threshold, so nothing reaches the disk.
@@ -45,15 +85,41 @@ func readChatFile(w http.ResponseWriter, r *http.Request, limit int64, tooLarge 
 	return name, raw, true
 }
 
+// runeCost estimates a rune's share of a token, in thirds, without a tokenizer.
+// Measured on gemma4 and qwen3.6: French prose costs under 1/5 token per rune, but a digit or a separator a whole one.
+// An overflowing prompt is cut silently by Ollama, from its start, so the estimate stays pessimistic.
+func runeCost(r rune) int {
+	if unicode.IsLetter(r) || unicode.IsSpace(r) {
+		return 1
+	}
+	return tokenCost
+}
+
+// documentCost sums runeCost over a text.
+func documentCost(text string) int {
+	cost := 0
+	for _, r := range text {
+		cost += runeCost(r)
+	}
+	return cost
+}
+
 // fitDocument cuts a text to what the context window can hold.
 // @returns kept text, runes kept from the document, whether it was cut
 func fitDocument(text string) (string, int, bool) {
-	total := utf8.RuneCountInString(text)
-	if total <= chatDocumentRunes {
-		return text, total, false
+	if documentCost(text) <= chatDocumentCost {
+		return text, utf8.RuneCountInString(text), false
 	}
-	keep := chatDocumentRunes - utf8.RuneCountInString(chatCutNotice)
-	return string([]rune(text)[:keep]) + chatCutNotice, keep, true
+	budget := chatDocumentCost - documentCost(chatCutNotice)
+	chars := 0
+	for i, r := range text {
+		budget -= runeCost(r)
+		if budget < 0 {
+			return text[:i] + chatCutNotice, chars, true
+		}
+		chars++
+	}
+	return text, chars, false
 }
 
 // chatDocument extracts the text of a document for one turn; it is never stored.
