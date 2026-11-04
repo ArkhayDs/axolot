@@ -233,11 +233,20 @@
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   }
 
-  /** @param {WheelEvent} event - zooms around the pointer */
+  /**
+   * Two-finger scroll pans; a trackpad pinch, sent by browsers as a wheel event with ctrlKey, zooms around the pointer
+   * @param {WheelEvent} event - wheel or trackpad gesture
+   */
   function onWheel(event: WheelEvent): void {
     event.preventDefault();
+    if (!event.ctrlKey) {
+      view = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY };
+      viewMoved = true;
+      schedule();
+      return;
+    }
     const { x, y } = toWorld(event);
-    const k = Math.min(Math.max(view.k * Math.exp(-event.deltaY * 0.0015), MIN_ZOOM), MAX_ZOOM);
+    const k = Math.min(Math.max(view.k * Math.exp(-event.deltaY * 0.01), MIN_ZOOM), MAX_ZOOM);
     const box = canvas.getBoundingClientRect();
     view = { k, x: event.clientX - box.left - x * k, y: event.clientY - box.top - y * k };
     viewMoved = true;
