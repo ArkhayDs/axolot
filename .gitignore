@@ -1,0 +1,7 @@
+.env
+data/*
+!data/.gitkeep
+web/dist/*
+!web/dist/.gitkeep
+web/node_modules/
+.DS_Store

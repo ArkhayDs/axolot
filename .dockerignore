@@ -1,0 +1,6 @@
+.git
+.env
+data
+corpus
+web/node_modules
+web/dist
