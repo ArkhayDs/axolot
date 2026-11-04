@@ -11,12 +11,12 @@
   import RankingPanel from '../components/map/RankingPanel.svelte';
   import ResultMark from '../components/map/ResultMark.svelte';
   import StatusBar from '../components/map/StatusBar.svelte';
-  import type { Findable } from '../components/map/StatusBar.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { CasesResponse, MapData } from '../lib/api';
   import { benchmarkName, categoryLabel } from '../lib/format';
   import { contentOf, rankOnQuestions } from '../lib/map/content';
   import { resultCounts } from '../lib/map/figures';
+  import { findableOf } from '../lib/map/findable';
   import type { GraphNode, NodeKind } from '../lib/map/graph';
   import { indexCells, listsOf, rankSections, shortModel } from '../lib/map/ranking';
   import type { MapFilter } from '../lib/map/ranking';
@@ -76,19 +76,7 @@
     return parts.length > 0 ? `Classement : ${parts.join(', ')}` : 'Classement général';
   });
   const results = $derived(content && filter.model ? resultCounts(content, items, filter) : null);
-  const findable = $derived<Findable[]>(
-    content
-      ? [
-          ...content.machines.map((key): Findable => ({ kind: 'machine', key, label: key, type: 'Machine' })),
-          ...content.models.map((key): Findable => ({ kind: 'model', key, label: key, type: 'Modèle' })),
-          ...content.themes.map((key): Findable => ({ kind: 'theme', key, label: categoryLabel(key), type: 'Thème' })),
-          ...content.scenarios.map((scenario): Findable => ({ kind: 'scenario', key: scenario.id, label: scenario.title, type: 'Scénario' })),
-          ...content.questions.map((question): Findable => ({ kind: 'question', key: question.key, label: question.item.id, type: 'Question' })),
-          ...[...content.documents.keys()].map((key): Findable => ({ kind: 'document', key, label: key, type: 'Document' })),
-          ...content.benchmarks.map((benchmark): Findable => ({ kind: 'benchmark', key: benchmark.id, label: benchmarkName(benchmark.name), type: 'Benchmark' })),
-        ]
-      : [],
-  );
+  const findable = $derived(content ? findableOf(content, cells, items, filter) : []);
 
   /** Loads the cumulated figures and the scenarios; the last ones stay on screen when the server is away */
   async function load(): Promise<void> {
@@ -174,7 +162,7 @@
 
   <div class="side" bind:this={sideEl}>
     <Notice message={error} />
-    {#if unreachable}
+    {#if unreachable || !live.connected}
       <p class="reconnecting glass" role="status"><Icon name="refresh" size={16} /> Reconnexion...</p>
     {/if}
     {#if running}
@@ -208,6 +196,7 @@
       <StatusBar
         {content}
         {filter}
+        {focus}
         {focusLabel}
         {launching}
         {findable}

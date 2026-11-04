@@ -1,21 +1,18 @@
 <script lang="ts">
+  import CounterMenu from './CounterMenu.svelte';
   import Icon from '../Icon.svelte';
   import { categoryLabel } from '../../lib/format';
   import { live } from '../../lib/live.svelte';
   import type { MapContent } from '../../lib/map/content';
+  import type { Findable } from '../../lib/map/findable';
+  import type { NodeKind } from '../../lib/map/graph';
   import type { MapFilter } from '../../lib/map/ranking';
   import { shortModel } from '../../lib/map/ranking';
-
-  export interface Findable {
-    kind: 'machine' | 'model' | 'theme' | 'scenario' | 'question' | 'document' | 'benchmark';
-    key: string;
-    label: string;
-    type: string;
-  }
 
   let {
     content,
     filter,
+    focus,
     focusLabel,
     launching,
     findable,
@@ -28,6 +25,7 @@
   }: {
     content: MapContent;
     filter: MapFilter;
+    focus: { kind: NodeKind; key: string } | null;
     focusLabel: string;
     launching: boolean;
     findable: Findable[];
@@ -41,15 +39,16 @@
 
   let query = $state('');
   let missing = $state(false);
+  let openKind = $state<NodeKind | ''>('');
 
-  const counters = $derived([
-    { value: content.machines.length, unit: 'machine', secondary: true },
-    { value: content.models.length, unit: 'modèle', secondary: false },
-    { value: content.themes.length, unit: 'thème', secondary: false },
-    { value: content.scenarios.length, unit: 'scénario', secondary: true },
-    { value: content.questions.length, unit: 'question', secondary: false },
-    { value: content.documents.size, unit: 'document', secondary: false },
-    { value: content.benchmarks.length, unit: 'benchmark', secondary: true },
+  const counters = $derived<{ kind: NodeKind; value: number; unit: string; secondary: boolean }[]>([
+    { kind: 'machine', value: content.machines.length, unit: 'machine', secondary: true },
+    { kind: 'model', value: content.models.length, unit: 'modèle', secondary: false },
+    { kind: 'theme', value: content.themes.length, unit: 'thème', secondary: false },
+    { kind: 'scenario', value: content.scenarios.length, unit: 'scénario', secondary: true },
+    { kind: 'question', value: content.questions.length, unit: 'question', secondary: false },
+    { kind: 'document', value: content.documents.size, unit: 'document', secondary: false },
+    { kind: 'benchmark', value: content.benchmarks.length, unit: 'benchmark', secondary: true },
   ]);
   const pills = $derived(
     [
@@ -58,6 +57,26 @@
       { axis: 'category' as const, label: filter.category ? categoryLabel(filter.category) : '' },
     ].filter((pill) => pill.label),
   );
+
+  /**
+   * @param {Findable} entry - line of a counter list
+   * @returns {boolean} - whether the selection holds it, same state as a click on its node
+   */
+  function isSelected(entry: Findable): boolean {
+    if (entry.kind === 'machine') return filter.machine === entry.key;
+    if (entry.kind === 'model') return filter.model === entry.key;
+    if (entry.kind === 'theme') return filter.category === entry.key;
+    return focus?.kind === entry.kind && focus.key === entry.key;
+  }
+
+  /**
+   * @param {boolean} refocus - whether the keyboard goes back to the counter
+   */
+  function closeMenu(refocus: boolean): void {
+    const kind = openKind;
+    openKind = '';
+    if (refocus) document.querySelector<HTMLButtonElement>(`[data-counter="${kind}"]`)?.focus();
+  }
 
   /** @param {SubmitEvent} event - opens the node named in the search field */
   function find(event: SubmitEvent): void {
@@ -74,8 +93,23 @@
 
 <footer class="status">
   <ul class="counters" aria-label="Contenu de l'Atlas">
-    {#each counters as counter (counter.unit)}
-      <li class:secondary={counter.secondary}><strong>{counter.value}</strong> {counter.unit}{counter.value > 1 ? 's' : ''}</li>
+    {#each counters as counter (counter.kind)}
+      <li class:secondary={counter.secondary}>
+        <button
+          type="button"
+          class="counter"
+          data-counter={counter.kind}
+          aria-expanded={openKind === counter.kind}
+          onclick={() => {
+            openKind = openKind === counter.kind ? '' : counter.kind;
+          }}
+        >
+          <strong>{counter.value}</strong> {counter.unit}{counter.value > 1 ? 's' : ''}
+        </button>
+        {#if openKind === counter.kind}
+          <CounterMenu title="{counter.unit}s de l'Atlas" entries={findable.filter((entry) => entry.kind === counter.kind)} {isSelected} onpick={onfind} onclose={closeMenu} />
+        {/if}
+      </li>
     {/each}
   </ul>
 
@@ -88,6 +122,8 @@
     {/if}
     {#if pills.length > 0 || focusLabel}
       <button type="button" class="link" onclick={onclearall}>Tout effacer</button>
+    {:else}
+      <span class="hint">Cliquez sur un élément pour filtrer</span>
     {/if}
   </div>
 
@@ -142,18 +178,40 @@
   }
 
   li {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding-inline: var(--s1);
+  }
+
+  .counter {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding-inline: var(--s2);
+    height: 28px;
+    padding: 0 var(--s1);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--ink-3);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .counter:hover,
+  .counter[aria-expanded='true'] {
+    background: var(--raised);
+    color: var(--ink);
+  }
+
+  .hint {
+    overflow: hidden;
+    color: var(--ink-3);
+    text-overflow: ellipsis;
   }
 
   li + li {
     border-inline-start: 1px solid var(--hairline);
-  }
-
-  li:first-child {
-    padding-inline-start: 0;
   }
 
   strong {
