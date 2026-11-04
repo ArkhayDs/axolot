@@ -1,9 +1,20 @@
 <script lang="ts">
-  import type { ChatPassage } from '../lib/api';
+  import Icon from './Icon.svelte';
+  import type { ChatDocument, ChatPassage } from '../lib/api';
   import { number } from '../lib/format';
 
-  let { passages }: { passages: ChatPassage[] } = $props();
+  let { passages, document }: { passages: ChatPassage[]; document: ChatDocument | null } = $props();
 </script>
+
+{#if document}
+  <p class="attached muted">
+    <Icon name="doc" size={16} />
+    <span>{document.name}, {number(document.chars)} caractères lus</span>
+    {#if document.truncated}
+      <span class="state-warning">(tronqué : {number(document.total_chars - document.chars)} caractères non transmis)</span>
+    {/if}
+  </p>
+{/if}
 
 {#if passages.length > 0}
   <details class="sources">
@@ -20,6 +31,14 @@
 {/if}
 
 <style>
+  .attached {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s2);
+    margin: 0;
+  }
+
   .sources {
     max-width: 75ch;
   }

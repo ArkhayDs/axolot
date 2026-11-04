@@ -4,9 +4,10 @@
   import Icon from '../components/Icon.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
+  import ChatOptions from '../components/ChatOptions.svelte';
   import ChatSources from '../components/ChatSources.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
-  import type { ChatMetrics, ChatPassage, Models } from '../lib/api';
+  import type { ChatDocument, ChatMetrics, ChatPassage, Models } from '../lib/api';
   import { duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -27,12 +28,15 @@
     searchError: string;
     searchMs: number | null;
     passages: ChatPassage[];
+    document: ChatDocument | null;
   }
 
   let models = $state<Models | null>(null);
   let chosen = $state<string[]>([]);
   let question = $state('');
   let useDocuments = $state(false);
+  let attachedDocument = $state<ChatDocument | null>(null);
+  let attaching = $state(false);
   let turns = $state<Turn[]>([]);
   let sending = $state(false);
   let error = $state('');
@@ -85,10 +89,13 @@
       searchError: '',
       searchMs: null,
       passages: [],
+      document: attachedDocument,
     });
+    const sentDocument = attachedDocument ? { name: attachedDocument.name, text: attachedDocument.text } : undefined;
     const turn = turns[turns.length - 1];
     const answers = turn.answers;
     question = '';
+    attachedDocument = null;
     sending = true;
     error = '';
     controller = new AbortController();
@@ -105,6 +112,7 @@
           turn.answers = [];
           turn.searching = false;
           question = text;
+          attachedDocument = turn.document;
           sending = false;
           return;
         }
@@ -119,7 +127,7 @@
       answer.state = 'streaming';
       try {
         answer.metrics = await streamChat(
-          { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages) },
+          { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages), document: sentDocument },
           (delta) => {
             answer.text += delta;
           },
@@ -187,7 +195,7 @@
         {#if turn.searchError}
           <p class="state state-critical"><Icon name="alert" size={16} /> <span>{turn.searchError}. <a href="#/reglages">Ouvrir les réglages</a></span></p>
         {/if}
-        <ChatSources passages={turn.passages} />
+        <ChatSources passages={turn.passages} document={turn.document} />
         <div class="answers">
           {#each turn.answers as answer (answer.key)}
             <div class="answer">
@@ -235,16 +243,10 @@
       {#if sending}
         <button class="btn" type="button" onclick={() => controller?.abort()}><Icon name="stop" /> Arrêter</button>
       {:else}
-        <button class="btn btn-primary" type="submit" disabled={blocked || !question.trim() || chosen.length === 0}><Icon name="play" /> Envoyer</button>
+        <button class="btn btn-primary" type="submit" disabled={blocked || attaching || !question.trim() || chosen.length === 0}><Icon name="play" /> Envoyer</button>
       {/if}
     </div>
-    <div class="options">
-      <label class="switch">
-        <input type="checkbox" role="switch" bind:checked={useDocuments} disabled={blocked} />
-        <span class="track" aria-hidden="true"></span>
-        Documents (RAG)
-      </label>
-    </div>
+    <ChatOptions bind:useDocuments bind:document={attachedDocument} bind:attaching {blocked} />
   </form>
 </div>
 
@@ -366,68 +368,6 @@
 
   .compose-row .field {
     flex: 1;
-  }
-
-  .options {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s2) var(--s4);
-  }
-
-  .switch {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s2);
-    min-height: 32px;
-    font-size: var(--text-sm);
-    cursor: pointer;
-  }
-
-  .switch input {
-    position: absolute;
-    opacity: 0;
-  }
-
-  .track {
-    position: relative;
-    width: 32px;
-    height: 18px;
-    border: 1px solid var(--axis);
-    border-radius: 9px;
-    transition: background 120ms ease-out;
-  }
-
-  .track::after {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--ink-2);
-    content: '';
-    transition: transform 120ms ease-out;
-  }
-
-  .switch input:checked + .track {
-    border-color: var(--accent);
-    background: var(--accent);
-  }
-
-  .switch input:checked + .track::after {
-    background: var(--on-accent);
-    transform: translateX(14px);
-  }
-
-  .switch input:focus-visible + .track {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  .switch input:disabled + .track {
-    opacity: 0.5;
   }
 
   textarea {

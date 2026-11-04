@@ -331,11 +331,20 @@ export interface ChatSearch {
   search_ms: number;
 }
 
+export interface ChatDocument {
+  name: string;
+  text: string;
+  chars: number;
+  total_chars: number;
+  truncated: boolean;
+}
+
 export interface ChatBody {
   provider_id: number;
   model: string;
   messages: { role: string; content: string }[];
   passages?: ChatPassage[];
+  document?: { name: string; text: string };
 }
 
 /**
@@ -416,4 +425,9 @@ export const api = {
         signal,
       })
     ).json() as Promise<ChatSearch>,
+  chatDocument: async (file: File): Promise<ChatDocument> => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await send('/chat/document', { method: 'POST', body: form })).json() as Promise<ChatDocument>;
+  },
 };
