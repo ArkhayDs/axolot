@@ -17,6 +17,8 @@ export interface GraphNode extends Body {
   label: string;
   // Theme whose color the node takes, empty outside communities.
   community: string;
+  // Width of the hub's label on screen, what framing and hit testing go by.
+  textWidth: number;
   // Questions under the node, or answers for a question: what its size and counter say.
   count: number;
   question?: Question;
@@ -36,19 +38,20 @@ export interface Graph {
   byId: Map<string, GraphNode>;
 }
 
-const THEME_RING = 310;
+const ISLAND_RING = 255;
+const CENTER_RING = 92;
 const GOLDEN_ANGLE = 2.399963;
 const HUB_LABEL_HEIGHT = 30;
-const HUB_LABEL_MIN_WIDTH = 74;
+const HUB_LABEL_MIN_WIDTH = 118;
 
-const STEPS: Record<NodeKind, { limits: number[]; radii: number[]; charge: number }> = {
-  machine: { limits: [], radii: [15], charge: 8 },
-  model: { limits: [], radii: [13], charge: 8 },
-  theme: { limits: [3, 8], radii: [8, 10, 12], charge: 12 },
-  scenario: { limits: [3, 7], radii: [4.5, 5.5, 6.5], charge: 2.5 },
-  question: { limits: [0, 2, 6], radii: [2.4, 3, 3.6, 4.2], charge: 1 },
-  document: { limits: [1, 3], radii: [3.4, 4.2, 5], charge: 1.2 },
-  benchmark: { limits: [], radii: [4], charge: 1.5 },
+const STEPS: Record<NodeKind, { limits: number[]; radii: number[]; charge: number; pull: number }> = {
+  machine: { limits: [], radii: [15], charge: 6, pull: 0.1 },
+  model: { limits: [], radii: [13], charge: 6, pull: 0.1 },
+  theme: { limits: [3, 8], radii: [8, 10, 12], charge: 2.5, pull: 0.2 },
+  scenario: { limits: [3, 7], radii: [4.5, 5.5, 6.5], charge: 2.2, pull: 0.012 },
+  question: { limits: [0, 2, 6], radii: [2.4, 3, 3.6, 4.2], charge: 1, pull: 0.006 },
+  document: { limits: [1, 3], radii: [3.4, 4.2, 5], charge: 1.1, pull: 0.006 },
+  benchmark: { limits: [], radii: [4], charge: 1.4, pull: 0.05 },
 };
 
 /**
@@ -73,6 +76,16 @@ function hash(text: string): number {
 }
 
 /**
+ * @param {Question[]} questions - questions citing a document
+ * @returns {string} - the theme most of them belong to
+ */
+function mainTheme(questions: Question[]): string {
+  const counts = new Map<string, number>();
+  for (const { category } of questions) counts.set(category, (counts.get(category) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+}
+
+/**
  * Builds the graph, keeping the place of nodes that already exist
  * @param {MapContent} content - what the map holds
  * @param {CellIndex} cells - figures per theme
@@ -88,12 +101,15 @@ export function buildGraph(content: MapContent, cells: CellIndex, items: ItemInd
   const springs: Spring[] = [];
   const stretch = Math.sqrt(Math.max(aspect, 0.5));
 
-  const add = (kind: NodeKind, key: string, label: string, community: string, count: number, x: number, y: number, question?: Question): GraphNode => {
+  const add = (kind: NodeKind, key: string, label: string, community: string, count: number, x: number, y: number, anchorX: number, anchorY: number, question?: Question): GraphNode => {
     const id = nodeId(kind, key);
     const known = previous.get(id);
-    const { limits, radii, charge } = STEPS[kind];
+    const { limits, radii, charge, pull } = STEPS[kind];
     const step = limits.findIndex((limit) => count <= limit);
     const hub = kind === 'machine' || kind === 'model' || kind === 'theme';
+    const textWidth = hub ? Math.max(measure(label), HUB_LABEL_MIN_WIDTH) + 8 : 0;
+    // A theme hub sits amid its island: only the central hubs push others away from their labels.
+    const roomy = kind === 'machine' || kind === 'model';
     const node: GraphNode = {
       id,
       kind,
@@ -108,10 +124,14 @@ export function buildGraph(content: MapContent, cells: CellIndex, items: ItemInd
       vy: 0,
       seedX: x,
       seedY: y,
+      anchorX,
+      anchorY,
+      pull,
       radius: radii[step < 0 ? radii.length - 1 : step],
       charge,
-      labelWidth: hub ? Math.max(measure(label), HUB_LABEL_MIN_WIDTH) + 8 : 0,
-      labelHeight: hub ? HUB_LABEL_HEIGHT : 0,
+      textWidth,
+      labelWidth: roomy ? textWidth : 0,
+      labelHeight: roomy ? HUB_LABEL_HEIGHT : 0,
       pinned: false,
     };
     byId.set(id, node);
@@ -119,36 +139,49 @@ export function buildGraph(content: MapContent, cells: CellIndex, items: ItemInd
   };
   const link = (kind: GraphLink['kind'], from: GraphNode, to: GraphNode, rest: number, strength: number): void => {
     links.push({ kind, from, to });
-    springs.push({ a: from, b: to, rest, strength });
+    // Without strength a link is only drawn: model to theme and shared sources must not deform the islands.
+    if (strength > 0) springs.push({ a: from, b: to, rest, strength });
   };
 
-  content.machines.forEach((key, position) => add('machine', key, key, '', 0, position * 34 - 12, -24));
+  content.machines.forEach((key, position) => {
+    const x = (position - (content.machines.length - 1) / 2) * 90;
+    add('machine', key, key, '', 0, x, -CENTER_RING * 0.6, x, -CENTER_RING * 0.6);
+  });
   content.models.forEach((key, position) => {
-    const angle = (2 * Math.PI * position) / Math.max(content.models.length, 1);
-    add('model', key, shortModel(key, content.models), '', 0, Math.cos(angle) * 80 * stretch, Math.sin(angle) * 60);
+    const x = (position - (content.models.length - 1) / 2) * 110 * stretch;
+    add('model', key, shortModel(key, content.models), '', 0, x, CENTER_RING * 0.35, x, CENTER_RING * 0.35);
   });
 
   const themeNodes = new Map<string, GraphNode>();
+  const questionsOf = (theme: string): number => content.questions.filter((question) => question.category === theme).length;
+  const weights = content.themes.map((theme) => 1 + 0.15 * Math.sqrt(questionsOf(theme)));
+  const totalWeight = weights.reduce((total, weight) => total + weight, 0);
+  let swept = 0;
   content.themes.forEach((theme, position) => {
-    const angle = (2 * Math.PI * position) / Math.max(content.themes.length, 1) + 0.3;
-    const count = content.questions.filter((question) => question.category === theme).length;
-    themeNodes.set(theme, add('theme', theme, categoryLabel(theme), theme, count, Math.cos(angle) * THEME_RING * stretch, (Math.sin(angle) * THEME_RING) / stretch));
+    const angle = (2 * Math.PI * (swept + weights[position] / 2)) / totalWeight - Math.PI / 2;
+    swept += weights[position];
+    // A superellipse rather than a circle: islands reach into the corners of the free area.
+    const x = Math.sign(Math.cos(angle)) * Math.abs(Math.cos(angle)) ** 0.6 * ISLAND_RING * stretch;
+    const y = (Math.sign(Math.sin(angle)) * Math.abs(Math.sin(angle)) ** 0.6 * ISLAND_RING) / stretch;
+    themeNodes.set(theme, add('theme', theme, categoryLabel(theme), theme, questionsOf(theme), x, y, x, y));
   });
 
   for (const scenario of content.scenarios) {
     const theme = themeNodes.get(scenario.category) as GraphNode;
     const angle = hash(scenario.id) * 2 * Math.PI;
-    const hub = add('scenario', scenario.id, scenario.title, scenario.category, scenario.items.length, theme.x + Math.cos(angle) * 50, theme.y + Math.sin(angle) * 50);
-    link('structure', theme, hub, 26 + 3 * Math.sqrt(scenario.items.length), 0.22);
-    const rest = 10 + 2.4 * Math.sqrt(scenario.items.length);
+    const hub = add('scenario', scenario.id, scenario.title, scenario.category, scenario.items.length, theme.x + Math.cos(angle) * 34, theme.y + Math.sin(angle) * 34, theme.anchorX, theme.anchorY);
+    // Alone in its theme, a scenario stays on the hub: its questions then surround both.
+    const alone = content.scenarios.filter((other) => other.category === scenario.category).length === 1;
+    link('structure', theme, hub, alone ? 8 : 26 + 5 * Math.sqrt(scenario.items.length), alone ? 0.5 : 0.3);
+    const rest = 11 + 3 * Math.sqrt(scenario.items.length);
     scenario.items.forEach((item, position) => {
       const key = `${scenario.id}/${item.id}`;
       const question = content.questions.find((candidate) => candidate.key === key) as Question;
       const runs = content.models.reduce((total, model) => total + (itemOf(items, '', model, scenario.id, item.id)?.runs ?? 0), 0);
       const spin = position * GOLDEN_ANGLE;
-      const spread = 8 + 6 * Math.sqrt(position);
-      const dot = add('question', key, item.id, scenario.category, runs, hub.x + Math.cos(spin) * spread, hub.y + Math.sin(spin) * spread, question);
-      link('structure', hub, dot, rest, 0.22);
+      const spread = 8 + 5 * Math.sqrt(position);
+      const dot = add('question', key, item.id, scenario.category, runs, hub.x + Math.cos(spin) * spread, hub.y + Math.sin(spin) * spread, theme.anchorX, theme.anchorY, question);
+      link('structure', hub, dot, rest, 0.3);
     });
   }
 
@@ -156,28 +189,32 @@ export function buildGraph(content: MapContent, cells: CellIndex, items: ItemInd
     const dots = questions.map((question) => byId.get(nodeId('question', question.key)) as GraphNode);
     const x = dots.reduce((total, dot) => total + dot.x, 0) / dots.length + (hash(file) - 0.5) * 30;
     const y = dots.reduce((total, dot) => total + dot.y, 0) / dots.length + (hash(`${file}y`) - 0.5) * 30;
-    const document = add('document', file, file, questions[0].category, questions.length, x, y);
-    for (const dot of dots) link('source', dot, document, 26, 0.03);
+    // A document cited across themes belongs to its main theme and pulls only on that one.
+    const main = mainTheme(questions);
+    const anchor = themeNodes.get(main) as GraphNode;
+    const document = add('document', file, file, main, questions.length, x, y, anchor.anchorX, anchor.anchorY);
+    dots.forEach((dot) => link('source', dot, document, 20, dot.community === main ? 0.05 : 0));
   }
 
   for (const model of content.models) {
     const modelNode = byId.get(nodeId('model', model)) as GraphNode;
     for (const theme of content.themes) {
       const cell = cellOf(cells, '', model, theme);
-      // A strong result draws the theme toward its model, so the layout itself shows who is good at what.
       if (cell) link('score', modelNode, themeNodes.get(theme) as GraphNode, 170 + (100 - cell.avg_score) * 1.4, 0.008);
     }
     for (const machine of content.machines) {
-      if (cellOf(cells, machine, model, '')) link('machine', modelNode, byId.get(nodeId('machine', machine)) as GraphNode, 58, 0.06);
+      if (cellOf(cells, machine, model, '')) link('machine', modelNode, byId.get(nodeId('machine', machine)) as GraphNode, 0, 0);
     }
   }
 
   for (const benchmark of content.benchmarks) {
     const angle = hash(benchmark.id) * 2 * Math.PI;
-    const node = add('benchmark', benchmark.id, benchmarkName(benchmark.name), '', benchmark.done_items, Math.cos(angle) * 120 * stretch, Math.sin(angle) * 100);
+    const x = Math.cos(angle) * CENTER_RING * 1.3 * stretch;
+    const y = Math.sin(angle) * CENTER_RING;
+    const node = add('benchmark', benchmark.id, benchmarkName(benchmark.name), '', benchmark.done_items, x, y, x, y);
     for (const model of benchmark.models) {
       const modelNode = byId.get(nodeId('model', model));
-      if (modelNode) link('benchmark', node, modelNode, 70, 0.02);
+      if (modelNode) link('benchmark', node, modelNode, 0, 0);
     }
   }
 

@@ -120,7 +120,7 @@
     hover = null;
     dragged = null;
     if (graph.nodes.some((node) => !known.has(node.id))) {
-      if (known.size === 0) solve(graph.nodes, graph.springs, freeAspect());
+      if (known.size === 0) solve(graph.nodes, graph.springs);
       else settle(graph.nodes);
       if (!viewMoved) fit();
     }
@@ -133,7 +133,7 @@
     const context = canvas.getContext('2d');
     if (!context || width === 0) return;
     if (alpha > ALPHA_FLOOR) {
-      tick(graph.nodes, graph.springs, alpha, freeAspect());
+      tick(graph.nodes, graph.springs, alpha);
       alpha *= COOLING;
     }
     for (const particle of particles) particle.progress += PARTICLE_SPEED;

@@ -1,4 +1,4 @@
-// Bounded force layout: repulsion, springs, centering and boxes that keep hub labels clear. Seeds come from the caller, so a layout is reproducible.
+// Bounded force layout: anchors that hold each theme's island in place, short springs inside it, repulsion and boxes that keep hub labels clear. Seeds come from the caller, so a layout is reproducible.
 
 export interface Body {
   x: number;
@@ -8,6 +8,10 @@ export interface Body {
   // Where a body returns if a step ever yields a non-finite position.
   seedX: number;
   seedY: number;
+  // Place the body is drawn to, and how hard: what keeps an island where it belongs.
+  anchorX: number;
+  anchorY: number;
+  pull: number;
   radius: number;
   charge: number;
   // Label to the right of the shape, zero for the small nodes whose labels come and go with the zoom.
@@ -23,9 +27,8 @@ export interface Spring {
   strength: number;
 }
 
-const REPULSION = 320;
+const REPULSION = 200;
 const NEAREST_SQUARED = 64;
-const GRAVITY = 0.005;
 const DAMPING = 0.7;
 const MAX_SPEED = 40;
 const MAX_STEPS = 320;
@@ -77,10 +80,9 @@ function separate(bodies: Body[]): boolean {
  * @param {Body[]} bodies - nodes
  * @param {Spring[]} springs - links
  * @param {number} alpha - remaining energy in 0-1
- * @param {number} aspect - free area width over height, the centering pull follows it
  * @returns {number} - mean squared speed, what the caller stops on
  */
-export function tick(bodies: Body[], springs: Spring[], alpha: number, aspect: number): number {
+export function tick(bodies: Body[], springs: Spring[], alpha: number): number {
   for (let i = 0; i < bodies.length; i += 1) {
     const a = bodies[i];
     for (let j = i + 1; j < bodies.length; j += 1) {
@@ -108,8 +110,8 @@ export function tick(bodies: Body[], springs: Spring[], alpha: number, aspect: n
   }
   let energy = 0;
   for (const body of bodies) {
-    body.vx -= (body.x * GRAVITY * alpha) / Math.max(aspect, 1);
-    body.vy -= body.y * GRAVITY * alpha * Math.max(aspect, 1);
+    body.vx += (body.anchorX - body.x) * body.pull * alpha;
+    body.vy += (body.anchorY - body.y) * body.pull * alpha;
     if (body.pinned) {
       body.vx = 0;
       body.vy = 0;
@@ -135,15 +137,14 @@ export function tick(bodies: Body[], springs: Spring[], alpha: number, aspect: n
  * Computes the whole layout at once: capped steps, stopped early once nothing moves
  * @param {Body[]} bodies - nodes
  * @param {Spring[]} springs - links
- * @param {number} aspect - free area width over height
  * @returns {number} - steps played
  */
-export function solve(bodies: Body[], springs: Spring[], aspect: number): number {
+export function solve(bodies: Body[], springs: Spring[]): number {
   const pairs = Math.max((bodies.length * (bodies.length - 1)) / 2, 1);
   const steps = Math.min(MAX_STEPS, Math.floor(PAIR_BUDGET / pairs));
   let played = 0;
   for (; played < steps; played += 1) {
-    const energy = tick(bodies, springs, 1 - played / steps, aspect);
+    const energy = tick(bodies, springs, 1 - played / steps);
     if (played > MIN_STEPS && energy < ENERGY_FLOOR) break;
   }
   for (const body of bodies) {

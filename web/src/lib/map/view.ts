@@ -2,6 +2,8 @@
 
 import type { GraphNode } from './graph';
 
+const HUB_LABEL_HEIGHT = 30;
+
 /**
  * Frames the nodes in the area the panels leave free; the zoom floor also bounds the labels, drawn at 1/zoom
  * @param {GraphNode[]} nodes - nodes, not empty
@@ -16,9 +18,9 @@ export function frameNodes(nodes: GraphNode[], free: { top: number; right: numbe
   let [minX, maxX, minY, maxY] = [Infinity, -Infinity, Infinity, -Infinity];
   for (const node of nodes) {
     minX = Math.min(minX, node.x - node.radius);
-    maxX = Math.max(maxX, node.x + node.radius + node.labelWidth);
-    minY = Math.min(minY, node.y - Math.max(node.radius, node.labelHeight / 2));
-    maxY = Math.max(maxY, node.y + Math.max(node.radius, node.labelHeight / 2));
+    maxX = Math.max(maxX, node.x + node.radius + node.textWidth);
+    minY = Math.min(minY, node.y - Math.max(node.radius, node.textWidth > 0 ? HUB_LABEL_HEIGHT / 2 : 0));
+    maxY = Math.max(maxY, node.y + Math.max(node.radius, node.textWidth > 0 ? HUB_LABEL_HEIGHT / 2 : 0));
   }
   const freeWidth = Math.max(width - free.left - free.right, 1);
   const freeHeight = Math.max(height - free.top - free.bottom, 1);
@@ -40,7 +42,7 @@ export function closestNode(nodes: GraphNode[], x: number, y: number, zoom: numb
   let best = Infinity;
   for (const node of nodes) {
     const distance = Math.hypot(x - node.x, y - node.y);
-    const onLabel = node.labelWidth > 0 && x >= node.x && x <= node.x + node.radius + node.labelWidth / zoom && Math.abs(y - node.y) <= node.labelHeight / 2 / zoom;
+    const onLabel = node.textWidth > 0 && x >= node.x && x <= node.x + node.radius + node.textWidth / zoom && Math.abs(y - node.y) <= HUB_LABEL_HEIGHT / 2 / zoom;
     if ((distance <= Math.max(node.radius, grab) || onLabel) && distance < best) {
       closest = node;
       best = distance;
