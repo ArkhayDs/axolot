@@ -19,7 +19,8 @@
           {#each group.bars as bar (bar.model)}
             <!-- svelte-ignore a11y_no_noninteractive_tabindex: keyboard focus shows the same tooltip as hover -->
             <div class="row" tabindex="0" role="img" aria-label="{group.label}, {bar.model} : {bar.text}">
-              <span class="bar" style:width="{max > 0 ? (100 * bar.value) / max : 0}%" style:background={bar.color}></span>
+              <!-- Scaled inside the room left by the value: a clamp here would make 86 and 100 look equal. -->
+              <span class="bar" style:width="calc((100% - 4rem) * {max > 0 ? bar.value / max : 0})" style:background={bar.color}></span>
               <span class="value">{bar.text}</span>
               <span class="tip" role="presentation"><strong>{bar.model}</strong><br />{bar.detail}</span>
             </div>
@@ -73,8 +74,7 @@
 
   .bar {
     display: block;
-    /* The value keeps its room after the bar, even at the maximum. */
-    max-width: calc(100% - 4rem);
+    flex: none;
     height: 18px;
     min-width: 2px;
     border-radius: 0 4px 4px 0;
