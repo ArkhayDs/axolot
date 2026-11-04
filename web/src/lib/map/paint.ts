@@ -86,27 +86,6 @@ export function paintResult(context: CanvasRenderingContext2D, node: GraphNode, 
 }
 
 /**
- * One micro-point per real answer around a question, in the color of the model that gave it
- * @param {CanvasRenderingContext2D} context - canvas
- * @param {GraphNode} node - question
- * @param {{ color: string; runs: number }[]} answers - answers per model
- */
-export function paintAnswerDots(context: CanvasRenderingContext2D, node: GraphNode, answers: { color: string; runs: number }[]): void {
-  const total = answers.reduce((sum, answer) => sum + Math.min(answer.runs, MAX_ANSWER_DOTS), 0);
-  let position = 0;
-  for (const { color, runs } of answers) {
-    context.fillStyle = color;
-    for (let run = 0; run < Math.min(runs, MAX_ANSWER_DOTS); run += 1) {
-      const angle = (Math.PI * 2 * position) / total - Math.PI / 2;
-      context.beginPath();
-      context.arc(node.x + Math.cos(angle) * (node.radius + 2.6), node.y + Math.sin(angle) * (node.radius + 2.6), 0.85, 0, Math.PI * 2);
-      context.fill();
-      position += 1;
-    }
-  }
-}
-
-/**
  * @param {CanvasRenderingContext2D} context - canvas
  * @param {GraphNode} node - hub node
  * @param {string} color - series color

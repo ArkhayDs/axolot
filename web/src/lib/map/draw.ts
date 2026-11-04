@@ -5,7 +5,7 @@ import type { MapContent } from './content';
 import { familyOf, linkScore, nodeMatches } from './figures';
 import type { Graph, GraphNode } from './graph';
 import { paintLabels } from './labels';
-import { communityColor, paintAnswerDots, paintModel, paintResult, resolve, trace } from './paint';
+import { communityColor, paintModel, paintResult, resolve, trace } from './paint';
 import type { CellIndex, MapFilter, RankSection } from './ranking';
 import { itemOf, stateOfItem } from './results';
 import type { ItemIndex, ResultState } from './results';
@@ -214,11 +214,6 @@ function paintNode(context: CanvasRenderingContext2D, scene: Scene, node: GraphN
   if (result) {
     paintResult(context, node, result, Math.max(node.radius + 0.8, 4.2 * pixel), pixel);
     return;
-  }
-  if (node.question) {
-    const { caseId, item } = node.question;
-    const answers = content.models.map((model) => ({ color: resolve(seriesColor(model, content.models)), runs: itemOf(scene.items, scene.filter.machine, model, caseId, item.id)?.runs ?? 0 }));
-    paintAnswerDots(context, node, answers);
   }
   if (node.kind === 'model') {
     paintModel(context, node, resolve(seriesColor(node.key, content.models)), ground, pixel);
