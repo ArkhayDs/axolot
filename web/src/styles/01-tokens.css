@@ -1,29 +1,29 @@
 :root {
   color-scheme: dark;
 
-  /* Pond water surfaces */
-  --ground: #0b1a20;
-  --panel: #13282f;
-  --raised: #1b353d;
-  --hairline: #27444c;
-  --axis: #3f626a;
+  /* Deep night surfaces */
+  --ground: #060a12;
+  --panel: #0f1720;
+  --raised: #17212c;
+  --hairline: #25313e;
+  --axis: #3f4f60;
 
   /* Ink */
   --ink: #ecf4f2;
-  --ink-2: #b6cbc8;
-  --ink-3: #8ba5a3;
+  --ink-2: #b5c3cf;
+  --ink-3: #8c9dac;
 
   /* Axolotl gills: the one brand accent */
-  --accent: #ff9cc2;
-  --accent-hover: #ffb6d3;
+  --accent: #e6a0bb;
+  --accent-hover: #efb6cc;
   --on-accent: #2b0e1c;
-  --axo-skin: #f7d4dd;
+  --axo-skin: #efd3da;
   --axo-eye: #0b1a20;
 
   /* Status, reserved for meaning: always with an icon and a label */
-  --good: #2fbf4f;
-  --warning: #fab219;
-  --critical: #ff6b6b;
+  --good: #55ad6e;
+  --warning: #d9ab4e;
+  --critical: #e27a76;
 
   /* Chart series, validated on --panel: fixed order */
   --series-1: #3987e5;
@@ -37,20 +37,20 @@
   --series-other: #8ba5a3;
 
   /* Atlas communities, one per theme, kept clear of the status colors. Hex only: the canvas appends an alpha to them. */
-  --community-1: #8a9bff;
-  --community-2: #c58cff;
-  --community-3: #f48fd2;
-  --community-4: #4fd1c5;
-  --community-5: #e5c08a;
-  --community-6: #5cc8ff;
-  --community-7: #c4cf6a;
-  --community-8: #f4a27e;
-  --community-9: #aebfc6;
+  --community-1: #8f9bd6;
+  --community-2: #ab92cf;
+  --community-3: #c692b3;
+  --community-4: #70b3aa;
+  --community-5: #c6ac86;
+  --community-6: #7fb4d0;
+  --community-7: #abb27c;
+  --community-8: #cc9a82;
+  --community-9: #a2b1b7;
 
-  /* Atlas background: hairlines and halo strength, read by the canvas */
-  --map-grid: #11232a;
-  --map-link: #4a6c75;
-  --map-halo-opacity: 0.13;
+  /* Atlas background: stars, links and halo strength, read by the canvas */
+  --map-star: #c9d6e6;
+  --map-link: #4c5f70;
+  --map-halo-opacity: 0.04;
 
   /* Glass: navigation and floating panels only */
   --glass: color-mix(in srgb, var(--panel) 62%, transparent);

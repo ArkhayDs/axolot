@@ -174,6 +174,7 @@
   ul {
     display: flex;
     flex: none;
+    gap: var(--s1);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -183,37 +184,34 @@
     position: relative;
     display: inline-flex;
     align-items: center;
-    padding-inline: var(--s1);
   }
 
   .counter {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    height: 28px;
-    padding: 0 var(--s1);
-    border: 0;
+    height: 30px;
+    padding: 0 var(--s2);
+    border: 1px solid var(--axis);
     border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--ink-3);
+    background: var(--raised);
+    color: var(--ink-2);
     font: inherit;
     cursor: pointer;
+    transition: border-color 0.15s;
   }
 
   .counter:hover,
   .counter[aria-expanded='true'] {
-    background: var(--raised);
+    border-color: var(--accent);
     color: var(--ink);
   }
 
   .hint {
+    min-width: 0;
     overflow: hidden;
     color: var(--ink-3);
     text-overflow: ellipsis;
-  }
-
-  li + li {
-    border-inline-start: 1px solid var(--hairline);
   }
 
   strong {
@@ -288,10 +286,6 @@
 
     .search input {
       width: 9rem;
-    }
-
-    li:not(.secondary) + li:not(.secondary) {
-      border-inline-start: 1px solid var(--hairline);
     }
   }
 
