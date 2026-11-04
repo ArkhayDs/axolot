@@ -79,6 +79,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/estimate", s.postEstimate)
 	mux.HandleFunc("GET /api/estimate/remaining", s.getRemaining)
 	mux.HandleFunc("POST /api/chat", s.chat)
+	mux.HandleFunc("POST /api/chat/search", s.chatSearch)
 	mux.Handle("/", spa(cfg.Static))
 	return sameOrigin(mux)
 }

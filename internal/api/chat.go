@@ -9,23 +9,28 @@ import (
 	"time"
 
 	"github.com/arkhayds/axolot/internal/provider"
+	"github.com/arkhayds/axolot/internal/rag"
 )
 
 const (
 	chatTimeout   = 5 * time.Minute
 	chatMaxTokens = 2048
 	chatMaxTurns  = 40
+	// chatMaxPassages matches the highest top_k the settings accept.
+	chatMaxPassages = 20
 )
 
 // chatRequest is one free question sent to one model.
+// Passages come from chatSearch, once per turn, so every model of a turn reads the same excerpts.
 type chatRequest struct {
 	ProviderID int64              `json:"provider_id"`
 	Model      string             `json:"model"`
 	Messages   []provider.Message `json:"messages"`
+	Passages   []rag.Hit          `json:"passages"`
 }
 
 // validateChat returns a user-facing message, empty when valid.
-// The system role is refused: the page tests the model as it is, without a hidden instruction.
+// The system role is refused: only the server adds an instruction, the RAG prompt when asked for.
 func validateChat(body chatRequest) string {
 	if body.Model == "" {
 		return "Choisissez un modèle"
@@ -44,7 +49,23 @@ func validateChat(body chatRequest) string {
 	if body.Messages[len(body.Messages)-1].Role != "user" {
 		return "Le dernier message doit être une question"
 	}
+	if len(body.Passages) > chatMaxPassages {
+		return "Trop de passages"
+	}
 	return ""
+}
+
+// chatMessages assembles what the model reads: excerpts go with the current question only, past turns stay as they were asked.
+func chatMessages(body chatRequest) []provider.Message {
+	last := len(body.Messages) - 1
+	if len(body.Passages) == 0 {
+		return body.Messages
+	}
+	built := rag.BuildMessages("", body.Messages[last].Content, body.Passages)
+	messages := make([]provider.Message, 0, len(body.Messages)+1)
+	messages = append(messages, built[0])
+	messages = append(messages, body.Messages[:last]...)
+	return append(messages, built[1])
 }
 
 // claimChat reserves the GPU for a chat answer; it refuses while a campaign runs, whose timings would be falsified.
@@ -104,7 +125,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), chatTimeout)
 	defer cancel()
-	result, err := client.Chat(ctx, provider.ChatRequest{Model: body.Model, Messages: body.Messages, MaxTokens: chatMaxTokens}, func(text string) {
+	result, err := client.Chat(ctx, provider.ChatRequest{Model: body.Model, Messages: chatMessages(body), MaxTokens: chatMaxTokens}, func(text string) {
 		send(map[string]any{"type": "delta", "text": text})
 	})
 	if err != nil {
