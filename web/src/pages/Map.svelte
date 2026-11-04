@@ -9,7 +9,6 @@
   import MapCanvas from '../components/map/MapCanvas.svelte';
   import NodeDetail from '../components/map/NodeDetail.svelte';
   import RankingPanel from '../components/map/RankingPanel.svelte';
-  import ResultMark from '../components/map/ResultMark.svelte';
   import StatusBar from '../components/map/StatusBar.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { CasesResponse, MapData } from '../lib/api';
@@ -20,8 +19,7 @@
   import type { GraphNode, NodeKind } from '../lib/map/graph';
   import { indexCells, listsOf, rankSections, shortModel } from '../lib/map/ranking';
   import type { MapFilter } from '../lib/map/ranking';
-  import { RESULT_LABELS, indexItems } from '../lib/map/results';
-  import type { ResultState } from '../lib/map/results';
+  import { indexItems } from '../lib/map/results';
   import { live } from '../lib/live.svelte';
 
   type Focus = { kind: NodeKind; key: string };
@@ -42,8 +40,8 @@
   let canvas = $state<MapCanvas | undefined>();
 
   const RETRY_MS = 3000;
-  // Height of the benchmark popups, so they cover the edge of the graph at most.
-  const POPUP_ROOM = 52;
+  // Benchmark popups and selection row, which appear with a selection: the framing stays put when they do.
+  const SELECTION_ROOM = 88;
   const phone = window.matchMedia('(max-width: 760px)');
   const running = $derived(live.campaign !== '');
   const lists = $derived(data ? listsOf(data) : null);
@@ -110,7 +108,7 @@
   function reserve(): { top: number; right: number; bottom: number; left: number } {
     if (phone.matches || !statusEl || !sideEl) return { top: 8, right: 8, bottom: 8, left: 8 };
     const stage = statusEl.getBoundingClientRect();
-    return { top: sideEl.getBoundingClientRect().top + 8, right: window.innerWidth - sideEl.getBoundingClientRect().left + 12, bottom: window.innerHeight - stage.top + POPUP_ROOM, left: 16 };
+    return { top: sideEl.getBoundingClientRect().top + 8, right: window.innerWidth - sideEl.getBoundingClientRect().left + 12, bottom: window.innerHeight - stage.top + SELECTION_ROOM, left: 16 };
   }
 
   onMount(() => {
@@ -179,14 +177,6 @@
     {/if}
   </div>
 
-  {#if results}
-    <ul class="legend" aria-label="Résultats de {filter.model} par question">
-      {#each Object.entries(RESULT_LABELS) as [state, label] (state)}
-        <li><ResultMark state={state as ResultState} /> <strong>{results[state as ResultState]}</strong> {label}</li>
-      {/each}
-    </ul>
-  {/if}
-
   <div class="popups">
     <BenchmarkStack benchmarks={data?.benchmarks ?? []} {filter} {pinned} />
   </div>
@@ -198,6 +188,7 @@
         {filter}
         {focus}
         {focusLabel}
+        {results}
         {launching}
         {findable}
         onfind={(entry) => pick(entry.kind, entry.key)}
@@ -264,38 +255,6 @@
     width: calc(100% - 2 * var(--s3));
     margin-inline-start: var(--s3);
     pointer-events: none;
-  }
-
-  /* Plain figures on a plate of the ground: the legend sits over the graph and stays out of the glass family. */
-  .legend {
-    position: relative;
-    z-index: 1;
-    grid-area: 1 / 1;
-    align-self: start;
-    justify-self: start;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s1) var(--s3);
-    margin: 0 0 0 var(--s4);
-    padding: var(--s1) var(--s2);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--ground) 80%, transparent);
-    color: var(--ink-2);
-    font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
-    list-style: none;
-    pointer-events: none;
-  }
-
-  .legend li {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s1);
-  }
-
-  .legend strong {
-    color: var(--ink);
-    font-weight: 650;
   }
 
   .footer {

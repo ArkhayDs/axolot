@@ -1,11 +1,13 @@
 <script lang="ts">
   import CounterMenu from './CounterMenu.svelte';
+  import SelectionRow from './SelectionRow.svelte';
   import Icon from '../Icon.svelte';
   import { categoryLabel } from '../../lib/format';
   import { live } from '../../lib/live.svelte';
   import type { MapContent } from '../../lib/map/content';
   import type { Findable } from '../../lib/map/findable';
   import type { NodeKind } from '../../lib/map/graph';
+  import type { ResultState } from '../../lib/map/results';
   import type { MapFilter } from '../../lib/map/ranking';
   import { shortModel } from '../../lib/map/ranking';
 
@@ -14,6 +16,7 @@
     filter,
     focus,
     focusLabel,
+    results,
     launching,
     findable,
     onfind,
@@ -27,6 +30,7 @@
     filter: MapFilter;
     focus: { kind: NodeKind; key: string } | null;
     focusLabel: string;
+    results: Record<ResultState, number> | null;
     launching: boolean;
     findable: Findable[];
     onfind: (entry: Findable) => void;
@@ -92,81 +96,79 @@
 </script>
 
 <footer class="status">
-  <ul class="counters" aria-label="Contenu de l'Atlas">
-    {#each counters as counter (counter.kind)}
-      <li class:secondary={counter.secondary}>
-        <button
-          type="button"
-          class="counter"
-          data-counter={counter.kind}
-          aria-expanded={openKind === counter.kind}
-          onclick={() => {
-            openKind = openKind === counter.kind ? '' : counter.kind;
-          }}
-        >
-          <strong>{counter.value}</strong> {counter.unit}{counter.value > 1 ? 's' : ''}
-        </button>
-        {#if openKind === counter.kind}
-          <CounterMenu title="{counter.unit}s de l'Atlas" entries={findable.filter((entry) => entry.kind === counter.kind)} {isSelected} onpick={onfind} onclose={closeMenu} />
-        {/if}
-      </li>
-    {/each}
-  </ul>
+  {#if pills.length > 0 || focusLabel}
+    <SelectionRow {pills} {focusLabel} {results} {onremove} {onclearfocus} {onclearall} />
+  {/if}
+  <div class="main">
+    <ul class="counters" aria-label="Contenu de l'Atlas">
+      {#each counters as counter (counter.kind)}
+        <li class:secondary={counter.secondary}>
+          <button
+            type="button"
+            class="counter"
+            data-counter={counter.kind}
+            aria-expanded={openKind === counter.kind}
+            onclick={() => {
+              openKind = openKind === counter.kind ? '' : counter.kind;
+            }}
+          >
+            <strong>{counter.value}</strong> {counter.unit}{counter.value > 1 ? 's' : ''}
+          </button>
+          {#if openKind === counter.kind}
+            <CounterMenu title="{counter.unit}s de l'Atlas" entries={findable.filter((entry) => entry.kind === counter.kind)} {isSelected} onpick={onfind} onclose={closeMenu} />
+          {/if}
+        </li>
+      {/each}
+    </ul>
 
-  <div class="pills" aria-label="Sélection active">
-    {#each pills as pill (pill.axis)}
-      <button type="button" class="pill" title={pill.label} aria-label="Retirer {pill.label}" onclick={() => onremove(pill.axis)}><span>{pill.label}</span> <Icon name="cross" size={13} /></button>
-    {/each}
-    {#if focusLabel}
-      <button type="button" class="pill" title={focusLabel} aria-label="Retirer {focusLabel}" onclick={onclearfocus}><span>{focusLabel}</span> <Icon name="cross" size={13} /></button>
-    {/if}
-    {#if pills.length > 0 || focusLabel}
-      <button type="button" class="link" onclick={onclearall}>Tout effacer</button>
-    {:else}
+    {#if pills.length === 0 && !focusLabel}
       <span class="hint">Cliquez sur un élément pour filtrer</span>
     {/if}
+
+    <form class="search" role="search" onsubmit={find}>
+      <Icon name="search" size={15} />
+      <input
+        type="search"
+        list="atlas-nodes"
+        placeholder="Chercher un nœud"
+        aria-label="Chercher un nœud par son nom"
+        aria-invalid={missing}
+        bind:value={query}
+        oninput={() => {
+          missing = false;
+        }}
+      />
+      <datalist id="atlas-nodes">
+        {#each findable as entry (`${entry.kind}:${entry.key}`)}
+          <option value={entry.label} label={entry.type}></option>
+        {/each}
+      </datalist>
+      {#if missing}<span class="state state-warning" role="status">Aucun nœud</span>{/if}
+    </form>
+
+    <button type="button" class="tool" onclick={onrecenter}><Icon name="center" size={16} /> Recentrer</button>
+    <button type="button" class="btn btn-primary launch" aria-expanded={launching} disabled={live.campaign !== ''} onclick={onlaunch}>
+      <Icon name="play" size={16} /> Lancer un Benchmark
+    </button>
   </div>
-
-  <form class="search" role="search" onsubmit={find}>
-    <Icon name="search" size={15} />
-    <input
-      type="search"
-      list="atlas-nodes"
-      placeholder="Chercher un nœud"
-      aria-label="Chercher un nœud par son nom"
-      aria-invalid={missing}
-      bind:value={query}
-      oninput={() => {
-        missing = false;
-      }}
-    />
-    <datalist id="atlas-nodes">
-      {#each findable as entry (`${entry.kind}:${entry.key}`)}
-        <option value={entry.label} label={entry.type}></option>
-      {/each}
-    </datalist>
-    {#if missing}<span class="state state-warning" role="status">Aucun nœud</span>{/if}
-  </form>
-
-  <button type="button" class="tool" onclick={onrecenter}><Icon name="center" size={16} /> Recentrer</button>
-  <button type="button" class="btn btn-primary launch" aria-expanded={launching} disabled={live.campaign !== ''} onclick={onlaunch}>
-    <Icon name="play" size={16} /> Lancer un Benchmark
-  </button>
 </footer>
 
 <style>
   .status {
-    display: flex;
-    align-items: center;
-    gap: var(--s3);
-    min-height: 44px;
-    padding: var(--s1) var(--s4);
     border-top: 1px solid var(--hairline);
     background: var(--panel);
     color: var(--ink-3);
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+
+  .main {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    min-height: 44px;
+    padding: var(--s1) var(--s4);
   }
 
   ul {
@@ -220,39 +222,6 @@
     font-weight: 650;
   }
 
-  /* One row whatever the selection: the framing of the graph relies on the height of this bar. */
-  .pills {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: var(--s1);
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    flex: 0 1 auto;
-    gap: var(--s1);
-    min-width: 4.5rem;
-    height: 26px;
-    padding: 0 var(--s2);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--ink);
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-
-  .pill span {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .link,
   .tool {
     flex: none;
     border: 0;
@@ -262,12 +231,6 @@
     cursor: pointer;
   }
 
-  .link {
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  .link:hover,
   .tool:hover {
     color: var(--ink);
   }
@@ -283,6 +246,7 @@
   .search {
     display: flex;
     flex: none;
+    margin-inline-start: auto;
     align-items: center;
     gap: var(--s1);
     height: 30px;
@@ -323,7 +287,7 @@
     }
 
     .search input {
-      width: 8rem;
+      width: 9rem;
     }
 
     li:not(.secondary) + li:not(.secondary) {
@@ -332,7 +296,7 @@
   }
 
   @media (max-width: 760px) {
-    .status {
+    .main {
       flex-wrap: wrap;
       white-space: normal;
     }

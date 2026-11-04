@@ -39,7 +39,7 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="menu" role="group" aria-label={title} bind:this={menu} onkeydown={onKeydown}>
   {#each entries as entry (`${entry.kind}:${entry.key}`)}
     <label>
