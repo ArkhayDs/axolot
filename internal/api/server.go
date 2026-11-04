@@ -70,6 +70,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/campaigns", s.startCampaign)
 	mux.HandleFunc("POST /api/campaigns/{id}/cancel", s.cancelCampaign)
 	mux.HandleFunc("GET /api/campaigns/{id}", s.getCampaign)
+	mux.HandleFunc("GET /api/map", s.getMap)
 	mux.HandleFunc("POST /api/chat", s.chat)
 	mux.Handle("/", spa(cfg.Static))
 	return sameOrigin(mux)
@@ -173,7 +174,7 @@ func (s *Server) listCases(w http.ResponseWriter, r *http.Request) {
 func (s *Server) setCaseModels(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if _, ok := s.findCase(id); !ok {
-		writeError(w, http.StatusNotFound, "Cas inconnu")
+		writeError(w, http.StatusNotFound, "Scénario inconnu")
 		return
 	}
 	var selections []store.Selection

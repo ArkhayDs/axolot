@@ -37,7 +37,7 @@ func (s *Server) getCampaign(w http.ResponseWriter, r *http.Request) {
 	}
 	campaign, err := s.cfg.Store.CampaignByID(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "Campagne introuvable")
+		writeError(w, http.StatusNotFound, "Benchmark introuvable")
 		return
 	}
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *Server) startCampaign(w http.ResponseWriter, r *http.Request) {
 	}
 	total := runner.CountItems(plans)
 	if total == 0 {
-		writeError(w, http.StatusBadRequest, "Choisissez au moins un modèle pour un cas")
+		writeError(w, http.StatusBadRequest, "Choisissez au moins un modèle pour un scénario")
 		return
 	}
 	if needsIndex(plans) {
@@ -107,13 +107,13 @@ func (s *Server) startCampaign(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.TrimSpace(body.Name)
 	if name == "" {
-		name = "Campagne"
+		name = "Benchmark"
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.active != "" {
-		writeError(w, http.StatusConflict, "Une campagne est déjà en cours")
+		writeError(w, http.StatusConflict, "Un Benchmark est déjà en cours")
 		return
 	}
 	if s.chats > 0 {
@@ -232,7 +232,7 @@ func (s *Server) cancelCampaign(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.active != r.PathValue("id") || s.cancel == nil {
-		writeError(w, http.StatusConflict, "Cette campagne n'est pas en cours")
+		writeError(w, http.StatusConflict, "Ce Benchmark n'est pas en cours")
 		return
 	}
 	s.cancel()

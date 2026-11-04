@@ -162,3 +162,76 @@ func TestCampaignRunsAndStats(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestMapKeepsLatestAnswerPerQuestion(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	mac, pc := json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{"label":"pc"}`)
+	play := func(hardware json.RawMessage, status string, item, category string, score float64) string {
+		t.Helper()
+		id, err := s.CreateCampaign(ctx, "demo", hardware, json.RawMessage(`{}`), 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := Run{CampaignID: id, CaseID: "c", ItemID: item, Category: category, ProviderName: "p", Model: "m", TotalMs: 100, Score: score, Checks: json.RawMessage(`[]`)}
+		if err := s.CreateRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.FinishCampaign(ctx, id, status); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	play(mac, StatusDone, "i1", "code", 0)
+	newest := play(mac, StatusCancelled, "i1", "code", 100)
+	play(mac, StatusDone, "i2", "rag", 50)
+	play(pc, StatusDone, "i1", "code", 20)
+	play(mac, StatusRunning, "i2", "rag", 0)
+
+	cells, err := s.MapCells(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := map[string]MapCell{}
+	for _, cell := range cells {
+		found[cell.Machine+"|"+cell.Category] = cell
+	}
+	if len(cells) != 8 {
+		t.Fatalf("cells=%+v", cells)
+	}
+	if cell := found["mac|code"]; cell.Runs != 1 || cell.AvgScore != 100 {
+		t.Fatalf("latest answer not kept: %+v", cell)
+	}
+	if cell := found["mac|rag"]; cell.Runs != 1 || cell.AvgScore != 50 {
+		t.Fatalf("running campaign counted: %+v", cell)
+	}
+	if cell := found["mac|"]; cell.Runs != 2 || cell.AvgScore != 75 {
+		t.Fatalf("machine rollup: %+v", cell)
+	}
+	if cell := found["|code"]; cell.Runs != 2 || cell.AvgScore != 60 {
+		t.Fatalf("category rollup: %+v", cell)
+	}
+	if cell := found["|"]; cell.Runs != 3 {
+		t.Fatalf("model rollup: %+v", cell)
+	}
+
+	benchmarks, err := s.MapBenchmarks(ctx)
+	if err != nil || len(benchmarks) != 5 {
+		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
+	}
+	for _, benchmark := range benchmarks {
+		if benchmark.ID != newest {
+			continue
+		}
+		if benchmark.Machine != "mac" || benchmark.DoneItems != 1 || benchmark.Models[0] != "m" || benchmark.Categories[0] != "code" {
+			t.Fatalf("benchmark=%+v", benchmark)
+		}
+		var picked []struct {
+			Model    string  `json:"model"`
+			AvgScore float64 `json:"avg_score"`
+		}
+		if err := json.Unmarshal(benchmark.Cells, &picked); err != nil || len(picked) != 1 || picked[0].AvgScore != 100 {
+			t.Fatalf("cells=%s err=%v", benchmark.Cells, err)
+		}
+	}
+}

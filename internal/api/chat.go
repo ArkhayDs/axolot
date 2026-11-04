@@ -86,7 +86,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.claimChat() {
-		writeError(w, http.StatusConflict, "Une campagne est en cours : le chat fausserait ses temps")
+		writeError(w, http.StatusConflict, "Un Benchmark est en cours : le chat fausserait ses temps")
 		return
 	}
 	defer s.releaseChat()
