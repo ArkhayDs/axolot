@@ -41,7 +41,8 @@ export interface Connection {
   provider: Provider;
   online: boolean;
   error?: string;
-  models: { name: string; size_bytes: number; family?: string; quantization?: string; fit: Fit }[];
+  // vision is absent when the server cannot tell whether the model reads images.
+  models: { name: string; size_bytes: number; family?: string; quantization?: string; vision?: boolean; fit: Fit }[];
 }
 
 export interface LibraryEntry {
@@ -339,12 +340,20 @@ export interface ChatDocument {
   truncated: boolean;
 }
 
+export interface ChatImage {
+  name: string;
+  media_type: string;
+  size: number;
+  data: string;
+}
+
 export interface ChatBody {
   provider_id: number;
   model: string;
   messages: { role: string; content: string }[];
   passages?: ChatPassage[];
   document?: { name: string; text: string };
+  image?: string;
 }
 
 /**
@@ -429,5 +438,10 @@ export const api = {
     const form = new FormData();
     form.append('file', file);
     return (await send('/chat/document', { method: 'POST', body: form })).json() as Promise<ChatDocument>;
+  },
+  chatImage: async (file: File): Promise<ChatImage> => {
+    const form = new FormData();
+    form.append('file', file);
+    return (await send('/chat/image', { method: 'POST', body: form })).json() as Promise<ChatImage>;
   },
 };

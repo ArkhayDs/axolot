@@ -1,23 +1,30 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { ChatDocument } from '../lib/api';
+  import type { ChatDocument, ChatImage } from '../lib/api';
   import { number } from '../lib/format';
 
   let {
     useDocuments = $bindable(),
     document = $bindable(),
+    image = $bindable(),
     attaching = $bindable(),
     blocked,
+    imagesReadable,
   }: {
     useDocuments: boolean;
     document: ChatDocument | null;
+    image: ChatImage | null;
     attaching: boolean;
     blocked: boolean;
+    imagesReadable: boolean;
   } = $props();
 
   let error = $state('');
   let documentInput: HTMLInputElement | undefined = $state();
+  let imageInput: HTMLInputElement | undefined = $state();
+
+  const imageSize = $derived(image ? (image.size < 1 << 20 ? `${number(image.size / 1024)} Ko` : `${number(image.size / (1 << 20))} Mo`) : '');
 
   /**
    * Reads the picked document on the server, keeping only its text for this turn
@@ -38,6 +45,26 @@
     attaching = false;
     input.value = '';
   }
+
+  /**
+   * Has the picked picture checked by the server, which returns it for this turn
+   * @param {Event & { currentTarget: HTMLInputElement }} event - file input change
+   */
+  async function attachImage(event: Event & { currentTarget: HTMLInputElement }): Promise<void> {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    error = '';
+    attaching = true;
+    try {
+      image = await api.chatImage(file);
+    } catch (attachError) {
+      image = null;
+      error = errorMessage(attachError);
+    }
+    attaching = false;
+    input.value = '';
+  }
 </script>
 
 <div class="options">
@@ -50,6 +77,21 @@
     <Icon name="doc" size={16} /> {attaching ? 'Lecture...' : 'Joindre un document'}
   </button>
   <input bind:this={documentInput} type="file" hidden accept=".md,.txt,.docx,.pdf,.pptx,.xlsx,.eml" onchange={attachDocument} />
+  <button class="btn attach" type="button" disabled={blocked || attaching || !imagesReadable} onclick={() => imageInput?.click()}>
+    <Icon name="upload" size={16} /> Joindre une image
+  </button>
+  <input bind:this={imageInput} type="file" hidden accept="image/png,image/jpeg,image/webp" onchange={attachImage} />
+  {#if !imagesReadable}
+    <span class="muted reason">Aucun modèle installé ne lit les images</span>
+  {/if}
+  {#if image}
+    <span class="pill">
+      <img src="data:{image.media_type};base64,{image.data}" alt="" />
+      <span class="name">{image.name}</span>
+      <span class="muted">{imageSize}</span>
+      <button class="remove" type="button" aria-label="Retirer {image.name}" onclick={() => (image = null)}><Icon name="cross" size={14} /></button>
+    </span>
+  {/if}
   {#if document}
     <span class="pill">
       <Icon name="doc" size={16} />
@@ -143,6 +185,17 @@
     padding-inline: var(--s3) var(--s1);
     border: 1px solid var(--axis);
     border-radius: var(--radius);
+    font-size: var(--text-sm);
+  }
+
+  .pill img {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+  }
+
+  .reason {
     font-size: var(--text-sm);
   }
 

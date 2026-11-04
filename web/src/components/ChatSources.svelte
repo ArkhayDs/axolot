@@ -1,9 +1,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
-  import type { ChatDocument, ChatPassage } from '../lib/api';
+  import type { ChatDocument, ChatImage, ChatPassage } from '../lib/api';
   import { number } from '../lib/format';
 
-  let { passages, document }: { passages: ChatPassage[]; document: ChatDocument | null } = $props();
+  let { passages, document, image }: { passages: ChatPassage[]; document: ChatDocument | null; image: ChatImage | null } = $props();
 </script>
 
 {#if document}
@@ -14,6 +14,10 @@
       <span class="state-warning">(tronqué : {number(document.total_chars - document.chars)} caractères non transmis)</span>
     {/if}
   </p>
+{/if}
+
+{#if image}
+  <img class="sent" src="data:{image.media_type};base64,{image.data}" alt="Image jointe : {image.name}" />
 {/if}
 
 {#if passages.length > 0}
@@ -37,6 +41,14 @@
     align-items: center;
     gap: var(--s2);
     margin: 0;
+  }
+
+  .sent {
+    display: block;
+    max-width: 240px;
+    max-height: 160px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
   }
 
   .sources {
