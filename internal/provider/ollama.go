@@ -12,6 +12,9 @@ import (
 // ollamaNumCtx is fixed so every model gets the same context window.
 const ollamaNumCtx = 8192
 
+// ContextWindow is the tokens a model can read and write in one generation; callers size what they send from it.
+const ContextWindow = ollamaNumCtx
+
 // Ollama calls a local or remote Ollama server.
 type Ollama struct {
 	BaseURL string

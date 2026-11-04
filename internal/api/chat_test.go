@@ -1,8 +1,14 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
 	"github.com/arkhayds/axolot/internal/rag"
@@ -28,6 +34,9 @@ func TestValidateChat(t *testing.T) {
 		{"system role", chatRequest{Model: "m", Messages: []provider.Message{{Role: "system", Content: "x"}, user}}, false},
 		{"blank message", chatRequest{Model: "m", Messages: []provider.Message{{Role: "user", Content: strings.Repeat(" ", 3)}}}, false},
 		{"ends with assistant", chatRequest{Model: "m", Messages: []provider.Message{user, assistant}}, false},
+		{"document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: "texte"}}, true},
+		{"blank document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: " "}}, false},
+		{"oversized document", chatRequest{Model: "m", Messages: []provider.Message{user}, Document: &chatAttachment{Name: "a.md", Text: strings.Repeat("é", chatDocumentRunes+1)}}, false},
 		{"too many passages", chatRequest{Model: "m", Messages: []provider.Message{user}, Passages: make([]rag.Hit, chatMaxPassages+1)}, false},
 	}
 	for _, tt := range tests {
@@ -64,6 +73,108 @@ func TestChatMessagesSendsExcerptsWithTheCurrentQuestionOnly(t *testing.T) {
 	}
 	if !strings.Contains(got[3].Content, "Vingt-cinq jours") || !strings.Contains(got[3].Content, "Question courante") {
 		t.Errorf("current question = %q", got[3].Content)
+	}
+}
+
+func TestChatMessagesWithDocumentAloneAddsNoInstruction(t *testing.T) {
+	got := chatMessages(chatRequest{
+		Messages: []provider.Message{{Role: "user", Content: "Résume"}},
+		Document: &chatAttachment{Name: "note.md", Text: "Contenu joint"},
+	})
+	if len(got) != 1 || got[0].Role != "user" {
+		t.Fatalf("messages = %+v", got)
+	}
+	if !strings.Contains(got[0].Content, "[note.md]") || !strings.Contains(got[0].Content, "Contenu joint") {
+		t.Errorf("content = %q", got[0].Content)
+	}
+}
+
+func TestChatMessagesWithDocumentAndPassagesKeepsBoth(t *testing.T) {
+	got := chatMessages(chatRequest{
+		Messages: []provider.Message{{Role: "user", Content: "Compare"}},
+		Document: &chatAttachment{Name: "note.md", Text: "Contenu joint"},
+		Passages: []rag.Hit{{Chunk: rag.Chunk{File: "conges.md", Content: "Vingt-cinq jours"}}},
+	})
+	if len(got) != 2 || got[0].Role != "system" {
+		t.Fatalf("messages = %+v", got)
+	}
+	if !strings.Contains(got[1].Content, "Contenu joint") || !strings.Contains(got[1].Content, "Vingt-cinq jours") {
+		t.Errorf("content = %q", got[1].Content)
+	}
+}
+
+func TestFitDocument(t *testing.T) {
+	short := strings.Repeat("é", chatDocumentRunes)
+	if kept, chars, truncated := fitDocument(short); kept != short || chars != chatDocumentRunes || truncated {
+		t.Errorf("text at the limit changed: chars %d, truncated %v", chars, truncated)
+	}
+	kept, chars, truncated := fitDocument(short + "é")
+	if !truncated || !strings.HasSuffix(kept, chatCutNotice) || !utf8.ValidString(kept) {
+		t.Errorf("cut text: truncated %v, valid %v", truncated, utf8.ValidString(kept))
+	}
+	if utf8.RuneCountInString(kept) != chatDocumentRunes || chars >= chatDocumentRunes {
+		t.Errorf("cut text has %d runes, chars %d", utf8.RuneCountInString(kept), chars)
+	}
+}
+
+// postFile calls an upload handler with one file in a multipart body.
+func postFile(t *testing.T, handler http.HandlerFunc, name string, content []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	part, err := form.CreateFormFile("file", name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	form.Close()
+	req := httptest.NewRequest(http.MethodPost, "/", &body)
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+	return rec
+}
+
+func TestChatDocumentExtractsAndTruncates(t *testing.T) {
+	rec := postFile(t, (&Server{}).chatDocument, "long note.txt", []byte(strings.Repeat("a", chatDocumentRunes+10)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	var got struct {
+		Name       string `json:"name"`
+		Truncated  bool   `json:"truncated"`
+		TotalChars int    `json:"total_chars"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "long note.txt" || !got.Truncated || got.TotalChars != chatDocumentRunes+10 {
+		t.Errorf("response = %+v", got)
+	}
+}
+
+func TestChatDocumentRefusals(t *testing.T) {
+	tests := []struct {
+		name    string
+		file    string
+		content []byte
+		status  int
+		message string
+	}{
+		{"broken pdf", "cassé.pdf", []byte("pas un pdf"), http.StatusUnprocessableEntity, "Document illisible"},
+		{"empty text", "vide.md", []byte("  \n"), http.StatusUnprocessableEntity, "Document illisible"},
+		{"not UTF-8", "latin.txt", []byte{0xe9, 0xe8}, http.StatusUnprocessableEntity, "Document illisible"},
+		{"unknown format", "photo.exe", []byte("x"), http.StatusBadRequest, "Formats acceptés"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := postFile(t, (&Server{}).chatDocument, tt.file, tt.content)
+			if rec.Code != tt.status || !strings.Contains(rec.Body.String(), tt.message) {
+				t.Errorf("status = %d, body = %s", rec.Code, rec.Body)
+			}
+		})
 	}
 }
 

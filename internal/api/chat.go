@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
 	"github.com/arkhayds/axolot/internal/rag"
@@ -27,6 +28,13 @@ type chatRequest struct {
 	Model      string             `json:"model"`
 	Messages   []provider.Message `json:"messages"`
 	Passages   []rag.Hit          `json:"passages"`
+	Document   *chatAttachment    `json:"document"`
+}
+
+// chatAttachment is the text of a document read for one turn, sent back by the client since nothing is kept on the server.
+type chatAttachment struct {
+	Name string `json:"name"`
+	Text string `json:"text"`
 }
 
 // validateChat returns a user-facing message, empty when valid.
@@ -52,18 +60,28 @@ func validateChat(body chatRequest) string {
 	if len(body.Passages) > chatMaxPassages {
 		return "Trop de passages"
 	}
+	if doc := body.Document; doc != nil && (strings.TrimSpace(doc.Text) == "" || utf8.RuneCountInString(doc.Text) > chatDocumentRunes) {
+		return "Document vide ou trop long"
+	}
 	return ""
 }
 
 // chatMessages assembles what the model reads: excerpts go with the current question only, past turns stay as they were asked.
+// The RAG prompt comes with passages only: a document alone leaves the model free of any instruction.
 func chatMessages(body chatRequest) []provider.Message {
 	last := len(body.Messages) - 1
-	if len(body.Passages) == 0 {
+	excerpts := body.Passages
+	if body.Document != nil {
+		excerpts = append([]rag.Hit{{Chunk: rag.Chunk{File: body.Document.Name, Content: body.Document.Text}}}, excerpts...)
+	}
+	if len(excerpts) == 0 {
 		return body.Messages
 	}
-	built := rag.BuildMessages("", body.Messages[last].Content, body.Passages)
+	built := rag.BuildMessages("", body.Messages[last].Content, excerpts)
 	messages := make([]provider.Message, 0, len(body.Messages)+1)
-	messages = append(messages, built[0])
+	if len(body.Passages) > 0 {
+		messages = append(messages, built[0])
+	}
 	messages = append(messages, body.Messages[:last]...)
 	return append(messages, built[1])
 }
@@ -134,6 +152,6 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	}
 	send(map[string]any{
 		"type": "done", "ttft_ms": result.TTFTMs, "total_ms": result.TotalMs, "load_ms": result.LoadMs,
-		"output_tokens": result.OutputTokens, "tok_per_sec": result.TokPerSec,
+		"prompt_tokens": result.PromptTokens, "output_tokens": result.OutputTokens, "tok_per_sec": result.TokPerSec,
 	})
 }
