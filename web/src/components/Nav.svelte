@@ -8,10 +8,10 @@
 
   const LINKS: { route: string; label: string; icon: IconName; tool?: boolean }[] = [
     { route: '', label: 'Atlas', icon: 'target' },
-    { route: 'benchmarks', label: 'Benchmarks', icon: 'history' },
+    { route: 'chat', label: 'Chat', icon: 'chat' },
     { route: 'cas', label: 'Scénarios', icon: 'list' },
     { route: 'resultats', label: 'Résultats', icon: 'bars' },
-    { route: 'chat', label: 'Chat', icon: 'chat', tool: true },
+    { route: 'benchmarks', label: 'Benchmarks', icon: 'history', tool: true },
     { route: 'reglages', label: 'Réglages', icon: 'sliders', tool: true },
   ];
 
