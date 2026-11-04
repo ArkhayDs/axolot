@@ -11,6 +11,8 @@ export interface MapFilter {
 
 export type RankKind = 'model' | 'theme' | 'machine';
 
+export type RankFigures = Pick<MapCell, 'avg_score' | 'runs' | 'questions' | 'errors' | 'p50_total_ms' | 'p95_total_ms' | 'p50_tok_per_sec'>;
+
 export interface RankRow {
   kind: RankKind;
   key: string;
@@ -114,11 +116,14 @@ export function sameScore(a: number, b: number): boolean {
 function gapLabel(row: RankRow, leader: RankRow): string {
   if (row === leader) return row.tied ? '' : 'En tête';
   const parts: string[] = [];
-  if (!sameScore(row.score, leader.score)) parts.push(`-${formatScore(leader.score - row.score)} pts`);
+  if (!sameScore(row.score, leader.score)) {
+    const gap = leader.score - row.score;
+    parts.push(`${formatScore(gap)} point${gap >= 2 ? 's' : ''} de moins`);
+  }
   if (row.ms && leader.ms) {
     const ratio = leader.ms / row.ms;
-    if (ratio >= 1.05) parts.push(`${number(ratio)}× plus rapide`);
-    else if (ratio <= 0.95) parts.push(`${number(1 / ratio)}× plus lent`);
+    if (ratio >= 1.05) parts.push(`${number(ratio)} fois plus rapide`);
+    else if (ratio <= 0.95) parts.push(`${number(1 / ratio)} fois plus lent`);
   }
   return parts.join(', ');
 }
@@ -126,11 +131,11 @@ function gapLabel(row: RankRow, leader: RankRow): string {
 /**
  * Best score first; on a tie the faster row is listed first but shares the rank
  * @param {RankKind} kind - what is ranked
- * @param {{ key: string; label: string; cell: MapCell | undefined }[]} entries - candidates, absent cells dropped
+ * @param {{ key: string; label: string; cell: RankFigures | undefined }[]} entries - candidates, absent figures dropped
  * @param {string} picked - key of the selected row
  * @returns {RankRow[]} - ranked rows
  */
-function rankRows(kind: RankKind, entries: { key: string; label: string; cell: MapCell | undefined }[], picked: string): RankRow[] {
+export function rankRows(kind: RankKind, entries: { key: string; label: string; cell: RankFigures | undefined }[], picked: string): RankRow[] {
   const rows = entries.flatMap(({ key, label, cell }): RankRow[] =>
     cell
       ? [{

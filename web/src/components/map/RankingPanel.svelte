@@ -34,7 +34,7 @@
                 <span class="name">
                   {#if row.kind === 'model'}<ModelName name={row.key} />{:else}{row.label}{/if}
                 </span>
-                <strong class="value">{score(row.score)}</strong>
+                <strong class="value">{score(row.score)}<small>/100</small></strong>
               </span>
               <span class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={row.score} aria-label="Score">
                 <span style:width="{row.score}%" style:background={gaugeColor(row)}></span>
@@ -43,12 +43,12 @@
                 {#if row.tied}<span class="tie">ex aequo</span>{/if}
                 {#if row.gap}<span>{row.gap}</span>{/if}
               </span>
-              <span class="facts">
-                <span>{duration(row.ms)} méd.</span>
-                <span>{duration(row.p95)} p95</span>
-                <span>{number(row.tokPerSec)} j/s</span>
-                <span>n={row.runs}</span>
-                <span>{row.questions} question{row.questions > 1 ? 's' : ''}</span>
+              <span class="tiles">
+                {#if row.ms !== null}<span class="tile"><small>Temps médian</small>{duration(row.ms)}</span>{/if}
+                {#if row.p95 !== null}<span class="tile"><small>95 % des réponses sous</small>{duration(row.p95)}</span>{/if}
+                {#if row.tokPerSec !== null}<span class="tile"><small>Vitesse</small>{number(row.tokPerSec)} jetons/s</span>{/if}
+                <span class="tile"><small>Réponses</small>{row.runs}</span>
+                <span class="tile"><small>Questions</small>{row.questions}</span>
               </span>
               {#if row.questions < row.coverage}
                 <span class="state state-warning"><Icon name="alert" size={14} /> {row.questions}/{row.coverage} questions couvertes</span>
@@ -64,7 +64,7 @@
       </ol>
     </section>
   {/each}
-  <p class="muted note">Score moyen par question, sur toute la base. n = réponses. Écart mesuré au premier.</p>
+  <p class="muted note">Score moyen par question, sur toute la base. Écart mesuré au premier.</p>
 </aside>
 
 <style>
@@ -151,6 +151,12 @@
     font-weight: 650;
   }
 
+  .value small {
+    color: var(--ink-3);
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+
   /* Segments read as a scale of ten without any extra label. */
   .gauge {
     display: block;
@@ -180,13 +186,34 @@
     color: var(--accent);
   }
 
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 var(--s3);
-    color: var(--ink-3);
+  /* Times and speed take the room their units need, the plain counts share the rest. */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s1);
     font-size: var(--text-sm);
     font-variant-numeric: tabular-nums;
+    font-weight: 550;
+  }
+
+  .tile {
+    display: grid;
+    grid-column: span 2;
+    gap: 1px;
+    padding: 3px var(--s2);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--ground) 45%, transparent);
+  }
+
+  .tile:nth-last-child(-n + 2) {
+    grid-column: span 1;
+  }
+
+  .tile small {
+    color: var(--ink-3);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.25;
   }
 
   .none {

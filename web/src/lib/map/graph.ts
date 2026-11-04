@@ -1,148 +1,186 @@
-// Graph of the map: which nodes and links exist, what each one says under the current selection.
+// Graph of the map: which nodes and links exist, their seeds, sizes and springs. Grain goes from machine down to source document.
 
-import { categoryLabel, duration, score as formatScore } from '../format';
+import { benchmarkName, categoryLabel } from '../format';
+import type { MapContent, Question } from './content';
 import type { Body, Spring } from './force';
-import { cellOf, sameScore, shortModel } from './ranking';
-import type { CellIndex, MapFilter, MapLists, RankKind, RankSection } from './ranking';
+import { cellOf, shortModel } from './ranking';
+import type { CellIndex, RankKind } from './ranking';
+import { itemOf } from './results';
+import type { ItemIndex } from './results';
+
+export type NodeKind = RankKind | 'scenario' | 'question' | 'document' | 'benchmark';
 
 export interface GraphNode extends Body {
   id: string;
-  kind: RankKind;
+  kind: NodeKind;
   key: string;
   label: string;
+  // Theme whose color the node takes, empty outside communities.
+  community: string;
+  // Questions under the node, or answers for a question: what its size and counter say.
+  count: number;
+  question?: Question;
 }
 
 export interface GraphLink {
-  kind: 'theme' | 'machine';
-  model: GraphNode;
-  other: GraphNode;
+  kind: 'score' | 'machine' | 'structure' | 'source' | 'benchmark';
+  from: GraphNode;
+  to: GraphNode;
 }
 
 export interface Graph {
+  // Smallest first: the paint order keeps hubs on top.
   nodes: GraphNode[];
   links: GraphLink[];
   springs: Spring[];
   byId: Map<string, GraphNode>;
 }
 
-const RADIUS: Record<RankKind, number> = { machine: 20, model: 17, theme: 11 };
-const LABEL_HEIGHT = 36;
-const FIGURE_WIDTH = 96;
+const THEME_RING = 310;
+const GOLDEN_ANGLE = 2.399963;
+const HUB_LABEL_HEIGHT = 30;
+const HUB_LABEL_MIN_WIDTH = 74;
+
+const STEPS: Record<NodeKind, { limits: number[]; radii: number[]; charge: number }> = {
+  machine: { limits: [], radii: [15], charge: 8 },
+  model: { limits: [], radii: [13], charge: 8 },
+  theme: { limits: [3, 8], radii: [8, 10, 12], charge: 12 },
+  scenario: { limits: [3, 7], radii: [4.5, 5.5, 6.5], charge: 2.5 },
+  question: { limits: [0, 2, 6], radii: [2.4, 3, 3.6, 4.2], charge: 1 },
+  document: { limits: [1, 3], radii: [3.4, 4.2, 5], charge: 1.2 },
+  benchmark: { limits: [], radii: [4], charge: 1.5 },
+};
 
 /**
- * @param {RankKind} kind - node type
- * @param {string} key - machine label, model tag or category
+ * @param {NodeKind} kind - node type
+ * @param {string} key - identity within the type
  * @returns {string} - node id
  */
-export function nodeId(kind: RankKind, key: string): string {
+export function nodeId(kind: NodeKind, key: string): string {
   return `${kind}:${key}`;
 }
 
 /**
+ * @param {string} text - stable identity
+ * @returns {number} - FNV-1a hash in 0-1: same data, same seed, same layout
+ */
+function hash(text: string): number {
+  let value = 2166136261;
+  for (let position = 0; position < text.length; position += 1) {
+    value = Math.imul(value ^ text.charCodeAt(position), 16777619);
+  }
+  return (value >>> 0) / 4294967296;
+}
+
+/**
  * Builds the graph, keeping the place of nodes that already exist
- * @param {MapLists} lists - axes
- * @param {CellIndex} index - indexed cells
+ * @param {MapContent} content - what the map holds
+ * @param {CellIndex} cells - figures per theme
+ * @param {ItemIndex} items - figures per question
  * @param {Map<string, GraphNode>} previous - nodes of the graph being replaced
- * @param {(text: string) => number} measure - label width in pixels
- * @param {number} labelScale - room labels need beyond their size, a small screen zooms out but keeps text readable
+ * @param {number} aspect - free area width over height, the seeds follow it
+ * @param {(text: string) => number} measure - hub label width in pixels
  * @returns {Graph} - nodes, links and springs
  */
-export function buildGraph(lists: MapLists, index: CellIndex, previous: Map<string, GraphNode>, measure: (text: string) => number, labelScale = 1): Graph {
-  const nodes: GraphNode[] = [];
-  const add = (kind: RankKind, key: string, label: string, x: number, y: number): void => {
-    const id = nodeId(kind, key);
-    const known = previous.get(id);
-    const labelWidth = Math.max(measure(label), FIGURE_WIDTH) * labelScale;
-    nodes.push({ id, kind, key, label, x: known?.x ?? x, y: known?.y ?? y, vx: 0, vy: 0, radius: RADIUS[kind], labelWidth, labelHeight: LABEL_HEIGHT * labelScale, pinned: false });
-  };
-  lists.machines.forEach((key, position) => add('machine', key, key, position * 40, -60));
-  lists.models.forEach((key, position) => {
-    const angle = (2 * Math.PI * position) / Math.max(lists.models.length, 1);
-    add('model', key, shortModel(key, lists.models), Math.cos(angle) * 240, Math.sin(angle) * 120);
-  });
-  lists.themes.forEach((key, position) => {
-    const angle = (2 * Math.PI * position) / Math.max(lists.themes.length, 1) + 0.3;
-    add('theme', key, categoryLabel(key), Math.cos(angle) * 420, Math.sin(angle) * 260);
-  });
-
-  const byId = new Map(nodes.map((node) => [node.id, node]));
+export function buildGraph(content: MapContent, cells: CellIndex, items: ItemIndex, previous: Map<string, GraphNode>, aspect: number, measure: (text: string) => number): Graph {
+  const byId = new Map<string, GraphNode>();
   const links: GraphLink[] = [];
   const springs: Spring[] = [];
-  for (const model of lists.models) {
-    const modelNode = byId.get(nodeId('model', model)) as GraphNode;
-    for (const theme of lists.themes) {
-      const cell = cellOf(index, '', model, theme);
-      if (!cell) continue;
-      const other = byId.get(nodeId('theme', theme)) as GraphNode;
-      links.push({ kind: 'theme', model: modelNode, other });
-      // A strong result pulls the theme toward its model, so the layout itself shows who is good at what.
-      springs.push({ a: modelNode, b: other, rest: 150 + (100 - cell.avg_score) * 5, strength: 0.05 });
-    }
-    for (const machine of lists.machines) {
-      if (!cellOf(index, machine, model, '')) continue;
-      const other = byId.get(nodeId('machine', machine)) as GraphNode;
-      links.push({ kind: 'machine', model: modelNode, other });
-      springs.push({ a: modelNode, b: other, rest: 170, strength: 0.05 });
-    }
-  }
-  return { nodes, links, springs, byId };
-}
+  const stretch = Math.sqrt(Math.max(aspect, 0.5));
 
-/**
- * @param {GraphNode} node - node
- * @param {CellIndex} index - indexed cells
- * @param {MapLists} lists - axes
- * @param {MapFilter} filter - current selection
- * @returns {boolean} - whether the selection keeps this node
- */
-export function nodeMatches(node: GraphNode, index: CellIndex, lists: MapLists, filter: MapFilter): boolean {
-  const models = filter.model ? [filter.model] : lists.models;
-  if (node.kind === 'model') return (!filter.model || node.key === filter.model) && Boolean(cellOf(index, filter.machine, node.key, filter.category));
-  if (node.kind === 'theme') {
-    return (!filter.category || node.key === filter.category) && models.some((model) => cellOf(index, filter.machine, model, node.key));
-  }
-  return (!filter.machine || node.key === filter.machine) && models.some((model) => cellOf(index, node.key, model, filter.category));
-}
-
-/**
- * @param {GraphLink} link - model to theme or machine
- * @param {CellIndex} index - indexed cells
- * @param {MapFilter} filter - current selection
- * @returns {number | null} - score the link stands for, null when never played under this selection
- */
-export function linkScore(link: GraphLink, index: CellIndex, filter: MapFilter): number | null {
-  const cell =
-    link.kind === 'theme' ? cellOf(index, filter.machine, link.model.key, link.other.key) : cellOf(index, link.other.key, link.model.key, filter.category);
-  return cell ? cell.avg_score : null;
-}
-
-/**
- * @param {GraphNode} node - node
- * @param {CellIndex} index - indexed cells
- * @param {MapLists} lists - axes
- * @param {MapFilter} filter - current selection
- * @param {RankSection[]} sections - current rankings
- * @returns {string} - second label line: the node's figure under this selection
- */
-export function nodeFigure(node: GraphNode, index: CellIndex, lists: MapLists, filter: MapFilter, sections: RankSection[]): string {
-  const rank = sections.find((section) => section.kind === node.kind)?.rows.find((row) => row.key === node.key)?.rank;
-  const prefix = rank ? `n°${rank} · ` : '';
-  const figures = (machine: string, model: string, category: string): string => {
-    const cell = cellOf(index, machine, model, category);
-    return cell ? `${prefix}${formatScore(cell.avg_score)} · ${duration(cell.p50_total_ms)}` : 'Sans donnée';
+  const add = (kind: NodeKind, key: string, label: string, community: string, count: number, x: number, y: number, question?: Question): GraphNode => {
+    const id = nodeId(kind, key);
+    const known = previous.get(id);
+    const { limits, radii, charge } = STEPS[kind];
+    const step = limits.findIndex((limit) => count <= limit);
+    const hub = kind === 'machine' || kind === 'model' || kind === 'theme';
+    const node: GraphNode = {
+      id,
+      kind,
+      key,
+      label,
+      community,
+      count,
+      question,
+      x: known?.x ?? x,
+      y: known?.y ?? y,
+      vx: 0,
+      vy: 0,
+      seedX: x,
+      seedY: y,
+      radius: radii[step < 0 ? radii.length - 1 : step],
+      charge,
+      labelWidth: hub ? Math.max(measure(label), HUB_LABEL_MIN_WIDTH) + 8 : 0,
+      labelHeight: hub ? HUB_LABEL_HEIGHT : 0,
+      pinned: false,
+    };
+    byId.set(id, node);
+    return node;
   };
-  if (node.kind === 'model') return figures(filter.machine, node.key, filter.category);
-  if (filter.model) return node.kind === 'theme' ? figures(filter.machine, filter.model, node.key) : figures(node.key, filter.model, filter.category);
-  if (node.kind === 'machine') {
-    const count = lists.models.filter((model) => cellOf(index, node.key, model, filter.category)).length;
-    return count === 0 ? 'Sans donnée' : `${count} modèle${count > 1 ? 's' : ''}`;
-  }
-  const scored = lists.models.flatMap((model) => {
-    const cell = cellOf(index, filter.machine, model, node.key);
-    return cell ? [{ model, value: cell.avg_score }] : [];
+  const link = (kind: GraphLink['kind'], from: GraphNode, to: GraphNode, rest: number, strength: number): void => {
+    links.push({ kind, from, to });
+    springs.push({ a: from, b: to, rest, strength });
+  };
+
+  content.machines.forEach((key, position) => add('machine', key, key, '', 0, position * 34 - 12, -24));
+  content.models.forEach((key, position) => {
+    const angle = (2 * Math.PI * position) / Math.max(content.models.length, 1);
+    add('model', key, shortModel(key, content.models), '', 0, Math.cos(angle) * 80 * stretch, Math.sin(angle) * 60);
   });
-  if (scored.length === 0) return 'Sans donnée';
-  const best = Math.max(...scored.map((entry) => entry.value));
-  const leaders = scored.filter((entry) => sameScore(entry.value, best));
-  return `${formatScore(best)} ${leaders.length > 1 ? 'ex aequo' : shortModel(leaders[0].model, lists.models)}`;
+
+  const themeNodes = new Map<string, GraphNode>();
+  content.themes.forEach((theme, position) => {
+    const angle = (2 * Math.PI * position) / Math.max(content.themes.length, 1) + 0.3;
+    const count = content.questions.filter((question) => question.category === theme).length;
+    themeNodes.set(theme, add('theme', theme, categoryLabel(theme), theme, count, Math.cos(angle) * THEME_RING * stretch, (Math.sin(angle) * THEME_RING) / stretch));
+  });
+
+  for (const scenario of content.scenarios) {
+    const theme = themeNodes.get(scenario.category) as GraphNode;
+    const angle = hash(scenario.id) * 2 * Math.PI;
+    const hub = add('scenario', scenario.id, scenario.title, scenario.category, scenario.items.length, theme.x + Math.cos(angle) * 50, theme.y + Math.sin(angle) * 50);
+    link('structure', theme, hub, 26 + 3 * Math.sqrt(scenario.items.length), 0.22);
+    const rest = 10 + 2.4 * Math.sqrt(scenario.items.length);
+    scenario.items.forEach((item, position) => {
+      const key = `${scenario.id}/${item.id}`;
+      const question = content.questions.find((candidate) => candidate.key === key) as Question;
+      const runs = content.models.reduce((total, model) => total + (itemOf(items, '', model, scenario.id, item.id)?.runs ?? 0), 0);
+      const spin = position * GOLDEN_ANGLE;
+      const spread = 8 + 6 * Math.sqrt(position);
+      const dot = add('question', key, item.id, scenario.category, runs, hub.x + Math.cos(spin) * spread, hub.y + Math.sin(spin) * spread, question);
+      link('structure', hub, dot, rest, 0.22);
+    });
+  }
+
+  for (const [file, questions] of content.documents) {
+    const dots = questions.map((question) => byId.get(nodeId('question', question.key)) as GraphNode);
+    const x = dots.reduce((total, dot) => total + dot.x, 0) / dots.length + (hash(file) - 0.5) * 30;
+    const y = dots.reduce((total, dot) => total + dot.y, 0) / dots.length + (hash(`${file}y`) - 0.5) * 30;
+    const document = add('document', file, file, questions[0].category, questions.length, x, y);
+    for (const dot of dots) link('source', dot, document, 26, 0.03);
+  }
+
+  for (const model of content.models) {
+    const modelNode = byId.get(nodeId('model', model)) as GraphNode;
+    for (const theme of content.themes) {
+      const cell = cellOf(cells, '', model, theme);
+      // A strong result draws the theme toward its model, so the layout itself shows who is good at what.
+      if (cell) link('score', modelNode, themeNodes.get(theme) as GraphNode, 170 + (100 - cell.avg_score) * 1.4, 0.008);
+    }
+    for (const machine of content.machines) {
+      if (cellOf(cells, machine, model, '')) link('machine', modelNode, byId.get(nodeId('machine', machine)) as GraphNode, 58, 0.06);
+    }
+  }
+
+  for (const benchmark of content.benchmarks) {
+    const angle = hash(benchmark.id) * 2 * Math.PI;
+    const node = add('benchmark', benchmark.id, benchmarkName(benchmark.name), '', benchmark.done_items, Math.cos(angle) * 120 * stretch, Math.sin(angle) * 100);
+    for (const model of benchmark.models) {
+      const modelNode = byId.get(nodeId('model', model));
+      if (modelNode) link('benchmark', node, modelNode, 70, 0.02);
+    }
+  }
+
+  const nodes = [...byId.values()].sort((a, b) => a.radius - b.radius);
+  return { nodes, links, springs, byId };
 }

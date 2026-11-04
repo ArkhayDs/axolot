@@ -1,38 +1,73 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
+  import Icon from '../components/Icon.svelte';
   import Notice from '../components/Notice.svelte';
   import BenchmarkLauncher from '../components/map/BenchmarkLauncher.svelte';
   import BenchmarkStack from '../components/map/BenchmarkStack.svelte';
   import LivePanel from '../components/map/LivePanel.svelte';
   import MapCanvas from '../components/map/MapCanvas.svelte';
-  import MapFilters from '../components/map/MapFilters.svelte';
+  import NodeDetail from '../components/map/NodeDetail.svelte';
   import RankingPanel from '../components/map/RankingPanel.svelte';
+  import ResultMark from '../components/map/ResultMark.svelte';
+  import StatusBar from '../components/map/StatusBar.svelte';
+  import type { Findable } from '../components/map/StatusBar.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { CasesResponse, MapData } from '../lib/api';
-  import { categoryLabel } from '../lib/format';
-  import type { GraphNode } from '../lib/map/graph';
+  import { benchmarkName, categoryLabel } from '../lib/format';
+  import { contentOf, rankOnQuestions } from '../lib/map/content';
+  import { resultCounts } from '../lib/map/figures';
+  import type { GraphNode, NodeKind } from '../lib/map/graph';
   import { indexCells, listsOf, rankSections, shortModel } from '../lib/map/ranking';
-  import type { MapFilter, RankKind } from '../lib/map/ranking';
+  import type { MapFilter } from '../lib/map/ranking';
+  import { RESULT_LABELS, indexItems } from '../lib/map/results';
+  import type { ResultState } from '../lib/map/results';
   import { live } from '../lib/live.svelte';
+
+  type Focus = { kind: NodeKind; key: string };
 
   let data = $state<MapData | null>(null);
   let catalog = $state<CasesResponse | null>(null);
   let error = $state('');
   let launching = $state(false);
   let filter = $state<MapFilter>({ machine: '', model: '', category: '' });
+  let focus = $state.raw<Focus | null>(null);
   let pinned = $state('');
   let lastCampaign = '';
-  let filtersEl = $state<HTMLDivElement | undefined>();
+  let unreachable = $state(false);
+  let mounted = false;
+  let retry: ReturnType<typeof setTimeout> | undefined;
   let sideEl = $state<HTMLDivElement | undefined>();
+  let statusEl = $state<HTMLDivElement | undefined>();
+  let canvas = $state<MapCanvas | undefined>();
 
+  const RETRY_MS = 3000;
+  // Height of the benchmark popups, so they cover the edge of the graph at most.
+  const POPUP_ROOM = 52;
   const phone = window.matchMedia('(max-width: 760px)');
   const running = $derived(live.campaign !== '');
   const lists = $derived(data ? listsOf(data) : null);
-  const index = $derived(indexCells(data?.cells ?? []));
-  const sections = $derived(lists ? rankSections(index, lists, filter) : []);
-  const activeCategory = $derived(catalog?.cases.find((item) => item.id === live.caseId)?.category ?? '');
+  const cells = $derived(indexCells(data?.cells ?? []));
+  const items = $derived(indexItems(data?.items ?? []));
+  const content = $derived(lists && catalog && data ? contentOf(lists, catalog.cases, data.benchmarks) : null);
+  const sections = $derived(lists ? rankSections(cells, lists, filter) : []);
+  const focusQuestions = $derived.by(() => {
+    if (!content || !focus) return null;
+    const key = focus.key;
+    if (focus.kind === 'scenario') return content.questions.filter((question) => question.caseId === key);
+    return focus.kind === 'document' ? (content.documents.get(key) ?? []) : null;
+  });
+  const shownSections = $derived(content && focusQuestions ? rankOnQuestions(items, content.models, filter.machine, focusQuestions) : sections);
+  const focusLabel = $derived.by(() => {
+    if (!focus || !content) return '';
+    const key = focus.key;
+    if (focus.kind === 'scenario') return content.scenarios.find((scenario) => scenario.id === key)?.title ?? key;
+    if (focus.kind === 'question') return key.split('/').at(-1) ?? key;
+    if (focus.kind === 'benchmark') return benchmarkName(content.benchmarks.find((benchmark) => benchmark.id === key)?.name ?? key);
+    return key;
+  });
   const heading = $derived.by(() => {
+    if (focusQuestions) return 'Modèles sur ces questions';
     const parts = [
       filter.model && lists ? shortModel(filter.model, lists.models) : '',
       filter.category ? categoryLabel(filter.category) : '',
@@ -40,35 +75,71 @@
     ].filter(Boolean);
     return parts.length > 0 ? `Classement : ${parts.join(', ')}` : 'Classement général';
   });
+  const results = $derived(content && filter.model ? resultCounts(content, items, filter) : null);
+  const findable = $derived<Findable[]>(
+    content
+      ? [
+          ...content.machines.map((key): Findable => ({ kind: 'machine', key, label: key, type: 'Machine' })),
+          ...content.models.map((key): Findable => ({ kind: 'model', key, label: key, type: 'Modèle' })),
+          ...content.themes.map((key): Findable => ({ kind: 'theme', key, label: categoryLabel(key), type: 'Thème' })),
+          ...content.scenarios.map((scenario): Findable => ({ kind: 'scenario', key: scenario.id, label: scenario.title, type: 'Scénario' })),
+          ...content.questions.map((question): Findable => ({ kind: 'question', key: question.key, label: question.item.id, type: 'Question' })),
+          ...[...content.documents.keys()].map((key): Findable => ({ kind: 'document', key, label: key, type: 'Document' })),
+          ...content.benchmarks.map((benchmark): Findable => ({ kind: 'benchmark', key: benchmark.id, label: benchmarkName(benchmark.name), type: 'Benchmark' })),
+        ]
+      : [],
+  );
 
-  /** Loads the cumulated figures and the scenarios */
+  /** Loads the cumulated figures and the scenarios; the last ones stay on screen when the server is away */
   async function load(): Promise<void> {
+    clearTimeout(retry);
     try {
       [data, catalog] = await Promise.all([api.map(), api.cases()]);
+      unreachable = false;
       error = '';
     } catch (loadError) {
-      error = errorMessage(loadError);
+      // The API words its own errors; a bare status comes from the dev proxy while the app restarts.
+      const message = errorMessage(loadError);
+      unreachable = message === 'Serveur injoignable' || /^Erreur 5\d\d$/.test(message);
+      error = unreachable ? '' : message;
+      if (mounted) retry = setTimeout(load, RETRY_MS);
     }
   }
 
   /**
-   * Same state as the filter bar: a second click on a node clears it
-   * @param {RankKind} kind - node type
-   * @param {string} key - machine label, model tag or category
+   * Machine, model and theme combine as filters; the finer nodes open their detail. A second click clears
+   * @param {NodeKind} kind - node type
+   * @param {string} key - identity within the type
    */
-  function pick(kind: RankKind, key: string): void {
+  function pick(kind: NodeKind, key: string): void {
     if (kind === 'machine') filter.machine = filter.machine === key ? '' : key;
-    if (kind === 'model') filter.model = filter.model === key ? '' : key;
-    if (kind === 'theme') filter.category = filter.category === key ? '' : key;
+    else if (kind === 'model') filter.model = filter.model === key ? '' : key;
+    else if (kind === 'theme') filter.category = filter.category === key ? '' : key;
+    else focus = focus?.kind === kind && focus.key === key ? null : { kind, key };
   }
 
   /** @returns {{ top: number; right: number; bottom: number; left: number }} - canvas margins the panels cover */
   function reserve(): { top: number; right: number; bottom: number; left: number } {
-    if (phone.matches || !filtersEl || !sideEl) return { top: 8, right: 8, bottom: 8, left: 8 };
-    return { top: filtersEl.getBoundingClientRect().bottom + 12, right: window.innerWidth - sideEl.getBoundingClientRect().left + 12, bottom: 16, left: 16 };
+    if (phone.matches || !statusEl || !sideEl) return { top: 8, right: 8, bottom: 8, left: 8 };
+    const stage = statusEl.getBoundingClientRect();
+    return { top: sideEl.getBoundingClientRect().top + 8, right: window.innerWidth - sideEl.getBoundingClientRect().left + 12, bottom: window.innerHeight - stage.top + POPUP_ROOM, left: 16 };
   }
 
-  onMount(load);
+  onMount(() => {
+    mounted = true;
+    void load();
+    return () => {
+      mounted = false;
+      clearTimeout(retry);
+    };
+  });
+
+  let seenReconnects = live.reconnects;
+  $effect(() => {
+    if (live.reconnects === seenReconnects) return;
+    seenReconnects = live.reconnects;
+    void load();
+  });
 
   $effect(() => {
     if (live.campaign) lastCampaign = live.campaign;
@@ -86,38 +157,73 @@
 </script>
 
 <div class="map">
-  <div class="filters" bind:this={filtersEl}>
-    {#if lists}
-      <MapFilters bind:filter {lists} {launching} onlaunch={() => (launching = !launching)} />
-    {/if}
-    <Notice message={error} />
-  </div>
-
-  {#if lists}
+  {#if content}
     <MapCanvas
-      {lists}
-      {index}
+      bind:this={canvas}
+      {content}
+      {cells}
+      {items}
       {filter}
+      {focus}
       {sections}
-      {activeCategory}
-      categoryOf={(caseId) => catalog?.cases.find((item) => item.id === caseId)?.category ?? ''}
       {reserve}
       onpick={(node: GraphNode) => pick(node.kind, node.key)}
+      onclear={() => (focus = null)}
     />
   {/if}
 
   <div class="side" bind:this={sideEl}>
+    <Notice message={error} />
+    {#if unreachable}
+      <p class="reconnecting glass" role="status"><Icon name="refresh" size={16} /> Reconnexion...</p>
+    {/if}
     {#if running}
       <LivePanel {catalog} />
     {:else if launching}
       <BenchmarkLauncher category={filter.category} onclose={() => (launching = false)} />
-    {:else if lists}
-      <RankingPanel {sections} {heading} models={lists.models} onpick={pick} />
+    {:else if content}
+      {#if focus}
+        <NodeDetail {focus} {content} {items} {filter} onclose={() => (focus = null)} />
+      {/if}
+      {#if focus?.kind !== 'question' && focus?.kind !== 'benchmark'}
+        <RankingPanel sections={shownSections} {heading} models={content.models} onpick={pick} />
+      {/if}
     {/if}
   </div>
 
+  {#if results}
+    <ul class="legend" aria-label="Résultats de {filter.model} par question">
+      {#each Object.entries(RESULT_LABELS) as [state, label] (state)}
+        <li><ResultMark state={state as ResultState} /> <strong>{results[state as ResultState]}</strong> {label}</li>
+      {/each}
+    </ul>
+  {/if}
+
   <div class="popups">
     <BenchmarkStack benchmarks={data?.benchmarks ?? []} {filter} {pinned} />
+  </div>
+
+  <div class="footer" bind:this={statusEl}>
+    {#if content}
+      <StatusBar
+        {content}
+        {filter}
+        {focusLabel}
+        {launching}
+        {findable}
+        onfind={(entry) => pick(entry.kind, entry.key)}
+        onremove={(axis) => {
+          filter[axis] = '';
+        }}
+        onclearfocus={() => (focus = null)}
+        onclearall={() => {
+          filter = { machine: '', model: '', category: '' };
+          focus = null;
+        }}
+        onrecenter={() => canvas?.recenter()}
+        onlaunch={() => (launching = !launching)}
+      />
+    {/if}
   </div>
 </div>
 
@@ -128,40 +234,83 @@
     inset: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 380px);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     gap: var(--s3);
-    padding: calc(var(--s3) + 58px + var(--s3)) max(var(--s5), calc((100vw - var(--page-width)) / 2)) var(--s4);
+    padding-top: calc(var(--s3) + 58px + var(--s3));
   }
 
-  .filters,
   .side,
-  .popups {
+  .popups,
+  .footer {
     position: relative;
     z-index: 1;
     min-width: 0;
     min-height: 0;
   }
 
-  .filters {
-    grid-area: 1 / 1;
-    display: grid;
-    gap: var(--s2);
-  }
-
   .side {
-    grid-area: 1 / 2 / 3 / 3;
+    grid-area: 1 / 2;
     display: flex;
     flex-direction: column;
     justify-self: stretch;
     align-self: start;
     max-height: 100%;
+    margin-inline-end: var(--s3);
+  }
+
+  .reconnecting {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    margin-bottom: var(--s2);
+    padding: var(--s2) var(--s3);
+    border-radius: var(--radius);
+    font-size: var(--text-sm);
   }
 
   .popups {
-    grid-area: 2 / 1;
+    grid-area: 1 / 1;
     align-self: end;
     justify-self: start;
-    width: min(100%, 25rem);
+    width: calc(100% - 2 * var(--s3));
+    margin-inline-start: var(--s3);
+    pointer-events: none;
+  }
+
+  /* Plain figures on a plate of the ground: the legend sits over the graph and stays out of the glass family. */
+  .legend {
+    position: relative;
+    z-index: 1;
+    grid-area: 1 / 1;
+    align-self: start;
+    justify-self: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s1) var(--s3);
+    margin: 0 0 0 var(--s4);
+    padding: var(--s1) var(--s2);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--ground) 80%, transparent);
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    list-style: none;
+    pointer-events: none;
+  }
+
+  .legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s1);
+  }
+
+  .legend strong {
+    color: var(--ink);
+    font-weight: 650;
+  }
+
+  .footer {
+    grid-area: 2 / 1 / 3 / 3;
   }
 
   /* On a phone the page scrolls: map first, then rankings and popups in the flow. */
@@ -175,10 +324,12 @@
 
     .side {
       max-height: none;
+      margin-inline-end: 0;
     }
 
     .popups {
       width: 100%;
+      margin-inline-start: 0;
     }
   }
 </style>

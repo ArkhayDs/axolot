@@ -36,6 +36,22 @@
   --series-8: #e66767;
   --series-other: #8ba5a3;
 
+  /* Atlas communities, one per theme, kept clear of the status colors. Hex only: the canvas appends an alpha to them. */
+  --community-1: #8a9bff;
+  --community-2: #c58cff;
+  --community-3: #f48fd2;
+  --community-4: #4fd1c5;
+  --community-5: #e5c08a;
+  --community-6: #5cc8ff;
+  --community-7: #c4cf6a;
+  --community-8: #f4a27e;
+  --community-9: #aebfc6;
+
+  /* Atlas background: hairlines and halo strength, read by the canvas */
+  --map-grid: #11232a;
+  --map-link: #4a6c75;
+  --map-halo-opacity: 0.13;
+
   /* Glass: navigation and floating panels only */
   --glass: color-mix(in srgb, var(--panel) 62%, transparent);
   --glass-edge: color-mix(in srgb, var(--ink) 16%, transparent);

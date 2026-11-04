@@ -24,11 +24,15 @@ export const live = $state({
   runs: [] as Run[],
   // Bumped when a campaign ends, so pages reload their results.
   finished: 0,
+  // Bumped when the stream comes back after a loss, so pages reload what they missed.
+  reconnects: 0,
   pulls: {} as Record<string, Pull>,
   ingest: null as Ingest | null,
 });
 
-export type Pulse = { type: 'token' } | { type: 'score'; caseId: string; score: number; failed: boolean };
+export type Pulse = { type: 'token' } | { type: 'score'; caseId: string; itemId: string; score: number; failed: boolean };
+
+const RECONNECT_MS = 2000;
 
 const pulseListeners = new Set<(pulse: Pulse) => void>();
 
@@ -92,7 +96,7 @@ function apply(event: Record<string, unknown>): void {
       live.runs.push(run);
       live.done = live.runs.length;
       pulseListeners.forEach((listener) =>
-        listener({ type: 'score', caseId: run.case_id, score: run.score, failed: run.error !== '' }),
+        listener({ type: 'score', caseId: run.case_id, itemId: run.item_id, score: run.score, failed: run.error !== '' }),
       );
       break;
     }
@@ -109,10 +113,14 @@ function apply(event: Record<string, unknown>): void {
   }
 }
 
-/** Opens the stream; EventSource reconnects by itself, and status resynchronizes the campaign. */
+/**
+ * Opens the stream; status resynchronizes the campaign on every opening.
+ * EventSource retries by itself after a network error but gives up on an HTTP error, which is what a proxy answers while the app restarts.
+ */
 export function connectLive(): void {
   const source = new EventSource('/api/events');
   source.onopen = () => {
+    if (!live.connected) live.reconnects += 1;
     live.connected = true;
     void api
       .status()
@@ -127,6 +135,7 @@ export function connectLive(): void {
   };
   source.onerror = () => {
     live.connected = false;
+    if (source.readyState === EventSource.CLOSED) setTimeout(connectLive, RECONNECT_MS);
   };
   source.onmessage = (message: MessageEvent<string>) => apply(JSON.parse(message.data) as Record<string, unknown>);
 }

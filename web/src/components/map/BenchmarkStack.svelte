@@ -12,7 +12,7 @@
     pinned,
   }: { benchmarks: MapBenchmark[]; filter: MapFilter; pinned: string } = $props();
 
-  const SHOWN = 4;
+  const SHOWN = 3;
   const STATES: Record<MapBenchmark['status'], { icon: IconName; tone: string }> = {
     running: { icon: 'refresh', tone: 'state-warning' },
     done: { icon: 'check', tone: 'state-good' },
@@ -78,8 +78,12 @@
     width: 100%;
   }
 
+  /* One row along the bottom edge, so a selection covers as little of the graph as possible. */
   ul {
     display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 21rem);
+    justify-content: start;
     gap: var(--s1);
     margin: 0;
     padding: 0;
@@ -88,6 +92,7 @@
 
   .more {
     justify-self: start;
+    pointer-events: auto;
     padding: var(--s1) var(--s3);
     border-radius: var(--radius-sm);
     color: var(--ink-2);
@@ -103,6 +108,7 @@
   /* Corner brackets give the heads-up display look; the rest stays the app's glass. */
   .card {
     position: relative;
+    pointer-events: auto;
     border-radius: var(--radius-sm);
     animation: card-in 0.5s var(--ease-out) backwards;
     animation-delay: calc(var(--i) * 60ms);
@@ -142,6 +148,7 @@
 
   a {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
     padding: var(--s1) calc(var(--s2) + 28px) var(--s1) var(--s3);
     border-radius: var(--radius-sm);
@@ -219,5 +226,13 @@
   .close:hover {
     color: var(--ink);
     background: color-mix(in srgb, var(--ink) 12%, transparent);
+  }
+
+  @media (max-width: 760px) {
+    ul {
+      grid-auto-flow: row;
+      grid-auto-columns: auto;
+      justify-content: stretch;
+    }
   }
 </style>
