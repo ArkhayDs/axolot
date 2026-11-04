@@ -7,25 +7,23 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 
 ## Fait
 - Backend Go complet et testé : connexions, téléchargements, cas, corpus, indexation, campagnes, événements SSE, analytics.
-- Corpus fictif "Groupe Hélianthe" (`corpus/demo`) et 8 cas, 41 items (`cases/`).
+- Corpus fictif "Groupe Hélianthe" (`corpus/demo`, 16 fichiers, 57 extraits) et 13 cas, 66 items (`cases/`), dont 5 cas durcis.
+- Front Svelte 5 embarqué dans le binaire : Direction, Labo, Cas, Résultats, Réglages. README et captures dans `docs/captures`.
 
-## Premier essai réel (2026-11-04, API seule, sans front)
-| Modèle | Score moyen | Temps médian | tok/s médian | Campagne (41 items) |
-|---|---|---|---|---|
-| `gemma4:e4b-it-q4_K_M` | 99 | 0,6 s | 169 | 55 s |
-| `qwen3.6:27b-q4_K_M` | 100 | 4,3 s | 22 | 236 s |
+## Campagne de démo (2026-11-04, 132 réponses, depuis l'interface)
+| Modèle | Score moyen | Temps médian | tok/s médian |
+|---|---|---|---|
+| `gemma4:e4b-it-q4_K_M` | 86 | 0,6 s | 156 |
+| `qwen3.6:27b-q4_K_M` | 95,5 | 5,2 s | 21 |
 
-- Connexion conteneur vers Ollama, indexation (28 extraits, 9 fichiers), campagne et notation fonctionnent de bout en bout.
-- **Cas trop faciles** : les deux modèles frôlent 100 %, y compris sur les pièges. Les réponses relues sont correctes, mais ce score ne départage pas les modèles. Le prompt RAG aide aussi beaucoup : il demande explicitement la version la plus récente et de vérifier l'entité.
-- Le seul échec (Gemma, `python-top-stores`, vérification regex) reste à relire : défaut du modèle ou vérification trop stricte.
-- Ces deux essais restent en base (noms `Essai ...`), à supprimer avant la démo.
+- Les cas durcis départagent : Questions ambiguës 50 / 83,3, Lecture de documents 25 / 100, Documents internes 96 / 100.
+- Échecs relus un par un : aucun faux positif trouvé, valeurs attendues des 6 calculs revérifiées à la main. Calcul à 66,7 des deux côtés par coïncidence, sur des erreurs différentes.
+- `python-top-stores` (Gemma) : code correct, signature non respectée alors que l'énoncé la demandait exacte. Défaut du modèle, vérification conservée.
+- Limites connues : `lecture-km-brico-seule` donne 0/100 à Gemma pour 105,8 au lieu de 105,84 (égalité stricte). Le prompt RAG de `internal/rag/rag.go` annonce toujours les pièges, seuls les cas `lecture-documents` y échappent.
 
-## Reste à faire, dans l'ordre
-0. Dès le début de la reprise, lancer un agent en arrière-plan pour ajouter des cas durcis, validés par Raphaël : calculs à partir de plusieurs règles, croisement de documents, questions ambiguës, RAG sans consigne qui annonce les pièges, documents plus longs. Objectif : séparer réellement les deux modèles. Il écrit dans `cases/` et `corpus/demo/` uniquement, sans changer les cas existants, puis vérifie avec `make test`.
-1. Front Svelte 5 dans `web/` (`package.json`, `package-lock.json`, `vite.config`, scripts `dev`, `build`, `check`). Le `Dockerfile` et `compose.yaml` l'attendent déjà. Proxy Vite `/api` vers `process.env.AXOLOT_API`, avec `web/embed.go` et `web/dist/.gitkeep` à conserver.
-2. Vérifier avec Ollama lancé : `host.docker.internal` depuis Colima, modèles, indexation, une campagne réelle.
-3. Lancer la campagne de démo avant 16h30, vérifier les scores et les pièges (faux positifs possibles).
-4. README court, captures desktop + mobile via Playwright.
+## Reste à faire
+- Avant la démo, sur accord de Raphaël : supprimer de la base `Essai qwen...`, `Essai gemma...`, `Essai front` et `Campagne` (annulée, 0 réponse).
+- Répéter le parcours sur `http://localhost:5090` : Direction, un cas en direct dans le Labo, citation ouverte dans une page de cas.
 
 ## UI (`/impeccable`, français, peu de texte, icônes animées)
 - **Direction** : grande synthèse pour non-tech, gagnants qualité / vitesse / compromis par tâche.
