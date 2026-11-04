@@ -43,13 +43,13 @@
   let missing = $state(false);
 
   const counters = $derived([
-    { value: content.machines.length, unit: 'machine' },
-    { value: content.models.length, unit: 'modèle' },
-    { value: content.themes.length, unit: 'thème' },
-    { value: content.scenarios.length, unit: 'scénario' },
-    { value: content.questions.length, unit: 'question' },
-    { value: content.documents.size, unit: 'document' },
-    { value: content.benchmarks.length, unit: 'benchmark' },
+    { value: content.machines.length, unit: 'machine', secondary: true },
+    { value: content.models.length, unit: 'modèle', secondary: false },
+    { value: content.themes.length, unit: 'thème', secondary: false },
+    { value: content.scenarios.length, unit: 'scénario', secondary: true },
+    { value: content.questions.length, unit: 'question', secondary: false },
+    { value: content.documents.size, unit: 'document', secondary: false },
+    { value: content.benchmarks.length, unit: 'benchmark', secondary: true },
   ]);
   const pills = $derived(
     [
@@ -75,7 +75,7 @@
 <footer class="status">
   <ul class="counters" aria-label="Contenu de l'Atlas">
     {#each counters as counter (counter.unit)}
-      <li><strong>{counter.value}</strong> {counter.unit}{counter.value > 1 ? 's' : ''}</li>
+      <li class:secondary={counter.secondary}><strong>{counter.value}</strong> {counter.unit}{counter.value > 1 ? 's' : ''}</li>
     {/each}
   </ul>
 
@@ -256,6 +256,21 @@
     min-height: 32px;
     padding: var(--s1) var(--s3);
     font-size: 0.8125rem;
+  }
+
+  /* The selection pills need the room more than the finer counters do. */
+  @media (max-width: 1320px) {
+    .secondary {
+      display: none;
+    }
+
+    .search input {
+      width: 8rem;
+    }
+
+    li:not(.secondary) + li:not(.secondary) {
+      border-inline-start: 1px solid var(--hairline);
+    }
   }
 
   @media (max-width: 760px) {
