@@ -6,6 +6,7 @@
   import type { IconName } from '../components/Icon.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
+  import ScoreNetwork from '../components/ScoreNetwork.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { CasesResponse, Hardware, Pick } from '../lib/api';
   import { campaignResults, picked } from '../lib/campaigns.svelte';
@@ -17,6 +18,8 @@
 
   const results = campaignResults(() => picked.id);
   const models = $derived([...new Set((results.detail?.stats ?? []).map((stat) => stat.model))].sort());
+  // The tag is only dropped while the family alone still identifies each model.
+  const shortNames = $derived(new Set(models.map((model) => model.split(':')[0])).size === models.length);
   const shownMachine = $derived(results.detail?.campaign.hardware ?? hardware);
   const questions = $derived((cases?.cases ?? []).reduce((total, item) => total + item.items.length, 0));
 
@@ -64,6 +67,8 @@
   <Notice message={loadError || results.error || picked.error} />
 
   {#if results.detail && results.detail.verdicts.length > 0}
+    <div class="synthesis">
+      <div class="verdict-block">
     <div class="table-wrap">
       <table class="verdicts">
         <thead>
@@ -83,7 +88,7 @@
                 <td data-label={column.label}>
                   {#if pick}
                     <span class="winner">
-                      <ModelName name={pick.model} color={seriesColor(pick.model, models)} />
+                      <ModelName name={pick.model} color={seriesColor(pick.model, models)} short={shortNames} />
                       <span class="figure">{figure(pick, column.key)}</span>
                     </span>
                   {:else}
@@ -97,6 +102,9 @@
       </table>
     </div>
     <p class="muted caption">Temps médian par réponse. Compromis : le plus rapide à moins de 10 points du meilleur score.</p>
+      </div>
+      <ScoreNetwork stats={results.detail.stats} {models} />
+    </div>
   {:else if !results.error && !picked.error}
     <div class="empty">
       <h2>Aucun résultat pour l'instant</h2>
@@ -145,16 +153,29 @@
     gap: var(--s2);
   }
 
+  .synthesis {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--s4);
+  }
+
+  .verdict-block {
+    display: grid;
+    gap: var(--s2);
+    min-width: 0;
+  }
+
+  .verdicts th,
   .verdicts td {
-    min-width: 13rem;
-    padding-block: var(--s2);
+    padding: var(--s2) var(--s3);
   }
 
   .winner {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
-    gap: 0 var(--s3);
+    gap: var(--s2);
+    white-space: nowrap;
   }
 
   .figure {
@@ -162,7 +183,6 @@
   }
 
   .caption {
-    margin-top: calc(-1 * var(--s4));
     font-size: var(--text-sm);
   }
 
@@ -199,6 +219,13 @@
 
   .link {
     color: var(--axis);
+  }
+
+  /* Below this width the diagram needs its own row to stay readable. */
+  @media (max-width: 1240px) {
+    .synthesis {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   /* A phone reads the table as one block per task: every cell repeats its column name. */
