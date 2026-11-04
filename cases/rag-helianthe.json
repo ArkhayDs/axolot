@@ -14,7 +14,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "charte-informatique.md", "quote": "Un mot de passe doit comporter au moins 14 caractères."}]
+        "sources": [{"file": "charte-informatique.docx", "quote": "Un mot de passe doit comporter au moins 14 caractères."}]
       }
     },
     {
@@ -25,7 +25,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "charte-informatique.md", "quote": "Signaler la perte au helpdesk dans un délai de 2 heures"}]
+        "sources": [{"file": "charte-informatique.docx", "quote": "Signaler la perte au helpdesk dans un délai de 2 heures"}]
       }
     },
     {
@@ -36,7 +36,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "procedure-retours-clients.md", "quote": "Les produits non alimentaires d'Hélianthe Hyper peuvent être retournés sous 40 jours après l'achat."}]
+        "sources": [{"file": "procedure-retours-clients.pdf", "quote": "Les produits non alimentaires d'Hélianthe Hyper peuvent être retournés sous 40 jours après l'achat."}]
       }
     },
     {
@@ -47,7 +47,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "procedure-retours-clients.md", "quote": "Les produits frais défectueux sont repris sous 48 heures après l'achat."}]
+        "sources": [{"file": "procedure-retours-clients.pdf", "quote": "Les produits frais défectueux sont repris sous 48 heures après l'achat."}]
       }
     },
     {
@@ -58,7 +58,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "procedure-retours-clients.md", "quote": "L'outillage électroportatif d'Hélianthe Brico peut être retourné sous 60 jours s'il n'a pas servi."}]
+        "sources": [{"file": "procedure-retours-clients.pdf", "quote": "L'outillage électroportatif d'Hélianthe Brico peut être retourné sous 60 jours s'il n'a pas servi."}]
       }
     },
     {
@@ -69,7 +69,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "guide-integration.md", "quote": "Le rapport d'étonnement est à remettre au service RH à J+45."}]
+        "sources": [{"file": "guide-integration.docx", "quote": "Le rapport d'étonnement est à remettre au service RH à J+45."}]
       }
     },
     {
@@ -80,7 +80,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "guide-integration.md", "quote": "Le premier jour, l'accueil a lieu à 8 h 45 à la réception du site."}]
+        "sources": [{"file": "guide-integration.docx", "quote": "Le premier jour, l'accueil a lieu à 8 h 45 à la réception du site."}]
       }
     },
     {
@@ -113,7 +113,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "presentation-groupe.md", "quote": "exploite 21 magasins de bricolage et jardin"}]
+        "sources": [{"file": "presentation-groupe.pptx", "quote": "exploite 21 magasins de bricolage et jardin"}]
       }
     },
     {

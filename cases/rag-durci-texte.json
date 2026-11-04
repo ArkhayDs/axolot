@@ -24,7 +24,7 @@
       ],
       "rag": {
         "trap": "none",
-        "sources": [{"file": "procedure-retours-clients.md", "quote": "Les produits non alimentaires d'Hélianthe Hyper peuvent être retournés sous 40 jours après l'achat."}]
+        "sources": [{"file": "procedure-retours-clients.pdf", "quote": "Les produits non alimentaires d'Hélianthe Hyper peuvent être retournés sous 40 jours après l'achat."}]
       }
     },
     {

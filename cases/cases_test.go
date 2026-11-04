@@ -1,10 +1,13 @@
 package cases
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/arkhayds/axolot/internal/rag"
 )
 
 func TestLoadValidatesEmbeddedCases(t *testing.T) {
@@ -26,7 +29,8 @@ func TestLoadValidatesEmbeddedCases(t *testing.T) {
 	}
 }
 
-// The presenter opens these passages by hand during the demo, so each quote must exist verbatim.
+// The presenter opens these passages by hand during the demo, so each quote must exist verbatim
+// in the extracted text: that is what the models read and where the front-end highlights.
 func TestRAGQuotesExistInCorpus(t *testing.T) {
 	loaded, err := Load()
 	if err != nil {
@@ -46,10 +50,41 @@ func TestRAGQuotesExistInCorpus(t *testing.T) {
 					t.Errorf("%s: %v", item.ID, err)
 					continue
 				}
-				if !strings.Contains(string(raw), source.Quote) {
+				text, err := rag.Extract(source.File, raw)
+				if err != nil {
+					t.Errorf("%s: %v", item.ID, err)
+					continue
+				}
+				if !strings.Contains(text, source.Quote) {
 					t.Errorf("%s: quote not found in %s: %q", item.ID, source.File, source.Quote)
 				}
 			}
+		}
+	}
+}
+
+// One unreadable document fails the whole indexing, so each one must extract, cited or not.
+func TestCorpusDocumentsExtract(t *testing.T) {
+	demo := os.DirFS(filepath.Join("..", "corpus", "demo"))
+	names, err := rag.Files(demo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) == 0 {
+		t.Fatal("empty corpus")
+	}
+	for _, name := range names {
+		raw, err := fs.ReadFile(demo, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text, err := rag.Extract(name, raw)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		if !strings.Contains(text, "Document fictif") {
+			t.Errorf("%s: fiction notice lost", name)
 		}
 	}
 }

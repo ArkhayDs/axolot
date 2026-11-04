@@ -45,7 +45,7 @@
         "trap": "outdated",
         "sources": [
           {"file": "astreintes-regime-general.md", "quote": "Chez Hélianthe Hyper, le forfait hebdomadaire d'astreinte est de 180 euros."},
-          {"file": "astreintes-avenant-mars.md", "quote": "À compter du 1er mars 2026, l'heure d'intervention de nuit est portée à 48 euros pour les équipes de maintenance d'Hélianthe Hyper."}
+          {"file": "astreintes-avenant-mars.eml", "quote": "À compter du 1er mars 2026, l'heure d'intervention de nuit est portée à 48 euros pour les équipes de maintenance d'Hélianthe Hyper."}
         ]
       }
     },
@@ -67,8 +67,8 @@
       "rag": {
         "trap": "other_entity",
         "sources": [
-          {"file": "magasins-zones-livraison.md", "quote": "| Hélianthe Brico | Sellan-les-Bains | C |"},
-          {"file": "livraison-domicile-grille.md", "quote": "| Brico zone C | 35 euros | 65 euros | 99 euros |"}
+          {"file": "magasins-zones-livraison.xlsx", "quote": "| Hélianthe Brico | Sellan-les-Bains | C |"},
+          {"file": "livraison-domicile-grille.xlsx", "quote": "| Brico zone C | 35 euros | 65 euros | 99 euros |"}
         ]
       }
     },
@@ -90,8 +90,8 @@
       "rag": {
         "trap": "other_entity",
         "sources": [
-          {"file": "magasins-zones-livraison.md", "quote": "| Hélianthe Hyper | Port-Orvane | C |"},
-          {"file": "livraison-domicile-grille.md", "quote": "Une livraison le samedi coûte 10 euros de plus chez Hélianthe Hyper et 18 euros de plus chez Hélianthe Brico."}
+          {"file": "magasins-zones-livraison.xlsx", "quote": "| Hélianthe Hyper | Port-Orvane | C |"},
+          {"file": "livraison-domicile-grille.xlsx", "quote": "Une livraison le samedi coûte 10 euros de plus chez Hélianthe Hyper et 18 euros de plus chez Hélianthe Brico."}
         ]
       }
     },
