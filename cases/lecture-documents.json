@@ -1,0 +1,70 @@
+{
+  "id": "lecture-documents",
+  "title": "Lecture de documents sans consigne sur les pièges",
+  "kind": "decision",
+  "category": "lecture",
+  "language": "fr",
+  "system": "Tu réponds aux questions des collaborateurs du Groupe Hélianthe à partir des documents fournis. Réponds uniquement avec un objet JSON : raisonnement (étapes brèves, sur une seule ligne), reponse (résultat demandé, en nombre avec un point décimal, sans unité).",
+  "items": [
+    {
+      "id": "lecture-nuit-hyper-fevrier",
+      "prompt": "Document 1 : Avenant n° 3 au régime général d'astreinte\nÀ compter du 1er mars 2026, l'heure d'intervention de nuit est portée à 48 euros pour les équipes de maintenance d'Hélianthe Hyper.\nLe forfait hebdomadaire et l'heure de jour d'Hélianthe Hyper ne changent pas.\n\nDocument 2 : Astreintes techniques - régime de 2022\nDans le régime de 2022, l'heure d'intervention est payée 25 euros de jour et 38 euros de nuit, quelle que soit l'entité.\n\nDocument 3 : Régime général d'astreinte du Groupe Hélianthe\n**Date d'effet :** 1er janvier 2025\nChez Hélianthe Hyper, l'heure d'intervention de nuit est payée 42 euros.\nChez Hélianthe Brico, l'heure d'intervention de nuit est payée 44 euros.\n\nQuestion : nous sommes le 4 novembre 2026. Un technicien d'Hélianthe Hyper régularise une intervention de nuit effectuée le 14 février 2026. Quel tarif horaire lui appliquer, en euros ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "reponse"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "reponse": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "reponse", "value": 42}
+      ]
+    },
+    {
+      "id": "lecture-plafond-voyages-avril",
+      "prompt": "Document 1 : Régime général d'astreinte du Groupe Hélianthe\n**Date d'effet :** 1er janvier 2025\nChez Hélianthe Hyper, le forfait hebdomadaire d'astreinte est de 180 euros.\nChez Hélianthe Voyages, le forfait hebdomadaire d'astreinte est de 170 euros.\nLe montant des interventions d'une même semaine est plafonné à 300 euros. Le forfait et le supplément de jour férié ne sont pas soumis à ce plafond.\n\nDocument 2 : Astreintes techniques - régime de 2022\nDans le régime de 2022, le forfait hebdomadaire d'astreinte est de 150 euros, quelle que soit l'entité.\n\nDocument 3 : Avenant n° 3 au régime général d'astreinte\nÀ compter du 1er mars 2026, le plafond hebdomadaire des interventions passe de 300 à 360 euros, pour toutes les entités et pour le siège.\n\nQuestion : pour une semaine d'astreinte d'avril 2026, sans jour férié, une conseillère d'Hélianthe Voyages a déclaré des interventions valorisées 410 euros au tarif horaire. Quel montant total lui est dû pour la semaine, forfait compris ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "reponse"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "reponse": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "reponse", "value": 530}
+      ]
+    },
+    {
+      "id": "lecture-repas-agence",
+      "prompt": "Document 1 : Présentation du Groupe Hélianthe\n- **Hélianthe Hyper** : 34 hypermarchés, 4 900 collaborateurs.\n- **Hélianthe Brico** exploite 21 magasins de bricolage et jardin, avec 1 180 collaborateurs.\n- **Hélianthe Voyages** : 12 agences et une plateforme de réservation, 240 collaborateurs.\n\nDocument 2 : Politique de notes de frais - version 2026\n- Les boissons alcoolisées ne sont pas remboursées.\n- Chez Hélianthe Hyper, un repas en déplacement est remboursé dans la limite de 19,50 euros TTC.\n- Chez Hélianthe Voyages, un repas en déplacement est remboursé dans la limite de 28,50 euros TTC.\nHélianthe Brico applique les barèmes d'Hélianthe Hyper, sans exception.\n\nQuestion : je suis conseillère à l'agence de Port-Orvane. En déplacement, j'ai dîné pour 31,00 euros, dont 2,00 euros de café. Combien me sera remboursé, en euros ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "reponse"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "reponse": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "reponse", "value": 28.50}
+      ]
+    },
+    {
+      "id": "lecture-km-brico-seule",
+      "prompt": "Document 1 : Note mobilité : véhicule personnel et covoiturage\nLes indemnités sont calculées sur les distances forfaitaires ci-dessous, données pour un aller simple. Le kilométrage réel du compteur n'est pas retenu, même en cas de détour ou de déviation.\n| Villeneuve-sur-Aurance et Port-Orvane | 126 km |\n| Sellan-les-Bains et Port-Orvane | 58 km |\nLa majoration de covoiturage est de 0,05 euro par kilomètre, ajoutée à l'indemnité kilométrique de l'entité du conducteur.\nElle s'applique dès lors qu'au moins deux collaborateurs du groupe voyagent dans le véhicule, sur tout le trajet déclaré.\n\nDocument 2 : Politique de notes de frais - version 2026\n- Chez Hélianthe Hyper, l'indemnité kilométrique est de 0,42 euro par kilomètre.\n- Chez Hélianthe Voyages, l'indemnité kilométrique est de 0,38 euro par kilomètre.\nHélianthe Brico applique les barèmes d'Hélianthe Hyper, sans exception.\n\nQuestion : je travaille chez Hélianthe Brico. J'ai fait seule, avec mon véhicule personnel, un aller-retour entre Villeneuve-sur-Aurance et Port-Orvane. Mon compteur indique 271 km. Quelle indemnité vais-je recevoir, en euros ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "reponse"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "reponse": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "reponse", "value": 105.84}
+      ]
+    }
+  ]
+}

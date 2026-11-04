@@ -1,0 +1,102 @@
+{
+  "id": "calculs-regles",
+  "title": "Calculs à partir de plusieurs règles de gestion",
+  "kind": "decision",
+  "category": "calcul",
+  "language": "fr",
+  "system": "Tu appliques les règles de gestion du Groupe Hélianthe aux données fournies. Réponds uniquement avec un objet JSON : raisonnement (étapes brèves du calcul, sur une seule ligne), puis le ou les résultats demandés, en nombres avec un point décimal, sans unité.",
+  "items": [
+    {
+      "id": "calcul-note-de-frais-mission",
+      "prompt": "Règles de remboursement :\n1. Repas : plafond de 28,50 euros par repas. Les boissons alcoolisées ne sont pas remboursées : leur prix est déduit du repas avant d'appliquer le plafond.\n2. Nuit d'hôtel : plafond de 140 euros par nuit, petit déjeuner compris. Un petit déjeuner facturé à part s'ajoute au prix de la nuit avant d'appliquer le plafond.\n3. Train : la 1re classe n'est remboursée que pour un trajet de plus de 3 heures. Sinon, le remboursement se limite au tarif de 2e classe.\n\nDépenses de la mission :\n- Dîner du lundi : 34,00 euros, dont 6,00 euros de vin.\n- Déjeuner du mardi : 31,20 euros, sans alcool.\n- Dîner du mardi : 27,00 euros, sans alcool.\n- Nuit du lundi : 128,00 euros, plus un petit déjeuner facturé à part 16,00 euros.\n- Nuit du mardi : 132,00 euros, petit déjeuner compris.\n- Train aller : 1re classe, 3 h 20 de trajet, 96,00 euros.\n- Train retour : 1re classe, 2 h 50 de trajet, 88,00 euros. Le même trajet coûte 61,00 euros en 2e classe.\n\nQuel est le montant total remboursé ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "montant_rembourse"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "montant_rembourse": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "montant_rembourse", "value": 512.50}
+      ]
+    },
+    {
+      "id": "calcul-semaine-astreinte",
+      "prompt": "Règles d'indemnisation d'une semaine d'astreinte :\n1. Forfait de 180 euros par semaine, plus 40 euros par jour férié compris dans la semaine.\n2. L'heure d'intervention est payée 30 euros de 7 h 00 à 22 h 00 et 42 euros de 22 h 00 à 7 h 00. Une intervention à cheval sur ces deux périodes est découpée.\n3. Chaque intervention compte au minimum une heure. Au-delà, sa durée est arrondie à la demi-heure supérieure.\n4. Une intervention de moins de 15 minutes résolue à distance n'est pas payée.\n5. Le montant total des interventions de la semaine est plafonné à 300 euros. Le forfait et le supplément de jour férié ne sont pas soumis à ce plafond.\n\nSemaine du technicien (le mercredi est férié) :\n- Mardi, de 23 h 10 à 23 h 50, sur place.\n- Mercredi, de 14 h 00 à 14 h 10, résolu à distance.\n- Vendredi, de 21 h 30 à 23 h 00, sur place.\n- Samedi, de 9 h 00 à 12 h 30, sur place.\n- Dimanche, de 8 h 00 à 11 h 20, sur place.\n\nQuel est le montant total dû pour cette semaine ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "montant_total"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "montant_total": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "montant_total", "value": 520}
+      ]
+    },
+    {
+      "id": "calcul-ticket-carte-soleil",
+      "prompt": "Règles de la Carte Soleil :\n1. Remise de 5 % sur les produits alimentaires et de 10 % sur les produits non alimentaires.\n2. Un article déjà en promotion ne reçoit aucune remise.\n3. Les livres ne reçoivent aucune remise et ne comptent pas pour le bon d'achat.\n4. Un bon d'achat de 8 euros se déduit du ticket si le total des articles, hors livres et après remises, atteint 135 euros.\n\nPanier d'un client porteur de la carte :\n- Produits alimentaires : 62,00 euros, dont 12,00 euros d'articles déjà en promotion.\n- Produits non alimentaires : 80,00 euros, dont 20,00 euros d'articles déjà en promotion.\n- Livres : 15,00 euros.\n\nQuel montant le client paie-t-il en caisse ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "montant_a_payer"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "montant_a_payer": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "montant_a_payer", "value": 148.50}
+      ]
+    },
+    {
+      "id": "calcul-droits-conges-arrivee",
+      "prompt": "Règles de congés payés :\n1. Un collaborateur à temps plein présent toute l'année a droit à 27 jours.\n2. Les droits sont réduits au prorata du temps de travail.\n3. En cas d'arrivée en cours d'année, ils sont réduits au prorata des mois comptés, sur 12. Le mois d'arrivée compte seulement si l'arrivée a lieu au plus tard le 15 du mois.\n4. Le résultat final est arrondi à la demi-journée supérieure.\n5. Au 31 décembre, au plus 5 jours de congés payés non pris sont reportés. L'excédent est perdu.\n6. Les jours pour événements familiaux ne sont pas des congés payés et ne s'en déduisent pas.\n\nSituation : arrivée le 16 mars, à 80 %, dans l'année considérée. Au 31 décembre, la personne a pris 9 jours de congés payés et 2 jours pour son déménagement, un événement familial.\n\nCalcule ses droits de congés payés pour l'année (droits_annuels) et le nombre de jours perdus au 31 décembre (jours_perdus).",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "droits_annuels", "jours_perdus"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "droits_annuels": {"type": "number"},
+          "jours_perdus": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "droits_annuels", "value": 16.5},
+        {"type": "json_equals", "path": "jours_perdus", "value": 2.5}
+      ]
+    },
+    {
+      "id": "calcul-annulation-apres-18h",
+      "prompt": "Règles d'annulation d'un voyage :\n1. Frais selon le nombre de jours entre la date retenue et le départ : 60 jours ou plus, 10 % du prix ; de 30 à 59 jours, 30 % ; de 8 à 29 jours, 60 % ; moins de 8 jours, 100 %.\n2. Des frais de dossier de 35 euros s'ajoutent toujours, une fois par dossier.\n3. La date retenue est celle de la réception de la demande si elle arrive avant 18 h 00 un jour ouvré. Sinon, c'est le jour ouvré suivant. Les jours ouvrés vont du lundi au vendredi.\n\nDossier : 4 voyageurs à 980 euros chacun, prix entièrement réglé. Départ le dimanche 18 avril 2027. La demande d'annulation est reçue le vendredi 19 mars 2027 à 18 h 40.\n\nQuel montant est remboursé au client ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "montant_rembourse"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "montant_rembourse": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "montant_rembourse", "value": 1533}
+      ]
+    },
+    {
+      "id": "calcul-livraison-remises-exclusives",
+      "prompt": "Règles de livraison :\n1. Tarif de base : 29 euros en zone A, 49 euros en zone B, 79 euros en zone C.\n2. Au-delà de 200 kg : 0,20 euro de plus par kilo dépassant 200 kg.\n3. Étage sans ascenseur : 12 euros par étage à partir du 2e étage, le 1er étage restant gratuit.\n4. Les remises ne se cumulent pas : seule la plus favorable au client s'applique.\n   a. Carte Soleil : 50 % de remise sur le tarif de base, hors suppléments.\n   b. Achats d'au moins 400 euros : 30 euros de remise sur le total, suppléments compris.\n   c. Livraison un mardi : 10 euros de remise sur le total.\n\nCommande : zone C, 280 kg, 4e étage sans ascenseur, client porteur de la Carte Soleil, 620 euros d'achats, livraison un mardi.\n\nQuel est le prix de la livraison ?",
+      "schema": {
+        "type": "object",
+        "required": ["raisonnement", "prix_livraison"],
+        "properties": {
+          "raisonnement": {"type": "string"},
+          "prix_livraison": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "prix_livraison", "value": 91.50}
+      ]
+    }
+  ]
+}

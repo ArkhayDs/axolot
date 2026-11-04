@@ -1,0 +1,53 @@
+{
+  "id": "rag-durci-texte",
+  "title": "Questions imprécises et détails enfouis dans les documents du Groupe Hélianthe",
+  "kind": "rag",
+  "category": "rag",
+  "language": "fr",
+  "items": [
+    {
+      "id": "durci-ambigu-hotel",
+      "prompt": "Quel est le plafond de remboursement d'une nuit d'hôtel ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?is)\\b95\\b.*\\b140\\b|\\b140\\b.*\\b95\\b|(quelle|votre|laquelle).{0,60}(entit|enseigne|soci[ée]t)|d[ée]pend|varie|selon\\s+(l.|votre\\s+|les\\s+)entit"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "notes-de-frais-2026.md", "quote": "Chez Hélianthe Voyages, une nuit d'hôtel est remboursée dans la limite de 140 euros TTC, petit déjeuner compris."}]
+      }
+    },
+    {
+      "id": "durci-ambigu-retour",
+      "prompt": "Combien de temps un client a-t-il pour rapporter un produit en magasin ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?is)\\b40\\b.*\\b(48|15|60)\\b|\\b48\\b.*\\b(40|15|60)\\b|\\b15\\b.*\\b(40|48|60)\\b|\\b60\\b.*\\b(40|48|15)\\b|(quel|quelle|laquelle).{0,40}(type|produit|cat[ée]gorie|nature|magasin|enseigne|entit)|d[ée]pend|varie"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "procedure-retours-clients.md", "quote": "Les produits non alimentaires d'Hélianthe Hyper peuvent être retournés sous 40 jours après l'achat."}]
+      }
+    },
+    {
+      "id": "durci-inventaire-aurance-nord",
+      "prompt": "À quelle date a lieu l'inventaire annuel du magasin Hélianthe Hyper d'Aurance-Nord ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b17\\s+janv|\\b17/0?1\\b"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "inventaire-annuel.md", "quote": "En raison des travaux du nouveau drive, le magasin Hélianthe Hyper d'Aurance-Nord réalise son inventaire le dimanche 17 janvier 2027."}]
+      }
+    },
+    {
+      "id": "durci-absent-montcarel",
+      "prompt": "Quel est le tarif de livraison à domicile d'une commande de 80 kg vendue par le magasin Hélianthe Brico de Montcarel-le-Vieux ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)je ne sais pas|\\bne\\s+(figure|trouve|mentionne|pr[ée]cise|contien|dispose|comporte|indique|permet|peux|donne|fourni|propose|fait\\s+pas\\s+partie|sont\\s+pas\\s+(mentionn|indiqu|pr[ée]cis|renseign|disponibl))|\\bpas\\s+(dans|d.information|d.indication|de\\s+r[ée]ponse|de\\s+donn|assez|suffisamment|list|r[ée]f[ée]renc)|aucune\\s+(information|mention|donn|indication|pr[ée]cision)|\\bn.ai\\s+pas|\\bn.(abord|[ée]voqu|appara|inclu)|\\bn.est\\s+pas\\s+(mentionn|indiqu|pr[ée]cis|pr[ée]sent|renseign|disponible|abord|communiqu|trait|list|r[ée]f[ée]renc)"}
+      ],
+      "rag": {
+        "trap": "absent",
+        "sources": []
+      }
+    }
+  ]
+}

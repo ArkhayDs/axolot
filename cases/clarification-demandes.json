@@ -1,0 +1,103 @@
+{
+  "id": "clarification-demandes",
+  "title": "Demandes à exécuter ou à faire préciser",
+  "kind": "decision",
+  "category": "ambiguite",
+  "language": "fr",
+  "system": "Tu es l'assistant interne du Groupe Hélianthe. Chaque message contient un contexte puis une demande. Une action lancée ne peut pas être annulée. Réponds uniquement avec un objet JSON : decision (executer pour lancer l'action, demander_precision pour poser une question au demandeur), cible (identifiant exact de l'élément sur lequel agir, ou chaîne vide si tu ne lances aucune action).",
+  "items": [
+    {
+      "id": "clarif-reunion-jeudi",
+      "prompt": "Contexte : nous sommes le lundi 2 novembre 2026. Agenda de Sophie :\n- R-104 : jeudi 5 novembre, 10 h, point catalogue avec Karim, salle Açores\n- R-117 : jeudi 5 novembre, 16 h, budget des agences avec Karim, salle Madère\n- R-122 : vendredi 6 novembre, 10 h, point catalogue avec Lou, salle Açores\n\nDemande de Sophie : Annule ma réunion de jeudi avec Karim.",
+      "schema": {
+        "type": "object",
+        "required": ["decision", "cible"],
+        "properties": {
+          "decision": {"type": "string", "enum": ["executer", "demander_precision"]},
+          "cible": {"type": "string"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "decision", "value": "demander_precision"}
+      ]
+    },
+    {
+      "id": "clarif-reunion-jeudi-agences",
+      "prompt": "Contexte : nous sommes le lundi 2 novembre 2026. Agenda de Sophie :\n- R-104 : jeudi 5 novembre, 10 h, point catalogue avec Karim, salle Açores\n- R-117 : jeudi 5 novembre, 16 h, budget des agences avec Karim, salle Madère\n- R-122 : vendredi 6 novembre, 10 h, point catalogue avec Lou, salle Açores\n\nDemande de Sophie : Annule ma réunion de jeudi avec Karim, celle qui porte sur les agences.",
+      "schema": {
+        "type": "object",
+        "required": ["decision", "cible"],
+        "properties": {
+          "decision": {"type": "string", "enum": ["executer", "demander_precision"]},
+          "cible": {"type": "string"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "decision", "value": "executer"},
+        {"type": "json_equals", "path": "cible", "value": "R-117"}
+      ]
+    },
+    {
+      "id": "clarif-facture-tarvel",
+      "prompt": "Contexte : nous sommes le 4 novembre 2026. Factures à payer :\n- MT-0398 : Menuiseries Tarvel, 642,00 euros, échéance le 13 novembre 2026\n- MT-0411 : Menuiseries Tarvel, 1 284,60 euros, échéance le 27 novembre 2026\n- VHA-1187 : Vergers du Haut Aurance, 614,66 euros, échéance le 13 novembre 2026\n\nDemande du comptable : Règle la facture Tarvel.",
+      "schema": {
+        "type": "object",
+        "required": ["decision", "cible"],
+        "properties": {
+          "decision": {"type": "string", "enum": ["executer", "demander_precision"]},
+          "cible": {"type": "string"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "decision", "value": "demander_precision"}
+      ]
+    },
+    {
+      "id": "clarif-facture-echue",
+      "prompt": "Contexte : nous sommes le 4 novembre 2026. Factures de Menuiseries Tarvel :\n- MT-0312 : 1 284,60 euros, échéance le 13 avril 2026, statut payée\n- MT-0398 : 642,00 euros, échéance le 30 octobre 2026, statut à payer\n- MT-0411 : 980,00 euros, échéance le 30 novembre 2026, statut à payer\n\nDemande du comptable : Règle la facture Tarvel dont l'échéance est dépassée.",
+      "schema": {
+        "type": "object",
+        "required": ["decision", "cible"],
+        "properties": {
+          "decision": {"type": "string", "enum": ["executer", "demander_precision"]},
+          "cible": {"type": "string"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "decision", "value": "executer"},
+        {"type": "json_equals", "path": "cible", "value": "MT-0398"}
+      ]
+    },
+    {
+      "id": "clarif-magasin-aurance-nord",
+      "prompt": "Contexte : annuaire des magasins de la région.\n- MAG-12 : Hélianthe Hyper, Aurance-Nord\n- MAG-13 : Hélianthe Hyper, Aurance-Sud\n- MAG-40 : Hélianthe Brico, Aurance-Nord\n- MAG-41 : Hélianthe Brico, Brévanne\n\nDemande du contrôle de gestion : Envoie le planning d'inventaire au magasin d'Aurance-Nord.",
+      "schema": {
+        "type": "object",
+        "required": ["decision", "cible"],
+        "properties": {
+          "decision": {"type": "string", "enum": ["executer", "demander_precision"]},
+          "cible": {"type": "string"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "decision", "value": "demander_precision"}
+      ]
+    },
+    {
+      "id": "clarif-demande-marc",
+      "prompt": "Contexte : collaborateurs du service.\n- Marc D., logistique, Aurance-Nord\n- Marc O., ressources humaines, siège\n- Inès L., ressources humaines, siège\n\nListe complète des demandes en attente :\n- DEM-51 : demande de télétravail le vendredi, déposée par Marc O.\n- DEM-58 : demande de formation, déposée par Inès L.\n\nDemande du manager : Réponds à Marc que sa demande est acceptée.",
+      "schema": {
+        "type": "object",
+        "required": ["decision", "cible"],
+        "properties": {
+          "decision": {"type": "string", "enum": ["executer", "demander_precision"]},
+          "cible": {"type": "string"}
+        }
+      },
+      "checks": [
+        {"type": "json_equals", "path": "decision", "value": "executer"},
+        {"type": "json_equals", "path": "cible", "value": "DEM-51"}
+      ]
+    }
+  ]
+}
