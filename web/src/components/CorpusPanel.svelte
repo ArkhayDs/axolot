@@ -126,8 +126,8 @@
 
   <div class="file-actions">
     <label class="btn upload">
-      <Icon name="upload" /> Envoyer des fichiers (.md, .txt)
-      <input type="file" accept=".md,.txt" multiple onchange={upload} />
+      <Icon name="upload" /> Envoyer des fichiers (Word, PDF, Excel, PowerPoint, mails, texte)
+      <input type="file" accept=".md,.txt,.docx,.pdf,.pptx,.xlsx,.eml" multiple onchange={upload} />
     </label>
     <form
       class="new-folder"
