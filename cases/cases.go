@@ -2,7 +2,9 @@
 package cases
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -45,6 +47,8 @@ type Item struct {
 	Schema json.RawMessage `json:"schema,omitempty"`
 	Checks []Check         `json:"checks"`
 	RAG    *RAGSpec        `json:"rag,omitempty"`
+	// Hash identifies this version of the question, so the cumulative stats never mix it with an edited one.
+	Hash string `json:"-"`
 }
 
 // Check is one deterministic assertion on an output.
@@ -88,6 +92,11 @@ func Load() ([]Case, error) {
 		if err := c.validate(); err != nil {
 			return nil, fmt.Errorf("%s: %w", entry.Name(), err)
 		}
+		for i := range c.Items {
+			if c.Items[i].Hash, err = itemHash(c.System, c.Items[i]); err != nil {
+				return nil, fmt.Errorf("%s: %w", entry.Name(), err)
+			}
+		}
 		loaded = append(loaded, c)
 	}
 	sort.Slice(loaded, func(i, j int) bool {
@@ -97,6 +106,20 @@ func Load() ([]Case, error) {
 		return loaded[i].ID < loaded[j].ID
 	})
 	return loaded, nil
+}
+
+// itemHash digests what defines a question: its system prompt, prompt, schema, checks and expected sources.
+// shortcut: a corpus document edited without touching the question keeps its hash, include corpus content once documents change often.
+func itemHash(system string, item Item) (string, error) {
+	raw, err := json.Marshal(struct {
+		System string
+		Item   Item
+	}{system, item})
+	if err != nil {
+		return "", fmt.Errorf("hash item %s: %w", item.ID, err)
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:8]), nil
 }
 
 // validate rejects a case that could not be run or scored.

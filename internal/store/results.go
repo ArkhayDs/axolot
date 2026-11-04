@@ -57,6 +57,7 @@ type Run struct {
 	Checks       json.RawMessage `json:"checks"`
 	Retrieved    json.RawMessage `json:"retrieved"`
 	RetrievalHit *bool           `json:"retrieval_hit"`
+	ItemHash     string          `json:"item_hash"`
 }
 
 // CreateCampaign opens a campaign and returns its id.
@@ -116,11 +117,11 @@ func (s *Store) CampaignByID(ctx context.Context, id string) (Campaign, error) {
 // CreateRun stores one result.
 func (s *Store) CreateRun(ctx context.Context, run Run) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO runs (campaign_id, case_id, item_id, category, provider_name, model, output, error,
-		ttft_ms, total_ms, load_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+		ttft_ms, total_ms, load_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit, item_hash)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
 		run.CampaignID, run.CaseID, run.ItemID, run.Category, run.ProviderName, run.Model, run.Output, run.Error,
 		run.TTFTMs, run.TotalMs, run.LoadMs, run.PromptTokens, run.OutputTokens, run.TokPerSec, run.Score,
-		run.Checks, run.Retrieved, run.RetrievalHit)
+		run.Checks, run.Retrieved, run.RetrievalHit, run.ItemHash)
 	if err != nil {
 		return fmt.Errorf("create run: %w", err)
 	}
@@ -130,7 +131,7 @@ func (s *Store) CreateRun(ctx context.Context, run Run) error {
 // Runs returns the results of a campaign, grouped by case then item.
 func (s *Store) Runs(ctx context.Context, campaignID string) ([]Run, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id::text, campaign_id::text, case_id, item_id, category, provider_name, model, output, error,
-		ttft_ms, total_ms, load_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit
+		ttft_ms, total_ms, load_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit, COALESCE(item_hash, '')
 		FROM runs WHERE campaign_id = $1::uuid ORDER BY case_id, item_id, provider_name, model`, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("list runs: %w", err)
