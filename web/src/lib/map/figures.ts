@@ -57,14 +57,20 @@ export function linkScore(link: GraphLink, cells: CellIndex, filter: MapFilter):
  */
 export function nodeFigure(node: GraphNode, cells: CellIndex, content: MapContent, filter: MapFilter, sections: RankSection[]): string {
   const rank = sections.find((section) => section.kind === node.kind)?.rows.find((row) => row.key === node.key)?.rank;
-  const prefix = rank ? `n°${rank} · ` : '';
-  const figures = (machine: string, model: string, category: string): string => {
+  const figures = (machine: string, model: string, category: string, prefix = rank ? `n°${rank} · ` : ''): string => {
     const cell = cellOf(cells, machine, model, category);
     return cell ? `${prefix}${formatScore(cell.avg_score)} · ${duration(cell.p50_total_ms)}` : 'Sans donnée';
   };
-  if (node.kind === 'model') return figures(filter.machine, node.key, filter.category);
+  // Models compete on a machine; a machine alone among one would always read first, whatever its model is worth.
+  const placeOf = (machine: string, model: string): string => {
+    const scores = content.models.flatMap((other) => cellOf(cells, machine, other, filter.category)?.avg_score ?? []);
+    const own = cellOf(cells, machine, model, filter.category)?.avg_score;
+    if (own === undefined) return '';
+    return `n°${1 + scores.filter((other) => other > own && !sameScore(other, own)).length} sur ${scores.length} · `;
+  };
+  if (node.kind === 'model') return figures(filter.machine, node.key, filter.category, placeOf(filter.machine, node.key));
   if (node.kind === 'machine') {
-    if (filter.model) return figures(node.key, filter.model, filter.category);
+    if (filter.model) return figures(node.key, filter.model, filter.category, `${shortModel(filter.model, content.models)} : ${placeOf(node.key, filter.model)}`);
     const count = content.models.filter((model) => cellOf(cells, node.key, model, filter.category)).length;
     return count === 0 ? 'Sans donnée' : `${count} modèle${count > 1 ? 's' : ''}`;
   }

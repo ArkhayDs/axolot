@@ -145,8 +145,12 @@ function paintLinks(context: CanvasRenderingContext2D, scene: Scene, kept: Set<s
       const focused = close || picked;
       context.globalAlpha = faded && !picked ? 0.05 : focused ? 0.35 + 0.6 * strength : 0.1 + 0.3 * strength;
       context.lineWidth = (0.6 + 2.2 * strength) * pixel;
-      context.strokeStyle = link.kind === 'machine' ? resolve('var(--ink-3)') : resolve(seriesColor(link.from.key, content.models));
-      if (link.kind === 'machine') context.setLineDash([4 * pixel, 4 * pixel]);
+      context.strokeStyle = link.kind === 'machine' && !focused ? resolve('var(--ink-3)') : resolve(seriesColor(link.from.key, content.models));
+      if (link.kind === 'machine' && !focused) context.setLineDash([4 * pixel, 4 * pixel]);
+      if (link.kind === 'machine' && focused) {
+        context.globalAlpha = 1;
+        context.lineWidth = 2 * pixel;
+      }
       if (focused && !faded && link.kind === 'score') {
         pills.push({ x: link.from.x + (link.to.x - link.from.x) * 0.6, y: link.from.y + (link.to.y - link.from.y) * 0.6, text: formatScore(value) });
       }
