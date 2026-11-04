@@ -17,8 +17,8 @@ Interface sur http://localhost:5090, en loopback uniquement : pas d'authentifica
 
 ## Parcours
 
-- **Direction** : gagnants qualité, vitesse et compromis par tâche.
-- **Labo** : lancer une campagne, réseau animé par les événements réels, sortie en direct.
+- **Carte** : modèles, machines et thèmes reliés, filtres, classements chiffrés, lancement et suivi d'un Benchmark en direct.
+- **Benchmarks** : historique des exécutions, détail en onglets Résumé, Temps, Réponses, Qualimétrie.
 - **Cas** : résultats côte à côte par question, vérifications, passages RAG, citation source ouvrable.
 - **Résultats** : graphiques et tableau complet.
 - **Réglages** : machine, connexions, bibliothèque de modèles, corpus et indexation.

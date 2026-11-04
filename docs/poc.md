@@ -8,7 +8,7 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 ## Fait
 - Backend Go complet et testé : connexions, téléchargements, cas, corpus, indexation, campagnes, événements SSE, analytics.
 - Corpus fictif "Groupe Hélianthe" (`corpus/demo`, 16 fichiers, 57 extraits) et 13 cas, 66 items (`cases/`), dont 5 cas durcis.
-- Front Svelte 5 embarqué dans le binaire : Direction, Labo, Cas, Résultats, Réglages. README et captures dans `docs/captures`.
+- Front Svelte 5 embarqué dans le binaire : Carte, Scénarios, Benchmarks, Chat, Résultats, Réglages. README et captures dans `docs/captures`.
 
 ## Campagne de démo (2026-11-04, 132 réponses, depuis l'interface)
 | Modèle | Score moyen | Temps médian | tok/s médian |
@@ -23,11 +23,11 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 
 ## Reste à faire
 - Avant la démo, sur accord de Raphaël : supprimer de la base `Essai qwen...`, `Essai gemma...`, `Essai front` et `Campagne` (annulée, 0 réponse).
-- Répéter le parcours sur `http://localhost:5090` : Direction, un cas en direct dans le Labo, citation ouverte dans une page de cas.
+- Répéter le parcours sur `http://localhost:5090` : Carte, un scénario en direct depuis la carte, Résultats, citation ouverte dans une page de scénario.
 
 ## UI (`/impeccable`, français, peu de texte, icônes animées)
-- **Direction** : grande synthèse pour non-tech, gagnants qualité / vitesse / compromis par tâche.
-- **Labo en direct** : réseau de neurones animé (canvas) piloté par `GET /api/events` : modèles reliés aux cas, impulsions sur les tokens, score en fin d'item, sortie en direct.
+- **Résultats** : base cumulée, synthèse pour non-tech en tête, gagnants qualité / vitesse / compromis par thème.
+- **Carte** : graphe (canvas) modèles, machines, thèmes sur `GET /api/map`, classements, et direct piloté par `GET /api/events` : impulsions sur les tokens, score en fin de question, sortie en direct.
 - **Une page par cas** : choix des modèles, résultats côte à côte par item, vérifications, sortie, pour le RAG les passages retrouvés et la source attendue ouvrable (citation surlignée).
 - **Résultats** : tableaux et graphiques, charger le skill `dataviz`.
 - **Réglages** : machine détectée, bibliothèque de modèles avec aptitude (ok / juste / trop gros) et téléchargement avec progression, connexions, corpus et paramètres RAG, envoi de fichiers, indexation.

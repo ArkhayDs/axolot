@@ -17,10 +17,10 @@ Comparer des modèles d'IA sur des cas à résultat attendu. Réponse attendue :
 La notation est déterministe : l'outil ne dépend d'aucune IA autre que les modèles testés. Chaque score remonte à des vérifications et, pour le RAG, à une citation que le présentateur ouvre à la main.
 
 ## Operating Context
-Démonstration en intérieur sur l'écran d'un Mac, une campagne lancée à l'avance plus un cas en direct. Parcours prévu : présentation de l'outil, résultats, direct, preuve. Le public peut écourter à tout moment, donc chaque étape tient seule.
+Démonstration en intérieur sur l'écran d'un Mac, un Benchmark lancé à l'avance plus un scénario en direct. Parcours prévu : présentation de l'outil, résultats, direct, preuve. Le public peut écourter à tout moment, donc chaque étape tient seule.
 
 ## Capabilities and Constraints
-- Une campagne et un item à la fois : le parallélisme fausserait les temps.
+- Un Benchmark et une question à la fois : le parallélisme fausserait les temps.
 - Le code généré n'est jamais exécuté. Il est noté par vérifications statiques.
 - Aucune authentification : usage en loopback uniquement.
 - Les chiffres viennent de l'API : ne rien inventer ni arrondir au point de changer un classement.
@@ -29,16 +29,16 @@ Démonstration en intérieur sur l'écran d'un Mac, une campagne lancée à l'av
 - Nom : Axolot. Icône : axolotl en SVG original.
 - Interface en français, peu de texte, icônes animées.
 - Sombre. Liquid glass limité à la navigation et aux panneaux flottants, jamais sur les tableaux ni les chiffres.
-- Réseau de neurones animé dans le Labo, piloté par les événements réels.
+- Carte interactive des modèles, machines et thèmes en page principale, animée seulement par les événements réels.
 
 ## Evidence on Hand
-- Campagnes réelles en base, corpus fictif "Groupe Hélianthe" dans `corpus/demo`, cas dans `cases/`.
+- Benchmarks réels en base, cumulés, corpus fictif "Groupe Hélianthe" dans `corpus/demo`, scénarios dans `cases/`.
 - Aucun client, témoignage ni benchmark externe : ne pas en inventer.
 
 ## Product Principles
 - La synthèse avant le détail, et le détail toujours accessible.
 - Chaque résultat se vérifie : score, vérifications, sortie, source.
-- Les états réels se voient : modèle hors ligne, échec, campagne interrompue.
+- Les états réels se voient : modèle hors ligne, échec, Benchmark interrompu.
 - Le mouvement montre ce qui se passe réellement, jamais une activité simulée présentée comme réelle.
 
 ## Accessibility & Inclusion
