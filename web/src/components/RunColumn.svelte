@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import ModelName from './ModelName.svelte';
   import type { Run } from '../lib/api';
-  import { checkLabel, duration, number, score } from '../lib/format';
+  import { checkDetail, checkLabel, duration, number, score } from '../lib/format';
 
   let { run, color }: { run: Run; color: string } = $props();
 </script>
@@ -21,7 +21,7 @@
       {#each run.checks ?? [] as check, index (index)}
         <li class="state" class:state-good={check.passed} class:state-critical={!check.passed}>
           <Icon name={check.passed ? 'check' : 'cross'} size={16} />
-          <span class="check-text">{checkLabel(check)}{#if check.detail && !check.passed}<span class="muted"> : {check.detail}</span>{/if}</span>
+          <span class="check-text">{checkLabel(check)}{#if check.detail && !check.passed}<span class="muted"> : {checkDetail(check.detail)}</span>{/if}</span>
         </li>
       {/each}
     </ul>

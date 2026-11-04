@@ -37,7 +37,7 @@ const CHECKS: Record<string, string> = {
   contains_all: 'Contient l’attendu',
   contains_any: 'Contient l’attendu',
   not_contains: 'Évite l’interdit',
-  regex: 'Réponse attendue',
+  regex: 'Contenu attendu',
   max_words: 'Longueur respectée',
   retrieval: 'Bon passage retrouvé',
   citation: 'Source citée',
@@ -85,6 +85,28 @@ export function trapLabel(trap: NonNullable<Item['rag']>['trap']): string {
 export function checkLabel(check: Check): string {
   if (check.name.startsWith('json_equals:')) return `Valeur de ${check.name.slice('json_equals:'.length)}`;
   return CHECKS[check.name] ?? check.name;
+}
+
+/**
+ * Translates the scoring engine's technical detail for display
+ * @param {string} detail - detail sent by the API
+ * @returns {string} - French text, unchanged when unknown
+ */
+export function checkDetail(detail: string): string {
+  const mismatch = /^got (.*), want (.*)$/.exec(detail);
+  if (mismatch) return `obtenu ${mismatch[1] || '(vide)'}, attendu ${mismatch[2]}`;
+  const length = /^(\d+) words, limit (.*)$/.exec(detail);
+  if (length) return `${length[1]} mots, limite ${length[2]}`;
+  return detail
+    .replace(/^missing: /, 'manquant : ')
+    .replace(/^none of: /, 'aucun de : ')
+    .replace(/^found: /, 'trouvé : ')
+    .replace('invalid json', 'JSON invalide')
+    .replace('invalid schema', 'schéma invalide')
+    .replace('not an object', 'pas un objet')
+    .replace('path not found', 'champ absent')
+    .replace('expected passage retrieved', 'passage attendu absent des extraits')
+    .replace('expected source not cited', 'source attendue non citée');
 }
 
 /**
