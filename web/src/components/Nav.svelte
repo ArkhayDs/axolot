@@ -6,14 +6,16 @@
 
   let { active }: { active: string } = $props();
 
-  const LINKS: { route: string; label: string; icon: IconName }[] = [
-    { route: '', label: 'Carte', icon: 'target' },
+  const LINKS: { route: string; label: string; icon: IconName; tool?: boolean }[] = [
+    { route: '', label: 'Atlas', icon: 'target' },
+    { route: 'benchmarks', label: 'Benchmarks', icon: 'history' },
     { route: 'cas', label: 'Scénarios', icon: 'list' },
-    { route: 'benchmarks', label: 'Benchmarks', icon: 'refresh' },
-    { route: 'chat', label: 'Chat', icon: 'chat' },
     { route: 'resultats', label: 'Résultats', icon: 'bars' },
-    { route: 'reglages', label: 'Réglages', icon: 'sliders' },
+    { route: 'chat', label: 'Chat', icon: 'chat', tool: true },
+    { route: 'reglages', label: 'Réglages', icon: 'sliders', tool: true },
   ];
+
+  const firstTool = LINKS.findIndex((link) => link.tool);
 </script>
 
 <header class="bar glass">
@@ -22,8 +24,8 @@
     <span>Axolot</span>
   </a>
   <nav aria-label="Navigation principale">
-    {#each LINKS as link (link.route)}
-      <a href="#/{link.route}" class:current={active === link.route} aria-current={active === link.route ? 'page' : undefined}>
+    {#each LINKS as link, position (link.route)}
+      <a href="#/{link.route}" class:first-tool={position === firstTool} class:current={active === link.route} aria-current={active === link.route ? 'page' : undefined}>
         <Icon name={link.icon} size={20} />
         <span>{link.label}</span>
       </a>
@@ -93,6 +95,20 @@
     background: color-mix(in srgb, var(--accent) 20%, transparent);
   }
 
+  /* Tools sit apart: pushed right, past a hairline. */
+  nav a.first-tool {
+    position: relative;
+    margin-inline-start: auto;
+  }
+
+  nav a.first-tool::before {
+    content: '';
+    position: absolute;
+    inset: var(--s2) auto var(--s2) calc(-1 * var(--s2));
+    width: 1px;
+    background: var(--hairline);
+  }
+
   .running {
     display: grid;
     gap: var(--s1);
@@ -116,6 +132,14 @@
     .brand,
     .running,
     .state {
+      display: none;
+    }
+
+    nav a.first-tool {
+      margin-inline-start: 0;
+    }
+
+    nav a.first-tool::before {
       display: none;
     }
 

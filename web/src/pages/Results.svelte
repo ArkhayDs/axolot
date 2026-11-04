@@ -105,7 +105,7 @@
         <Icon name="grade" size={24} />
         <span><strong>Une note sans IA</strong><span class="muted">Vérifications automatiques, sources ouvrables</span></span>
       </span>
-      <a class="btn btn-primary cta" href="#/"><Icon name="target" /> Voir la carte</a>
+      <a class="btn btn-primary cta" href="#/"><Icon name="target" /> Voir l'Atlas</a>
     </div>
   </section>
 </div>

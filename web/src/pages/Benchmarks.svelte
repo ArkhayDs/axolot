@@ -92,7 +92,7 @@
   {:else if loaded && !error}
     <div class="empty">
       <h2>Aucun Benchmark pour l'instant</h2>
-      <a class="btn btn-primary" href="#/">Lancer un Benchmark depuis la carte</a>
+      <a class="btn btn-primary" href="#/">Lancer un Benchmark depuis l'Atlas</a>
     </div>
   {/if}
 </div>

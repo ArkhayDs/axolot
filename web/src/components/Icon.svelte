@@ -23,6 +23,9 @@
     alert: ['M12 4L2.5 20h19z', 'M12 10v4', 'M12 17h.01'],
     grade: ['M4 5h16v14H4z', 'M8 12l3 3 5-6'],
     refresh: ['M20 12a8 8 0 1 1-2.3-5.7', 'M20 4v4h-4'],
+    history: ['M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5', 'M3.5 3.5v5h5', 'M12 7.5V12l3.2 1.8'],
+    center: ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5', 'M12 12h.01'],
+    search: ['M10.5 4a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13', 'M15.5 15.5L20 20'],
   } as const;
 
   export type IconName = keyof typeof PATHS;

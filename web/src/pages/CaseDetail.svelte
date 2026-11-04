@@ -130,7 +130,7 @@
         {/each}
       </div>
       {#if live.campaign}
-        <a class="btn" href="#/"><Icon name="target" /> Benchmark en cours : voir la carte</a>
+        <a class="btn" href="#/"><Icon name="target" /> Benchmark en cours : voir l'Atlas</a>
       {:else}
         <button class="btn btn-primary" type="button" onclick={runCase} disabled={busy || selections.length === 0}>
           <Icon name="play" /> Lancer ce scénario
