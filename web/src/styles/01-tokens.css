@@ -1,0 +1,69 @@
+:root {
+  color-scheme: dark;
+
+  /* Pond water surfaces */
+  --ground: #0b1a20;
+  --panel: #13282f;
+  --raised: #1b353d;
+  --hairline: #27444c;
+  --axis: #3f626a;
+
+  /* Ink */
+  --ink: #ecf4f2;
+  --ink-2: #b6cbc8;
+  --ink-3: #8ba5a3;
+
+  /* Axolotl gills: the one brand accent */
+  --accent: #ff9cc2;
+  --accent-hover: #ffb6d3;
+  --on-accent: #2b0e1c;
+  --axo-skin: #f7d4dd;
+  --axo-eye: #0b1a20;
+
+  /* Status, reserved for meaning: always with an icon and a label */
+  --good: #2fbf4f;
+  --warning: #fab219;
+  --critical: #ff6b6b;
+
+  /* Chart series, validated on --panel: fixed order */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --series-other: #8ba5a3;
+
+  /* Glass: navigation and floating panels only */
+  --glass: color-mix(in srgb, var(--panel) 62%, transparent);
+  --glass-edge: color-mix(in srgb, var(--ink) 16%, transparent);
+  --glass-shine: color-mix(in srgb, var(--ink) 22%, transparent);
+  --glass-blur: blur(20px) saturate(1.6);
+  --shadow-float: 0 12px 32px color-mix(in srgb, #000 45%, transparent);
+
+  /* Type */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: clamp(1.75rem, 1.4rem + 1.4vw, 2.5rem);
+
+  /* Space */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 18px;
+
+  --page-width: 1240px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

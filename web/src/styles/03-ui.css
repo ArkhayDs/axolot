@@ -1,0 +1,257 @@
+/* -----------------------------------------------------------------------------
+   Page frame
+   -------------------------------------------------------------------------- */
+.page {
+  display: grid;
+  gap: var(--s6);
+  width: min(100%, var(--page-width));
+  margin-inline: auto;
+  padding: var(--s6) var(--s5) var(--s7);
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s3) var(--s5);
+}
+
+.page-head p {
+  margin-top: var(--s2);
+  color: var(--ink-2);
+}
+
+.section {
+  display: grid;
+  gap: var(--s4);
+}
+
+/* -----------------------------------------------------------------------------
+   Controls
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 40px;
+  padding: var(--s2) var(--s4);
+  border: 1px solid var(--axis);
+  border-radius: var(--radius);
+  background: var(--raised);
+  font-weight: 550;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Equal specificity with .btn: must stay after it to win. */
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+
+.field {
+  display: grid;
+  gap: var(--s1);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.input {
+  width: 100%;
+  min-height: 40px;
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--axis);
+  border-radius: var(--radius-sm);
+  background: var(--ground);
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+
+.input::placeholder {
+  color: var(--ink-3);
+}
+
+/* -----------------------------------------------------------------------------
+   Surfaces
+   -------------------------------------------------------------------------- */
+.panel {
+  padding: var(--s5);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.glass {
+  border: 1px solid var(--glass-edge);
+  background: var(--glass);
+  box-shadow:
+    inset 0 1px 0 var(--glass-shine),
+    var(--shadow-float);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+}
+
+.table-wrap tr:last-child > * {
+  border-bottom: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Small parts
+   -------------------------------------------------------------------------- */
+.muted {
+  color: var(--ink-3);
+}
+
+.num {
+  text-align: right;
+}
+
+.dot {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: var(--text-sm);
+}
+
+.state-good {
+  color: var(--good);
+}
+
+.state-warning {
+  color: var(--warning);
+}
+
+.state-critical {
+  color: var(--critical);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--critical);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--s3);
+  padding: var(--s6);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink-2);
+}
+
+.output {
+  max-height: 22rem;
+  margin: 0;
+  overflow: auto;
+  padding: var(--s3);
+  border-radius: var(--radius-sm);
+  background: var(--ground);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--hairline);
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.4s var(--ease-out);
+}
+
+/* Icons redraw themselves when their control is hovered or focused. */
+@keyframes icon-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+a:hover .icon path,
+a:focus-visible .icon path,
+button:hover:not(:disabled) .icon path,
+button:focus-visible .icon path,
+.icon-live path {
+  stroke-dasharray: 1;
+  animation: icon-draw 0.7s var(--ease-out);
+}
+
+/* -----------------------------------------------------------------------------
+   Page transitions
+   -------------------------------------------------------------------------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.22s;
+  animation-timing-function: var(--ease-out);
+}
+
+/* -----------------------------------------------------------------------------
+   Responsive: under 760px the navigation moves to a bottom bar
+   -------------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  .page {
+    padding: var(--s5) var(--s4) calc(var(--s7) + 72px);
+  }
+
+  .panel {
+    padding: var(--s4);
+  }
+}
