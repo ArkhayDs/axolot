@@ -22,8 +22,13 @@ const maxUpload = 20 << 20
 
 var (
 	corpusName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
-	fileName   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*\.(md|txt)$`)
+	fileName   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 )
+
+// validFile reports whether a name is safe and carries an accepted extension.
+func validFile(name string) bool {
+	return fileName.MatchString(name) && rag.Supported(name)
+}
 
 // corpusView is a folder under the mounted root.
 type corpusView struct {
@@ -75,7 +80,7 @@ func (s *Server) listCorpus(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	ingesting := s.ingest
 	s.mu.Unlock()
-	writeJSON(w, http.StatusOK, map[string]any{"folders": folders, "indexes": indexes, "ingesting": ingesting})
+	writeJSON(w, http.StatusOK, map[string]any{"folders": folders, "indexes": indexes, "ingesting": ingesting, "extensions": rag.Extensions()})
 }
 
 // createCorpus adds an empty folder.
@@ -107,10 +112,10 @@ func (s *Server) createCorpus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// readCorpusFile returns a document as text, so the presenter can check a passage by hand.
+// readCorpusFile returns the extracted text of a document, where the front-end searches the quote to highlight.
 func (s *Server) readCorpusFile(w http.ResponseWriter, r *http.Request) {
 	name, file := r.PathValue("name"), r.PathValue("file")
-	if !corpusName.MatchString(name) || !fileName.MatchString(file) {
+	if !corpusName.MatchString(name) || !validFile(file) {
 		writeError(w, http.StatusBadRequest, "Chemin invalide")
 		return
 	}
@@ -125,12 +130,24 @@ func (s *Server) readCorpusFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Fichier introuvable")
 		return
 	}
+	text, err := rag.Extract(file, raw)
+	if err != nil {
+		rejectDocument(w, r, file, err)
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	_, _ = w.Write(raw)
+	_, _ = io.WriteString(w, text)
 }
 
-// uploadCorpusFile stores a .md or .txt document, refusing to overwrite an existing one.
+// rejectDocument answers for a document whose text cannot be read, keeping the parser detail in the logs.
+func rejectDocument(w http.ResponseWriter, r *http.Request, file string, err error) {
+	slog.Warn("corpus document rejected", "path", r.URL.Path, "err", err)
+	writeError(w, http.StatusUnprocessableEntity, "Document illisible ou sans texte : "+file)
+}
+
+// uploadCorpusFile stores a readable document, refusing to overwrite an existing one.
+// The whole file is extracted first, so a broken document never reaches the folder and the next indexing.
 func (s *Server) uploadCorpusFile(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if !corpusName.MatchString(name) {
@@ -145,8 +162,17 @@ func (s *Server) uploadCorpusFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer source.Close()
 	base := path.Base(strings.ReplaceAll(header.Filename, `\`, "/"))
-	if !fileName.MatchString(base) {
-		writeError(w, http.StatusBadRequest, "Formats acceptés : .md, .txt (nom sans espace)")
+	if !validFile(base) {
+		writeError(w, http.StatusBadRequest, "Formats acceptés : "+strings.Join(rag.Extensions(), ", ")+" (nom sans espace)")
+		return
+	}
+	raw, err := io.ReadAll(source)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Fichier illisible : "+base)
+		return
+	}
+	if _, err := rag.Extract(base, raw); err != nil {
+		rejectDocument(w, r, base, err)
 		return
 	}
 	folder, err := s.openCorpus(name)
@@ -165,7 +191,7 @@ func (s *Server) uploadCorpusFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer target.Close()
-	if _, err := io.Copy(target, source); err != nil {
+	if _, err := target.Write(raw); err != nil {
 		_ = folder.Remove(base)
 		internalError(w, r, err)
 		return

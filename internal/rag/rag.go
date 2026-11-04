@@ -5,9 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"path"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
 )
@@ -86,7 +84,7 @@ func breakPoint(runes []rune, start, end int) int {
 	return end
 }
 
-// Files lists the .md and .txt documents directly under a corpus folder.
+// Files lists the documents in an accepted format directly under a corpus folder.
 func Files(corpus fs.FS) ([]string, error) {
 	entries, err := fs.ReadDir(corpus, ".")
 	if err != nil {
@@ -94,8 +92,7 @@ func Files(corpus fs.FS) ([]string, error) {
 	}
 	var names []string
 	for _, entry := range entries {
-		ext := strings.ToLower(path.Ext(entry.Name()))
-		if !entry.IsDir() && (ext == ".md" || ext == ".txt") {
+		if !entry.IsDir() && Supported(entry.Name()) {
 			names = append(names, entry.Name())
 		}
 	}
@@ -116,10 +113,11 @@ func Ingest(ctx context.Context, store Store, embedder provider.Provider, embedM
 		if err != nil {
 			return 0, fmt.Errorf("read %s: %w", name, err)
 		}
-		if !utf8.Valid(raw) {
-			return 0, fmt.Errorf("%s is not UTF-8", name)
+		text, err := Extract(name, raw)
+		if err != nil {
+			return 0, err
 		}
-		fileChunks, err := Split(name, string(raw), size, overlap)
+		fileChunks, err := Split(name, text, size, overlap)
 		if err != nil {
 			return 0, err
 		}

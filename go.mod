@@ -2,7 +2,10 @@ module github.com/arkhayds/axolot
 
 go 1.26
 
-require github.com/jackc/pgx/v5 v5.7.6
+require (
+	github.com/jackc/pgx/v5 v5.7.6
+	github.com/ledongthuc/pdf v0.0.0-20261020125853-5e46805f718e
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
