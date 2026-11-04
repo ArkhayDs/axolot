@@ -126,7 +126,7 @@ func (s *Server) startCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	runCtx, cancel := context.WithCancel(s.cfg.BaseContext)
-	s.active, s.cancel = id, cancel
+	s.active, s.cancel, s.activePlans = id, cancel, plans
 	go s.runCampaign(runCtx, id, plans, settings, embedder)
 	writeJSON(w, http.StatusAccepted, map[string]string{"id": id})
 }
@@ -208,7 +208,7 @@ func (s *Server) isIndexed(ctx context.Context, settings store.Settings) (bool, 
 func (s *Server) runCampaign(ctx context.Context, id string, plans []runner.Plan, settings store.Settings, embedder provider.Provider) {
 	defer func() {
 		s.mu.Lock()
-		s.active, s.cancel = "", nil
+		s.active, s.cancel, s.activePlans = "", nil, nil
 		s.mu.Unlock()
 	}()
 	deps := runner.Deps{

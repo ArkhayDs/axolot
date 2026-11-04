@@ -35,6 +35,8 @@ type MapBenchmark struct {
 
 // Answer is the part of a run the cumulated time distribution draws.
 type Answer struct {
+	ID       string `json:"id"`
+	ItemID   string `json:"item_id"`
 	Model    string `json:"model"`
 	Category string `json:"category"`
 	TotalMs  int64  `json:"total_ms"`
@@ -75,13 +77,57 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 
 // MapAnswers lists what MapCells counted, without the heavy columns.
 func (s *Store) MapAnswers(ctx context.Context, hashes []string) ([]Answer, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.model, r.category, r.total_ms, r.error
+	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, r.model, r.category, r.total_ms, r.error
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE c.status <> $1 AND r.item_hash = ANY($2)`, StatusRunning, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("list map answers: %w", err)
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[Answer])
+}
+
+// EstimateRow holds a model's durations on one machine: per question when CaseID is set,
+// per theme when only Category is, and overall with its load time when neither is.
+type EstimateRow struct {
+	Model    string   `json:"model"`
+	Category string   `json:"category"`
+	CaseID   string   `json:"case_id"`
+	ItemID   string   `json:"item_id"`
+	AvgMs    float64  `json:"avg_ms"`
+	P90Ms    float64  `json:"p90_ms"`
+	LoadMs   *float64 `json:"load_ms"`
+}
+
+// EstimateRows reads what duration estimates are built from. Means rather than medians,
+// because a sum of medians underestimates a total that has long answers.
+func (s *Store) EstimateRows(ctx context.Context, machine string, hashes []string) ([]EstimateRow, error) {
+	rows, err := s.pool.Query(ctx, `SELECT r.model, COALESCE(r.category, ''), COALESCE(r.case_id, ''), COALESCE(r.item_id, ''),
+			avg(r.total_ms)::float8,
+			percentile_cont(0.9) WITHIN GROUP (ORDER BY r.total_ms),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY r.load_ms) FILTER (WHERE r.load_ms > 0)
+		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
+		WHERE c.status <> $1 AND c.hardware->>'label' = $2 AND r.item_hash = ANY($3)
+		GROUP BY GROUPING SETS ((r.model, r.category, r.case_id, r.item_id), (r.model, r.category), (r.model))`, StatusRunning, machine, hashes)
+	if err != nil {
+		return nil, fmt.Errorf("read estimate rows: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[EstimateRow])
+}
+
+// PlayedItem identifies one answer already given.
+type PlayedItem struct {
+	Model  string
+	CaseID string
+	ItemID string
+}
+
+// PlayedItems lists what a campaign has answered so far.
+func (s *Store) PlayedItems(ctx context.Context, campaignID string) ([]PlayedItem, error) {
+	rows, err := s.pool.Query(ctx, `SELECT model, case_id, item_id FROM runs WHERE campaign_id = $1::uuid`, campaignID)
+	if err != nil {
+		return nil, fmt.Errorf("list played items: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[PlayedItem])
 }
 
 // MapBenchmarks lists campaigns newest first, with what each one played.

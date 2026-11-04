@@ -16,6 +16,7 @@ import (
 	"github.com/arkhayds/axolot/cases"
 	"github.com/arkhayds/axolot/internal/hardware"
 	"github.com/arkhayds/axolot/internal/provider"
+	"github.com/arkhayds/axolot/internal/runner"
 	"github.com/arkhayds/axolot/internal/secret"
 	"github.com/arkhayds/axolot/internal/store"
 )
@@ -41,9 +42,11 @@ type Server struct {
 	mu     sync.Mutex
 	cancel context.CancelFunc
 	active string
-	ingest bool
-	chats  int
-	pulls  map[string]pullState
+	// What the active campaign was asked to play, for its remaining time.
+	activePlans []runner.Plan
+	ingest      bool
+	chats       int
+	pulls       map[string]pullState
 }
 
 // New wires the routes.
@@ -72,6 +75,8 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("GET /api/campaigns/{id}", s.getCampaign)
 	mux.HandleFunc("GET /api/map", s.getMap)
 	mux.HandleFunc("GET /api/base", s.getBase)
+	mux.HandleFunc("POST /api/estimate", s.postEstimate)
+	mux.HandleFunc("GET /api/estimate/remaining", s.getRemaining)
 	mux.HandleFunc("POST /api/chat", s.chat)
 	mux.Handle("/", spa(cfg.Static))
 	return sameOrigin(mux)

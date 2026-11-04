@@ -215,6 +215,17 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if cell := found["|"]; cell.Runs != 5 || cell.Questions != 2 || cell.P95TotalMs == nil {
 		t.Fatalf("model rollup: %+v", cell)
 	}
+	estimates, err := s.EstimateRows(ctx, "mac", hashes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	means := map[string]float64{}
+	for _, row := range estimates {
+		means[row.Category+"|"+row.ItemID] = row.AvgMs
+	}
+	if means["code|i1"] != 200 || means["code|"] != 200 || means["rag|i2"] != 400 || len(estimates) != 5 {
+		t.Fatalf("estimates=%+v", estimates)
+	}
 	answers, err := s.MapAnswers(ctx, hashes)
 	if err != nil || len(answers) != 5 {
 		t.Fatalf("answers=%+v err=%v", answers, err)
