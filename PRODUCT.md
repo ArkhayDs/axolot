@@ -29,7 +29,7 @@ Démonstration en intérieur sur l'écran d'un Mac, un Benchmark lancé à l'ava
 - Nom : Axolot. Icône : axolotl en SVG original.
 - Interface en français, peu de texte, icônes animées.
 - Sombre. Liquid glass limité à la navigation et aux panneaux flottants, jamais sur les tableaux ni les chiffres.
-- Carte interactive des modèles, machines et thèmes en page principale, animée seulement par les événements réels.
+- Atlas interactif des modèles, machines, thèmes, scénarios, questions et documents en page principale, animé seulement par les événements réels.
 
 ## Evidence on Hand
 - Benchmarks réels en base, cumulés, corpus fictif "Groupe Hélianthe" dans `corpus/demo`, scénarios dans `cases/`.
