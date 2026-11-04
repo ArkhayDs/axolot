@@ -6,7 +6,7 @@
   import LatencyStrip from '../components/LatencyStrip.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
-  import ScoreScatter from '../components/ScoreScatter.svelte';
+  import ThemeTradeoff from '../components/ThemeTradeoff.svelte';
   import StatsTable from '../components/StatsTable.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { BaseDetail, Case, Hardware } from '../lib/api';
@@ -74,7 +74,7 @@
       {/each}
     </ul>
 
-    <ScoreScatter {stats} {models} />
+    <ThemeTradeoff {stats} {models} />
     <LatencyStrip runs={answers} {models} />
 
     <p class="muted caption">Les réponses une par une se consultent dans chaque <a href="#/benchmarks">Benchmark</a>.</p>

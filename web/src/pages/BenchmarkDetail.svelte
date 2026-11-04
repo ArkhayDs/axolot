@@ -7,7 +7,7 @@
   import Notice from '../components/Notice.svelte';
   import QualityTable from '../components/QualityTable.svelte';
   import RunMatrix from '../components/RunMatrix.svelte';
-  import ScoreScatter from '../components/ScoreScatter.svelte';
+  import ThemeTradeoff from '../components/ThemeTradeoff.svelte';
   import StatsTable from '../components/StatsTable.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { Case } from '../lib/api';
@@ -110,7 +110,7 @@
           <EvalMatrix {stats} verdicts={detail.verdicts} {models} />
         {/if}
       {:else if tab === 'times'}
-        <ScoreScatter {stats} {models} />
+        <ThemeTradeoff {stats} {models} />
         <LatencyStrip runs={detail.runs} {models} />
         <StatsTable {stats} {models} />
       {:else if tab === 'answers'}

@@ -5,9 +5,9 @@
   let { runs, models }: { runs: Answer[]; models: string[] } = $props();
 
   const LABEL_WIDTH = 170;
-  const RIGHT_MARGIN = 20;
-  const LANE_HEIGHT = 15;
-  const ROW_GAP = 10;
+  const RIGHT_MARGIN = 44;
+  const LANE_HEIGHT = 18;
+  const ROW_GAP = 14;
   const AXIS_HEIGHT = 26;
   const TICKS_MS = [100, 200, 500, 1000, 2000, 5000, 10_000, 20_000, 50_000, 100_000];
 
