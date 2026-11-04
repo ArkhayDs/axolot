@@ -4,11 +4,12 @@
   import type { Run } from '../lib/api';
   import { checkDetail, checkLabel, duration, number, score } from '../lib/format';
 
-  let { run, color }: { run: Run; color: string } = $props();
+  let { run, color, answers, average }: { run: Run; color: string; answers: number; average: number } = $props();
 </script>
 
 <article class="run">
   <ModelName name={run.model} {color} />
+  <p class="cumul">{answers} {answers > 1 ? 'réponses' : 'réponse'}, moyenne {score(average)}/100. Dernière réponse :</p>
   {#if run.error}
     <p class="state state-critical"><Icon name="cross" size={16} /> Échec</p>
     <pre class="output">{run.error}</pre>
@@ -42,6 +43,11 @@
     border: 1px solid var(--hairline);
     border-radius: var(--radius);
     background: var(--panel);
+  }
+
+  .cumul {
+    color: var(--ink-2);
+    font-size: var(--text-sm);
   }
 
   .figures {

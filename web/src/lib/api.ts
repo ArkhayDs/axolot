@@ -148,6 +148,11 @@ export interface Run {
   retrieval_hit: boolean | null;
 }
 
+export interface CaseAnswer extends Run {
+  answers: number;
+  avg_score: number;
+}
+
 export interface ModelStats {
   provider: string;
   model: string;
@@ -349,6 +354,7 @@ export const api = {
   models: (): Promise<Models> => get('/models'),
   pullModel: (provider_id: number, name: string): Promise<void> => write('POST', '/models/pull', { provider_id, name }),
   cases: (): Promise<CasesResponse> => get('/cases'),
+  caseAnswers: (id: string): Promise<CaseAnswer[]> => get(`/cases/${encodeURIComponent(id)}/answers`),
   setCaseModels: (id: string, selections: Selection[]): Promise<Selection[]> =>
     write('PUT', `/cases/${encodeURIComponent(id)}/models`, selections),
   corpus: (): Promise<CorpusResponse> => get('/corpus'),

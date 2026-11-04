@@ -1,15 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import CampaignPicker from '../components/CampaignPicker.svelte';
   import Icon from '../components/Icon.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
   import RunColumn from '../components/RunColumn.svelte';
   import SourceDialog from '../components/SourceDialog.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { CasesResponse, Models, Run, Selection, Settings, Source } from '../lib/api';
-  import { campaignResults, picked, refreshCampaigns } from '../lib/campaigns.svelte';
+  import type { CaseAnswer, CasesResponse, Models, Selection, Settings, Source } from '../lib/api';
+  import { refreshCampaigns } from '../lib/campaigns.svelte';
   import { number, seriesColor, splitPrompt, trapLabel } from '../lib/format';
   import { launch, live } from '../lib/live.svelte';
 
@@ -18,28 +17,39 @@
   let catalog = $state<CasesResponse | null>(null);
   let models = $state<Models | null>(null);
   let settings = $state<Settings | null>(null);
-  let campaignId = $state(picked.id);
+  let answers = $state<CaseAnswer[]>([]);
   let error = $state('');
   let busy = $state(false);
   let source = $state<Source | null>(null);
 
-  const results = campaignResults(() => campaignId);
   const current = $derived(catalog?.cases.find((item) => item.id === id));
   const selections = $derived((catalog?.selections ?? []).filter((selection) => selection.case_id === id));
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
-  const runs = $derived((results.detail?.runs ?? []).filter((run) => run.case_id === id));
-  const modelNames = $derived([...new Set((results.detail?.runs ?? []).map((run) => run.model))].sort());
-  const corpus = $derived(results.detail?.campaign.rag_config.corpus_dir ?? settings?.corpus_dir ?? '');
+  const modelNames = $derived([...new Set(answers.map((answer) => answer.model))].sort());
+  const corpus = $derived(settings?.corpus_dir ?? '');
   const runsByItem = $derived(
-    runs.reduce((groups, run) => {
-      groups.set(run.item_id, [...(groups.get(run.item_id) ?? []), run]);
+    answers.reduce((groups, answer) => {
+      groups.set(answer.item_id, [...(groups.get(answer.item_id) ?? []), answer]);
       return groups;
-    }, new Map<string, Run[]>()),
+    }, new Map<string, CaseAnswer[]>()),
   );
 
-  // The list arrives after this page opens on a fresh load.
+  // Follows new answers while this scenario runs, and the end of any benchmark.
   $effect(() => {
-    if (!campaignId && picked.id) campaignId = picked.id;
+    void live.finished;
+    if (live.caseId === id) void live.done;
+    let stale = false;
+    api
+      .caseAnswers(id)
+      .then((loaded) => {
+        if (!stale) answers = loaded;
+      })
+      .catch((loadError: unknown) => {
+        if (!stale) error = errorMessage(loadError);
+      });
+    return () => {
+      stale = true;
+    };
   });
 
   /**
@@ -75,7 +85,7 @@
     if (!current) return;
     busy = true;
     try {
-      campaignId = await launch(`${current.title} (direct)`, [id]);
+      await launch(`${current.title} (direct)`, [id]);
       await refreshCampaigns();
       error = '';
     } catch (runError) {
@@ -99,11 +109,11 @@
     <div>
       <a class="back" href="#/cas">Tous les scénarios</a>
       <h1>{current?.title ?? id}</h1>
+      <p>Dernière réponse de chaque modèle, chiffres cumulés sur tous les benchmarks.</p>
     </div>
-    <CampaignPicker bind:value={campaignId} campaigns={picked.list} />
   </div>
 
-  <Notice message={error || results.error} />
+  <Notice message={error} />
 
   {#if catalog && !current}
     <p class="empty">Ce scénario n'existe pas.</p>
@@ -173,11 +183,11 @@
         {#if itemRuns.length > 0}
           <div class="columns">
             {#each itemRuns as run (run.id || run.model)}
-              <RunColumn {run} color={seriesColor(run.model, modelNames)} />
+              <RunColumn {run} color={seriesColor(run.model, modelNames)} answers={run.answers} average={run.avg_score} />
             {/each}
           </div>
         {:else}
-          <p class="muted">Pas de résultat dans ce Benchmark.</p>
+          <p class="muted">Pas encore de réponse à cette version de la question.</p>
         {/if}
       </section>
     {/each}
