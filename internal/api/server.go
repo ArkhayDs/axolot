@@ -42,6 +42,7 @@ type Server struct {
 	cancel context.CancelFunc
 	active string
 	ingest bool
+	chats  int
 	pulls  map[string]pullState
 }
 
@@ -69,6 +70,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/campaigns", s.startCampaign)
 	mux.HandleFunc("POST /api/campaigns/{id}/cancel", s.cancelCampaign)
 	mux.HandleFunc("GET /api/campaigns/{id}", s.getCampaign)
+	mux.HandleFunc("POST /api/chat", s.chat)
 	mux.Handle("/", spa(cfg.Static))
 	return sameOrigin(mux)
 }

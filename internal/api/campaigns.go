@@ -116,6 +116,10 @@ func (s *Server) startCampaign(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Une campagne est déjà en cours")
 		return
 	}
+	if s.chats > 0 {
+		writeError(w, http.StatusConflict, "Une réponse de chat est en cours : elle fausserait les temps")
+		return
+	}
 	id, err := s.cfg.Store.CreateCampaign(r.Context(), name, hardwareRaw, ragRaw, total)
 	if err != nil {
 		internalError(w, r, err)
