@@ -18,7 +18,7 @@ Darwin)
 	cores=$(sysctl -n hw.ncpu)
 	ram=$(sysctl -n hw.memsize)
 	gpu_cores=$(system_profiler SPDisplaysDataType 2>/dev/null | awk -F': ' '/Total Number of Cores/ {print $2; exit}')
-	gpu="GPU integre ${gpu_cores:-?} coeurs"
+	gpu="GPU intégré ${gpu_cores:-?} cœurs"
 	;;
 Linux)
 	chip=$(awk -F': ' '/model name/ {print $2; exit}' /proc/cpuinfo)
