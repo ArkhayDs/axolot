@@ -4,6 +4,8 @@ Labo de comparaison de modèles d'IA sur des cas à résultat attendu. Quel mod�
 
 ![Atlas](docs/captures/atlas-desktop.png)
 
+**Présenter Axolot :** parcours de 5 minutes dans [docs/demo.md](docs/demo.md).
+
 ## Démarrer
 
 Prérequis : Docker avec Compose, [Ollama](https://ollama.com) sur l'hôte.
