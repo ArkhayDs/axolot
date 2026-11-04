@@ -2,15 +2,14 @@
   import { onMount } from 'svelte';
 
   import CampaignPicker from '../components/CampaignPicker.svelte';
-  import GroupedBars from '../components/GroupedBars.svelte';
-  import type { BarGroup } from '../components/GroupedBars.svelte';
   import Icon from '../components/Icon.svelte';
+  import LatencyStrip from '../components/LatencyStrip.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
   import RunMatrix from '../components/RunMatrix.svelte';
   import ScoreScatter from '../components/ScoreScatter.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { Case, ModelStats } from '../lib/api';
+  import type { Case } from '../lib/api';
   import { campaignResults, picked } from '../lib/campaigns.svelte';
   import { categoryLabel, duration, number, score, seriesColor, statusLabel } from '../lib/format';
 
@@ -20,9 +19,7 @@
   const results = campaignResults(() => picked.id);
   const stats = $derived(results.detail?.stats ?? []);
   const models = $derived([...new Set(stats.map((stat) => stat.model))].sort());
-  const categories = $derived([...new Set(stats.map((stat) => stat.category))].sort());
   const rows = $derived([...stats].sort((a, b) => a.category.localeCompare(b.category) || a.model.localeCompare(b.model)));
-  const maxTime = $derived(Math.max(0, ...stats.map((stat) => stat.p50_total_ms ?? 0)));
   const playedCases = $derived(cases.filter((item) => results.detail?.runs.some((run) => run.case_id === item.id)));
 
   onMount(async () => {
@@ -32,36 +29,6 @@
       casesError = errorMessage(error);
     }
   });
-
-  /**
-   * @param {ModelStats} stat - model figures
-   * @returns {string} - tooltip content
-   */
-  function detail(stat: ModelStats): string {
-    const errors = stat.errors > 0 ? `, ${stat.errors} échecs` : '';
-    return `${stat.runs} réponses${errors}, ${score(stat.avg_score)}/100, ${duration(stat.p50_total_ms)}`;
-  }
-
-  /**
-   * Builds one chart's groups, one per task
-   * @param {(stat: ModelStats) => number} value - bar length
-   * @param {(stat: ModelStats) => string} text - value shown at the tip
-   * @returns {BarGroup[]} - chart groups
-   */
-  function groups(value: (stat: ModelStats) => number, text: (stat: ModelStats) => string): BarGroup[] {
-    return categories.map((category) => ({
-      label: categoryLabel(category),
-      bars: rows
-        .filter((stat) => stat.category === category)
-        .map((stat) => ({
-          model: stat.model,
-          value: value(stat),
-          text: text(stat),
-          color: seriesColor(stat.model, models),
-          detail: detail(stat),
-        })),
-    }));
-  }
 </script>
 
 <div class="page">
@@ -77,7 +44,7 @@
 
   <Notice message={results.error || picked.error || casesError} />
 
-  {#if stats.length > 0}
+  {#if stats.length > 0 && results.detail}
     <ul class="legend" aria-label="Légende">
       {#each models as model (model)}
         <li><ModelName name={model} color={seriesColor(model, models)} /></li>
@@ -85,15 +52,8 @@
     </ul>
 
     <ScoreScatter {stats} {models} />
-
-    <div class="charts">
-      <GroupedBars title="Score moyen, sur 100" max={100} groups={groups((stat) => stat.avg_score, (stat) => score(stat.avg_score))} />
-      <GroupedBars title="Temps médian par réponse" max={maxTime} groups={groups((stat) => stat.p50_total_ms ?? 0, (stat) => duration(stat.p50_total_ms))} />
-    </div>
-
-    {#if results.detail}
-      <RunMatrix cases={playedCases} {models} runs={results.detail.runs} />
-    {/if}
+    <LatencyStrip runs={results.detail.runs} {models} />
+    <RunMatrix cases={playedCases} {models} runs={results.detail.runs} />
 
     <div class="table-wrap">
       <table>
@@ -151,12 +111,6 @@
     margin: 0;
     padding: 0;
     list-style: none;
-  }
-
-  .charts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-    gap: var(--s4);
   }
 
   td,

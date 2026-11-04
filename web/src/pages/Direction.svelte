@@ -2,15 +2,13 @@
   import { onMount } from 'svelte';
 
   import CampaignPicker from '../components/CampaignPicker.svelte';
+  import EvalMatrix from '../components/EvalMatrix.svelte';
   import Icon from '../components/Icon.svelte';
-  import type { IconName } from '../components/Icon.svelte';
-  import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
-  import ScoreNetwork from '../components/ScoreNetwork.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { CasesResponse, Hardware, Pick } from '../lib/api';
+  import type { CasesResponse, Hardware } from '../lib/api';
   import { campaignResults, picked } from '../lib/campaigns.svelte';
-  import { categoryLabel, duration, score, seriesColor, when } from '../lib/format';
+  import { when } from '../lib/format';
 
   let hardware = $state<Hardware | null>(null);
   let cases = $state<CasesResponse | null>(null);
@@ -18,27 +16,8 @@
 
   const results = campaignResults(() => picked.id);
   const models = $derived([...new Set((results.detail?.stats ?? []).map((stat) => stat.model))].sort());
-  // The tag is only dropped while the family alone still identifies each model.
-  const shortNames = $derived(new Set(models.map((model) => model.split(':')[0])).size === models.length);
   const shownMachine = $derived(results.detail?.campaign.hardware ?? hardware);
   const questions = $derived((cases?.cases ?? []).reduce((total, item) => total + item.items.length, 0));
-
-  const COLUMNS: { key: 'quality' | 'speed' | 'compromise'; label: string; icon: IconName }[] = [
-    { key: 'quality', label: 'Qualité', icon: 'star' },
-    { key: 'speed', label: 'Vitesse', icon: 'bolt' },
-    { key: 'compromise', label: 'Compromis', icon: 'balance' },
-  ];
-
-  /**
-   * @param {Pick} pick - winning model
-   * @param {string} key - verdict column
-   * @returns {string} - figure justifying the win
-   */
-  function figure(pick: Pick, key: string): string {
-    if (key === 'quality') return `${score(pick.score)}/100`;
-    if (key === 'speed') return duration(pick.p50_total_ms);
-    return `${score(pick.score)}/100, ${duration(pick.p50_total_ms)}`;
-  }
 
   onMount(async () => {
     try {
@@ -67,43 +46,9 @@
   <Notice message={loadError || results.error || picked.error} />
 
   {#if results.detail && results.detail.verdicts.length > 0}
-    <div class="synthesis">
-      <div class="verdict-block">
-    <div class="table-wrap">
-      <table class="verdicts">
-        <thead>
-          <tr>
-            <th scope="col">Tâche</th>
-            {#each COLUMNS as column (column.key)}
-              <th scope="col"><span class="head-cell"><Icon name={column.icon} /> {column.label}</span></th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each results.detail.verdicts as verdict (verdict.category)}
-            <tr class:overall={verdict.category === ''}>
-              <th scope="row">{categoryLabel(verdict.category)}</th>
-              {#each COLUMNS as column (column.key)}
-                {@const pick = verdict[column.key]}
-                <td data-label={column.label}>
-                  {#if pick}
-                    <span class="winner">
-                      <ModelName name={pick.model} color={seriesColor(pick.model, models)} short={shortNames} />
-                      <span class="figure">{figure(pick, column.key)}</span>
-                    </span>
-                  {:else}
-                    <span class="muted">-</span>
-                  {/if}
-                </td>
-              {/each}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-    <p class="muted caption">Temps médian par réponse. Compromis : le plus rapide à moins de 10 points du meilleur score.</p>
-      </div>
-      <ScoreNetwork stats={results.detail.stats} {models} />
+    <div class="matrix">
+      <EvalMatrix stats={results.detail.stats} verdicts={results.detail.verdicts} {models} />
+      <p class="muted caption">Plus une case est rouge, plus le modèle a perdu de points. Recommandé : le plus rapide à moins de 10 points du meilleur score.</p>
     </div>
   {:else if !results.error && !picked.error}
     <div class="empty">
@@ -136,50 +81,10 @@
 </div>
 
 <style>
-  .verdicts tbody th {
-    color: var(--ink);
-    font-size: var(--text-md);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .overall {
-    background: var(--raised);
-  }
-
-  .head-cell {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s2);
-  }
-
-  .synthesis {
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    align-items: start;
-    gap: var(--s4);
-  }
-
-  .verdict-block {
+  .matrix {
     display: grid;
     gap: var(--s2);
     min-width: 0;
-  }
-
-  .verdicts th,
-  .verdicts td {
-    padding: var(--s2) var(--s3);
-  }
-
-  .winner {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s2);
-    white-space: nowrap;
-  }
-
-  .figure {
-    font-weight: 600;
   }
 
   .caption {
@@ -189,8 +94,12 @@
   .how {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--s3) var(--s4);
+  }
+
+  .cta {
+    align-self: center;
   }
 
   .step {
@@ -221,48 +130,7 @@
     color: var(--axis);
   }
 
-  /* Below this width the diagram needs its own row to stay readable. */
-  @media (max-width: 1240px) {
-    .synthesis {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  /* A phone reads the table as one block per task: every cell repeats its column name. */
   @media (max-width: 760px) {
-    .verdicts thead {
-      display: none;
-    }
-
-    .verdicts tr,
-    .verdicts tbody th,
-    .verdicts td {
-      display: block;
-    }
-
-    .verdicts tbody th {
-      padding-bottom: 0;
-      border-bottom: 0;
-    }
-
-    .verdicts td {
-      min-width: 0;
-      padding-block: var(--s2);
-      border-bottom: 0;
-    }
-
-    .verdicts td::before {
-      content: attr(data-label);
-      display: block;
-      color: var(--ink-3);
-      font-size: var(--text-sm);
-    }
-
-    .verdicts tr {
-      padding-bottom: var(--s2);
-      border-bottom: 1px solid var(--hairline);
-    }
-
     .how {
       align-items: stretch;
       flex-direction: column;
