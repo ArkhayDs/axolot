@@ -10,6 +10,7 @@
     { route: '', label: 'Direction', icon: 'target' },
     { route: 'labo', label: 'Labo', icon: 'flask' },
     { route: 'cas', label: 'Cas', icon: 'list' },
+    { route: 'chat', label: 'Chat', icon: 'chat' },
     { route: 'resultats', label: 'Résultats', icon: 'bars' },
     { route: 'reglages', label: 'Réglages', icon: 'sliders' },
   ];

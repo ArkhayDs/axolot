@@ -6,6 +6,7 @@
   import { connectLive, live } from './lib/live.svelte';
   import CaseDetail from './pages/CaseDetail.svelte';
   import CaseList from './pages/CaseList.svelte';
+  import Chat from './pages/Chat.svelte';
   import Direction from './pages/Direction.svelte';
   import Labo from './pages/Labo.svelte';
   import Results from './pages/Results.svelte';
@@ -53,6 +54,8 @@
     {/key}
   {:else if route[0] === 'cas'}
     <CaseList />
+  {:else if route[0] === 'chat'}
+    <Chat />
   {:else if route[0] === 'resultats'}
     <Results />
   {:else if route[0] === 'reglages'}

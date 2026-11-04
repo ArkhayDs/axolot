@@ -243,6 +243,51 @@ async function write<T>(method: string, path: string, body?: unknown): Promise<T
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+export interface ChatMetrics {
+  ttft_ms: number | null;
+  total_ms: number;
+  load_ms: number | null;
+  output_tokens: number | null;
+  tok_per_sec: number | null;
+}
+
+/**
+ * Streams one chat answer
+ * @param {{ provider_id: number; model: string; messages: { role: string; content: string }[] }} body - question and history
+ * @param {(text: string) => void} onDelta - called on each fragment
+ * @param {AbortSignal} signal - cancels the generation on the server too
+ * @returns {Promise<ChatMetrics>} - timings of the finished answer
+ */
+export async function streamChat(
+  body: { provider_id: number; model: string; messages: { role: string; content: string }[] },
+  onDelta: (text: string) => void,
+  signal: AbortSignal,
+): Promise<ChatMetrics> {
+  const response = await send('/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!response.body) throw new Error('Flux non supporté');
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) throw new Error('Réponse interrompue');
+    buffer += value;
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line) continue;
+      const event = JSON.parse(line) as { type: string; text?: string; error?: string } & ChatMetrics;
+      if (event.type === 'delta') onDelta(event.text ?? '');
+      if (event.type === 'error') throw new Error(event.error ?? 'Erreur du modèle');
+      if (event.type === 'done') return event;
+    }
+  }
+}
+
 export const api = {
   status: (): Promise<Status> => get('/status'),
   settings: (): Promise<Settings> => get('/settings'),
