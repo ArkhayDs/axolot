@@ -226,6 +226,26 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if means["code|i1"] != 200 || means["code|"] != 200 || means["rag|i2"] != 400 || len(estimates) != 5 {
 		t.Fatalf("estimates=%+v", estimates)
 	}
+	items, err := s.MapItems(ctx, hashes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	perItem := map[string]MapItem{}
+	for _, item := range items {
+		perItem[item.Machine+"|"+item.CaseID+"|"+item.ItemID] = item
+	}
+	if len(items) != 5 {
+		t.Fatalf("items=%+v", items)
+	}
+	if item := perItem["mac|c|i1"]; item.Runs != 3 || item.AvgScore < 66.6 || item.AvgScore > 66.7 || *item.P50TotalMs != 200 || item.Errors != 0 {
+		t.Fatalf("question on one machine: %+v", item)
+	}
+	if item := perItem["|c|i1"]; item.Runs != 4 || item.AvgScore < 43.3 || item.AvgScore > 43.4 {
+		t.Fatalf("question over machines, machines weighing the same: %+v", item)
+	}
+	if item := perItem["mac|c|i2"]; item.Runs != 1 || item.AvgScore != 100 {
+		t.Fatalf("running campaign or stale version counted: %+v", item)
+	}
 	answers, err := s.MapAnswers(ctx, hashes)
 	if err != nil || len(answers) != 5 {
 		t.Fatalf("answers=%+v err=%v", answers, err)

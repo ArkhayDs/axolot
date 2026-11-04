@@ -10,7 +10,13 @@ import (
 
 // getMap returns what the landing map draws and ranks.
 func (s *Server) getMap(w http.ResponseWriter, r *http.Request) {
-	cells, err := s.cfg.Store.MapCells(r.Context(), s.currentHashes())
+	hashes := s.currentHashes()
+	cells, err := s.cfg.Store.MapCells(r.Context(), hashes)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	items, err := s.cfg.Store.MapItems(r.Context(), hashes)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -20,7 +26,7 @@ func (s *Server) getMap(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"cells": cells, "benchmarks": benchmarks, "current_machine": s.cfg.Hardware.Label})
+	writeJSON(w, http.StatusOK, map[string]any{"cells": cells, "items": items, "benchmarks": benchmarks, "current_machine": s.cfg.Hardware.Label})
 }
 
 // getBase returns the cumulated database in the shape of a campaign's results: all machines together.

@@ -197,6 +197,17 @@ export interface MapCell extends ModelStats {
   p95_total_ms: number | null;
 }
 
+export interface MapItem {
+  machine: string;
+  model: string;
+  case_id: string;
+  item_id: string;
+  runs: number;
+  avg_score: number;
+  p50_total_ms: number | null;
+  errors: number;
+}
+
 export interface MapBenchmark {
   id: string;
   name: string;
@@ -212,6 +223,7 @@ export interface MapBenchmark {
 
 export interface MapData {
   cells: MapCell[];
+  items: MapItem[];
   benchmarks: MapBenchmark[];
   current_machine: string;
 }

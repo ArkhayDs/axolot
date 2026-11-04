@@ -44,17 +44,32 @@ type Answer struct {
 	Error    string `json:"error"`
 }
 
-// MapCells cumulates every finished answer to the current version of each question.
-// Scores average per (machine, model, question) first, so a question repeated ten times weighs as much as
-// one played once; the weight below does that in a single pass while times stay medians of all answers.
+// MapItem cumulates a model's answers to one question; an empty Machine is the rollup over machines.
+type MapItem struct {
+	Machine    string   `json:"machine"`
+	Model      string   `json:"model"`
+	CaseID     string   `json:"case_id"`
+	ItemID     string   `json:"item_id"`
+	Runs       int      `json:"runs"`
+	AvgScore   float64  `json:"avg_score"`
+	P50TotalMs *float64 `json:"p50_total_ms"`
+	Errors     int      `json:"errors"`
+}
+
+// cumulatedAnswers selects what the cumulated figures count: finished answers to the current version of each
+// question. Scores average per (machine, model, question) first, so a question repeated ten times weighs as much
+// as one played once; the weight does that in a single pass while times stay medians of all answers.
+const cumulatedAnswers = `WITH answers AS (
+		SELECT c.hardware->>'label' AS machine, r.*,
+			1.0::float8 / count(*) OVER (PARTITION BY c.hardware->>'label', r.model, r.case_id, r.item_id) AS weight
+		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
+		WHERE c.status <> $1 AND r.item_hash = ANY($2)
+	)`
+
+// MapCells cumulates answers per machine, model and theme, with their rollups.
 // shortcut: a tag served by two connections counts as one model, split on provider if that ever happens.
 func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error) {
-	rows, err := s.pool.Query(ctx, `WITH answers AS (
-			SELECT c.hardware->>'label' AS machine, r.*,
-				1.0::float8 / count(*) OVER (PARTITION BY c.hardware->>'label', r.model, r.case_id, r.item_id) AS weight
-			FROM runs r JOIN campaigns c ON c.id = r.campaign_id
-			WHERE c.status <> $1 AND r.item_hash = ANY($2)
-		)
+	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
 		SELECT COALESCE(machine, ''), min(provider_name), model, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
@@ -74,6 +89,22 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 		return nil, fmt.Errorf("compute map cells: %w", err)
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[MapCell])
+}
+
+// MapItems cumulates answers per machine, model and question, with the rollup over machines.
+func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error) {
+	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
+		SELECT COALESCE(machine, ''), model, case_id, item_id,
+			count(*)::int,
+			sum(score * weight) / sum(weight),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
+			count(*) FILTER (WHERE error <> '')::int
+		FROM answers
+		GROUP BY GROUPING SETS ((machine, model, case_id, item_id), (model, case_id, item_id))`, StatusRunning, hashes)
+	if err != nil {
+		return nil, fmt.Errorf("compute map items: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[MapItem])
 }
 
 // MapAnswers lists what MapCells counted, without the heavy columns.
