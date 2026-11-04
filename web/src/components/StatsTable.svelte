@@ -10,7 +10,7 @@
 </script>
 
 <div class="table-wrap">
-  <table>
+  <table class="stats">
     <thead>
       <tr>
         <th scope="col">Thème</th>
@@ -53,8 +53,14 @@
 </div>
 
 <style>
-  td,
-  th {
+  .stats td,
+  .stats th {
+    padding-inline: var(--s2);
     white-space: nowrap;
+  }
+
+  /* Headers may wrap: the eleven columns must fit the page without a hidden last one. */
+  .stats thead th {
+    white-space: normal;
   }
 </style>
