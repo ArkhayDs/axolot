@@ -2,7 +2,7 @@
 
 Labo de comparaison de modèles d'IA sur des cas à résultat attendu. Quel modèle pour quelle tâche, à quelle vitesse et avec quelle qualité, sur la machine présente. Notation déterministe : aucune autre IA que les modèles testés.
 
-![Synthèse](docs/captures/direction-desktop.png)
+![Atlas](docs/captures/atlas-desktop.png)
 
 ## Démarrer
 
@@ -36,6 +36,10 @@ make web-check  # svelte-check
 
 Conventions et pièges : `CLAUDE.md`. État du POC : `docs/poc.md`.
 
-| Bureau | Mobile |
-|---|---|
-| ![Labo](docs/captures/labo-desktop.png) ![Résultats](docs/captures/resultats-desktop.png) | ![Synthèse mobile](docs/captures/direction-mobile.png) |
+![Atlas, modèle sélectionné](docs/captures/atlas-modele.png)
+
+![Résultats](docs/captures/resultats-desktop.png)
+
+![Benchmarks](docs/captures/benchmarks-desktop.png)
+
+![Chat](docs/captures/chat-desktop.png)

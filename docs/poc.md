@@ -10,20 +10,22 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - Corpus fictif "Groupe Hélianthe" (`corpus/demo`, 16 fichiers, 57 extraits) et 13 cas, 66 items (`cases/`), dont 5 cas durcis.
 - Front Svelte 5 embarqué dans le binaire : Atlas, Benchmarks, Scénarios, Résultats, puis Chat et Réglages. README et captures dans `docs/captures`.
 
-## Campagne de démo (2026-11-04, 132 réponses, depuis l'interface)
-| Modèle | Score moyen | Temps médian | tok/s médian |
+## Base cumulée (2026-11-04, 2 Benchmarks complets, température 0,3)
+| Modèle | Score cumulé | Réponses | Temps médian du dernier passage |
 |---|---|---|---|
-| `gemma4:e4b-it-q4_K_M` | 86 | 0,6 s | 156 |
-| `qwen3.6:27b-q4_K_M` | 95,5 | 5,2 s | 21 |
+| `gemma4:e4b-it-q4_K_M` | 85,5 | 138 | 0,6 s |
+| `qwen3.6:27b-q4_K_M` | 94,3 | 132 | 5,9 s |
 
-- Les cas durcis départagent : Questions ambiguës 50 / 83,3, Lecture de documents 25 / 100, Documents internes 96 / 100.
-- Échecs relus un par un : aucun faux positif trouvé, valeurs attendues des 6 calculs revérifiées à la main. Calcul à 66,7 des deux côtés par coïncidence, sur des erreurs différentes.
+- Les réponses antérieures à l'empreinte de question restent en base, hors stats. Rien n'est supprimé.
+- Échecs relus sur les 2 passages : aucun faux positif trouvé. Valeurs attendues des 6 calculs revérifiées à la main. Les scores bougent d'un passage à l'autre : c'est voulu, une seule mesure ne prouve pas un petit écart.
 - `python-top-stores` (Gemma) : code correct, signature non respectée alors que l'énoncé la demandait exacte. Défaut du modèle, vérification conservée.
-- Limites connues : `lecture-km-brico-seule` donne 0/100 à Gemma pour 105,8 au lieu de 105,84 (égalité stricte). Le prompt RAG de `internal/rag/rag.go` annonce toujours les pièges, seuls les cas `lecture-documents` y échappent.
+- `lecture-km-brico-seule` : 0/100 pour 105,8 au lieu de 105,84 sur le dernier passage (égalité stricte), conservé.
+- Le prompt RAG de `internal/rag/rag.go` annonce toujours les pièges, seuls les cas `lecture-documents` y échappent.
+- Benchmarks : 8 min 54 sur batterie, 11 min 58 sur secteur, avec l'interface ouverte et en cours d'usage sur le second. Ne permet pas de conclure à un effet de l'alimentation.
+- Gel d'onglet vu une fois sur l'Atlas : cause non trouvée, non reproduit, protections ajoutées. Garder un onglet de secours sur Résultats.
 
 ## Reste à faire
-- Avant la démo, sur accord de Raphaël : supprimer de la base `Essai qwen...`, `Essai gemma...`, `Essai front` et `Campagne` (annulée, 0 réponse).
-- Répéter le parcours sur `http://localhost:5090` : Atlas, un scénario en direct depuis l'Atlas, Résultats, citation ouverte dans une page de scénario.
+- Répéter le parcours sur `http://localhost:5090` : Atlas, un scénario en direct, Résultats, citation ouverte, Chat avec et sans Documents.
 
 ## UI (`/impeccable`, français, peu de texte, icônes animées)
 - **Résultats** : base cumulée, synthèse pour non-tech en tête, gagnants qualité / vitesse / compromis par thème.
@@ -40,6 +42,14 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 `gemma4:e4b-it-q4_K_M` (6,6 Go), `qwen3.6:27b-q4_K_M` (17 Go), `bge-m3` (1,2 Go, embeddings). `qwen3.6:35b-a3b` (23 Go) est juste en RAM avec Colima.
 
 ## Après la démo
+- Énergie par modèle : script hôte relevant `ioreg` pendant les Benchmarks (sans `sudo`, sur batterie, toute la machine ; `powermetrics` pour CPU/GPU), croisé avec les réponses, en Wh par réponse.
+- Thème de Benchmark sur l'appel d'outils, avec date et heure comme premier outil.
+- Plusieurs machines : export/import des résultats, le filtre machine n'a tourné qu'avec une seule.
+- Login, puis exposition au-delà de loopback.
+- Atlas : chevauchements de libellés restants, place des Benchmarks au centre.
+- Formats réels : PDF multi-colonnes, exports Outlook, mails HTML à éprouver.
+- Intervalles de confiance sur les Benchmarks répétés, à faire de la main de Raphaël.
+- `DESIGN.md` à générer depuis l'interface finale.
 - Pause explicative du RAG, à la demande de Raphaël : il doit en mettre un en place pour l'entreprise (`~/Gitlab/projects/ai-local`). Le parcours tuteur de `ai-local/notes-labo-rag.md` reste à faire de sa main.
 - JEV (TypeSafe AI) : connecteur si le compte est ouvert. Modèle de décision sans génération de texte, à comparer sur `routage-sentinelle`. Clarifier les données envoyées au fournisseur.
 - Référence frontier sans clé API (avant la démo si le temps le permet, après le front et une campagne locale réussie) : script hôte exposant `claude -p` et l'abonnement Max comme une API compatible OpenAI, ajouté comme simple connexion. À vérifier : sortie structurée, mesures de temps, conditions de l'abonnement. Qualité comparable, vitesse moins directe (réseau, surcoût de Claude Code). Présenter comme référence cloud, hors démo 100 % locale.
