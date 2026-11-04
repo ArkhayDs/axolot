@@ -1,0 +1,138 @@
+{
+  "id": "routage-sentinelle",
+  "title": "Routage d'outils analytiques Sentinelle",
+  "kind": "decision",
+  "category": "routage",
+  "language": "fr",
+  "system": "Tu es l'assistant d'un serveur d'analyse des ventes en lecture seule. Pour chaque question métier, choisis le seul outil le plus adapté. Réponds uniquement avec un objet JSON contenant tool.\n\nOutils disponibles :\n- get_drill_matrix : matrice de ventilation d'un indicateur par dimension\n- get_scope_kpis : principaux indicateurs d'un périmètre sur une période\n- get_time_series : évolution d'un indicateur dans le temps\n- list_periods : liste des périodes disponibles\n- list_scopes : liste des périmètres et magasins disponibles\n- read_reference : définitions métier, mode de calcul d'un indicateur\n- run_sql : SQL libre en lecture seule, en dernier recours quand aucun autre outil ne convient\n- server_info : test de connectivité du serveur",
+  "items": [
+    {
+      "id": "routage-matrice-rayon",
+      "prompt": "Je veux voir le chiffre d'affaires d'octobre 2026 ventilé par rayon, sous forme de matrice.",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "get_drill_matrix"}
+      ]
+    },
+    {
+      "id": "routage-kpis-magasin",
+      "prompt": "Donne-moi les principaux indicateurs du magasin d'Aurance-Nord pour septembre 2026.",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "get_scope_kpis"}
+      ]
+    },
+    {
+      "id": "routage-evolution-panier",
+      "prompt": "Comment le panier moyen a-t-il évolué, mois après mois, depuis janvier 2026 ?",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "get_time_series"}
+      ]
+    },
+    {
+      "id": "routage-periodes",
+      "prompt": "Quels mois sont disponibles dans les données ?",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "list_periods"}
+      ]
+    },
+    {
+      "id": "routage-perimetres",
+      "prompt": "Quels magasins puis-je interroger ?",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "list_scopes"}
+      ]
+    },
+    {
+      "id": "routage-definition-marge",
+      "prompt": "Comment la marge nette est-elle calculée ? J'ai besoin de la définition exacte.",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "read_reference"}
+      ]
+    },
+    {
+      "id": "routage-sql-tickets",
+      "prompt": "Retrouve les tickets de caisse d'octobre 2026 qui contiennent à la fois un article de jardin et un article d'outillage, avec leur numéro de ticket. Aucun indicateur ni tableau standard ne descend à ce niveau de détail.",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "run_sql"}
+      ]
+    },
+    {
+      "id": "routage-connectivite",
+      "prompt": "Avant de commencer, vérifie simplement que le serveur répond.",
+      "schema": {
+        "type": "object",
+        "required": ["tool"],
+        "properties": {
+          "tool": {"type": "string", "enum": ["get_drill_matrix", "get_scope_kpis", "get_time_series", "list_periods", "list_scopes", "read_reference", "run_sql", "server_info"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "tool", "value": "server_info"}
+      ]
+    }
+  ]
+}

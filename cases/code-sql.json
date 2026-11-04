@@ -1,0 +1,36 @@
+{
+  "id": "code-sql",
+  "title": "Génération de requêtes SQL",
+  "kind": "text",
+  "category": "code",
+  "language": "sql",
+  "system": "Tu es un analyste expert en SQL (dialecte PostgreSQL). Tu réponds avec une seule requête complète et correcte, sans partie à compléter.",
+  "items": [
+    {
+      "id": "sql-top-magasins",
+      "prompt": "Voici le schéma :\n\nCREATE TABLE magasins (\n  id integer PRIMARY KEY,\n  nom text NOT NULL,\n  entite text NOT NULL\n);\n\nCREATE TABLE ventes (\n  id bigint PRIMARY KEY,\n  magasin_id integer NOT NULL REFERENCES magasins(id),\n  date_vente date NOT NULL,\n  montant_ttc numeric(10,2) NOT NULL\n);\n\nÉcris une requête qui retourne le nom et le chiffre d'affaires total des 5 magasins de l'entité 'Hyper' qui ont le plus vendu en octobre 2026, du plus grand au plus petit.",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\bjoin\\b"},
+        {"type": "regex", "pattern": "(?i)sum\\s*\\(\\s*\\w*\\.?montant_ttc"},
+        {"type": "regex", "pattern": "(?i)group\\s+by"},
+        {"type": "regex", "pattern": "(?i)order\\s+by[\\s\\S]*\\bdesc\\b"},
+        {"type": "regex", "pattern": "(?i)limit\\s+5|fetch\\s+first\\s+5"},
+        {"type": "regex", "pattern": "(?i)2026-10|date_trunc|date_part|extract\\s*\\(|to_char"},
+        {"type": "contains_any", "values": ["'Hyper'"]},
+        {"type": "not_contains", "values": ["TODO", "FIXME"]}
+      ]
+    },
+    {
+      "id": "sql-evolution-mensuelle",
+      "prompt": "Voici le schéma :\n\nCREATE TABLE ventes (\n  id bigint PRIMARY KEY,\n  magasin_id integer NOT NULL,\n  date_vente date NOT NULL,\n  montant_ttc numeric(10,2) NOT NULL\n);\n\nÉcris une requête qui retourne, pour chaque mois de 2026, le mois, le chiffre d'affaires total et l'écart avec le mois précédent. Utilise une fonction de fenêtrage (window function). Trie par mois croissant.",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\blag\\s*\\("},
+        {"type": "regex", "pattern": "(?i)\\bover\\s*\\("},
+        {"type": "regex", "pattern": "(?i)sum\\s*\\(\\s*\\w*\\.?montant_ttc"},
+        {"type": "regex", "pattern": "(?i)date_trunc|date_part|extract\\s*\\(|to_char"},
+        {"type": "regex", "pattern": "(?i)order\\s+by"},
+        {"type": "not_contains", "values": ["TODO", "FIXME"]}
+      ]
+    }
+  ]
+}

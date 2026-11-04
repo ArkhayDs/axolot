@@ -1,0 +1,31 @@
+{
+  "id": "code-go",
+  "title": "Génération de code Go",
+  "kind": "text",
+  "category": "code",
+  "language": "go",
+  "system": "Tu es un développeur Go expérimenté. Tu réponds avec du code complet et idiomatique, sans partie à compléter.",
+  "items": [
+    {
+      "id": "go-valid-ean13",
+      "prompt": "Écris une fonction Go avec exactement cette signature : func ValidEAN13(code string) bool\n\nElle retourne true si code est un code-barres EAN-13 valide : exactement 13 chiffres et une clé de contrôle correcte. Les positions impaires (1re, 3e, ...) pèsent 1, les positions paires pèsent 3, et la somme des 13 chiffres pondérés doit être un multiple de 10. Toute autre entrée retourne false.",
+      "checks": [
+        {"type": "regex", "pattern": "func\\s+ValidEAN13\\s*\\(\\s*code\\s+string\\s*\\)\\s*bool"},
+        {"type": "regex", "pattern": "len\\s*\\(|RuneCount|regexp"},
+        {"type": "regex", "pattern": "%\\s*10"},
+        {"type": "regex", "pattern": "\\bfor\\b"},
+        {"type": "not_contains", "values": ["TODO", "FIXME", "not implemented"]}
+      ]
+    },
+    {
+      "id": "go-sum-by-store",
+      "prompt": "Écris une fonction Go avec exactement cette signature : func SumByStore(r io.Reader) (map[string]float64, error)\n\nElle lit un CSV sans en-tête avec le paquet encoding/csv. Chaque ligne a deux colonnes : code magasin, montant (avec un point décimal). Elle retourne le total des montants par code magasin. Une erreur de lecture ou un montant invalide provoque le retour d'une erreur, enveloppée avec fmt.Errorf et %w. Inclus les imports.",
+      "checks": [
+        {"type": "regex", "pattern": "func\\s+SumByStore\\s*\\(\\s*r\\s+io\\.Reader\\s*\\)\\s*\\(\\s*map\\[string\\]float64\\s*,\\s*error\\s*\\)"},
+        {"type": "contains_all", "values": ["encoding/csv", "csv.NewReader", "strconv.ParseFloat", "fmt.Errorf", "%w"]},
+        {"type": "regex", "pattern": "err\\s*!=\\s*nil"},
+        {"type": "not_contains", "values": ["TODO", "FIXME", "not implemented"]}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "code-python",
+  "title": "Génération de code Python",
+  "kind": "text",
+  "category": "code",
+  "language": "python",
+  "system": "Tu es un développeur Python expérimenté. Tu réponds avec du code complet et lisible, sans partie à compléter.",
+  "items": [
+    {
+      "id": "python-parse-montant",
+      "prompt": "Écris une fonction Python avec exactement cette signature : def parse_montant(value: str) -> Decimal\n\nElle convertit un montant écrit à la française, par exemple \"1 234,56 €\" ou \"89,90\", en Decimal. Elle gère les espaces (y compris insécables) comme séparateurs de milliers et le symbole euro facultatif. Si le texte n'est pas un montant valide, elle lève ValueError. Inclus l'import de Decimal depuis le module decimal.",
+      "checks": [
+        {"type": "regex", "pattern": "def\\s+parse_montant\\s*\\(\\s*value\\s*:\\s*str\\s*\\)\\s*->\\s*Decimal"},
+        {"type": "regex", "pattern": "from\\s+decimal\\s+import\\s+.*Decimal"},
+        {"type": "contains_any", "values": [".replace(", "re.sub(", ".translate(", ".split("]},
+        {"type": "contains_all", "values": ["ValueError"]},
+        {"type": "not_contains", "values": ["TODO", "FIXME", "NotImplementedError"]}
+      ]
+    },
+    {
+      "id": "python-top-stores",
+      "prompt": "Écris une fonction Python avec exactement cette signature : def top_stores(rows: list[dict], n: int = 3) -> list[tuple[str, float]]\n\nChaque élément de rows est un dictionnaire avec les clés \"store\" (str) et \"amount\" (float). La fonction additionne les montants par magasin et retourne les n magasins au total le plus élevé, sous forme de liste de tuples (magasin, total), triée du plus grand au plus petit. N'utilise que la bibliothèque standard.",
+      "checks": [
+        {"type": "regex", "pattern": "def\\s+top_stores\\s*\\(\\s*rows\\s*:\\s*list\\[dict.*\\]\\s*,\\s*n\\s*:\\s*int\\s*=\\s*3\\s*\\)\\s*->\\s*list\\[tuple\\[str\\s*,\\s*float\\]\\]"},
+        {"type": "contains_any", "values": ["sorted(", ".sort(", "nlargest(", "most_common("]},
+        {"type": "contains_any", "values": ["\"store\"", "'store'"]},
+        {"type": "not_contains", "values": ["TODO", "FIXME", "NotImplementedError", "import pandas"]}
+      ]
+    }
+  ]
+}

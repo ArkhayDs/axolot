@@ -1,0 +1,118 @@
+{
+  "id": "tri-tickets",
+  "title": "Tri de tickets du support informatique",
+  "kind": "decision",
+  "category": "tri",
+  "language": "fr",
+  "system": "Tu tries les tickets du support informatique. Réponds uniquement avec un objet JSON contenant categorie et urgence.\n\ncategorie :\n- materiel : un équipement physique est cassé ou à remplacer\n- logiciel : une application fonctionne mal ou est mal configurée\n- acces : compte, mot de passe ou droits d'accès\n- reseau : connexion réseau ou internet\n- autre : tout ce qui n'est pas un incident informatique\n\nurgence :\n- haute : activité bloquée pour une équipe ou un magasin\n- normale : une personne gênée, à traiter sous la journée\n- basse : aucune gêne réelle, peut attendre",
+  "items": [
+    {
+      "id": "ticket-clavier-casse",
+      "prompt": "Plusieurs touches de mon clavier sont cassées et il faut le remplacer. Je travaille aujourd'hui avec un clavier de prêt, un peu petit, mais j'aimerais avoir le nouveau dans la journée.",
+      "schema": {
+        "type": "object",
+        "required": ["categorie", "urgence"],
+        "properties": {
+          "categorie": {"type": "string", "enum": ["materiel", "logiciel", "acces", "reseau", "autre"]},
+          "urgence": {"type": "string", "enum": ["basse", "normale", "haute"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "categorie", "value": "materiel"},
+        {"type": "json_equals", "path": "urgence", "value": "normale"}
+      ]
+    },
+    {
+      "id": "ticket-imprimantes-entrepot",
+      "prompt": "Les deux imprimantes d'étiquettes de l'entrepôt sont en panne : têtes d'impression cassées, un technicien l'a confirmé. Toute l'équipe de préparation est à l'arrêt, plus aucune commande ne part.",
+      "schema": {
+        "type": "object",
+        "required": ["categorie", "urgence"],
+        "properties": {
+          "categorie": {"type": "string", "enum": ["materiel", "logiciel", "acces", "reseau", "autre"]},
+          "urgence": {"type": "string", "enum": ["basse", "normale", "haute"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "categorie", "value": "materiel"},
+        {"type": "json_equals", "path": "urgence", "value": "haute"}
+      ]
+    },
+    {
+      "id": "ticket-reseau-magasin",
+      "prompt": "Depuis 9 h, plus aucune connexion réseau dans tout le magasin : les caisses sont hors ligne et les clients font la queue. Le lien internet semble coupé.",
+      "schema": {
+        "type": "object",
+        "required": ["categorie", "urgence"],
+        "properties": {
+          "categorie": {"type": "string", "enum": ["materiel", "logiciel", "acces", "reseau", "autre"]},
+          "urgence": {"type": "string", "enum": ["basse", "normale", "haute"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "categorie", "value": "reseau"},
+        {"type": "json_equals", "path": "urgence", "value": "haute"}
+      ]
+    },
+    {
+      "id": "ticket-compte-verrouille",
+      "prompt": "Mon compte sur le portail RH est verrouillé après plusieurs essais de mot de passe. Je n'arrive plus à me connecter, mais je peux avancer sur le reste de mon travail. Merci de le débloquer dans la journée.",
+      "schema": {
+        "type": "object",
+        "required": ["categorie", "urgence"],
+        "properties": {
+          "categorie": {"type": "string", "enum": ["materiel", "logiciel", "acces", "reseau", "autre"]},
+          "urgence": {"type": "string", "enum": ["basse", "normale", "haute"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "categorie", "value": "acces"},
+        {"type": "json_equals", "path": "urgence", "value": "normale"}
+      ]
+    },
+    {
+      "id": "ticket-format-dates",
+      "prompt": "Sur mon poste, le tableur affiche les dates au format américain depuis la dernière mise à jour de l'application. Ça ne me gêne pas vraiment et rien n'est bloqué, à regarder quand vous aurez le temps.",
+      "schema": {
+        "type": "object",
+        "required": ["categorie", "urgence"],
+        "properties": {
+          "categorie": {"type": "string", "enum": ["materiel", "logiciel", "acces", "reseau", "autre"]},
+          "urgence": {"type": "string", "enum": ["basse", "normale", "haute"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "categorie", "value": "logiciel"},
+        {"type": "json_equals", "path": "urgence", "value": "basse"}
+      ]
+    },
+    {
+      "id": "ticket-cartes-de-visite",
+      "prompt": "Bonjour, savez-vous à qui m'adresser pour commander de nouvelles cartes de visite ? Il m'en reste encore une bonne boîte, ce n'est donc pas pressé.",
+      "schema": {
+        "type": "object",
+        "required": ["categorie", "urgence"],
+        "properties": {
+          "categorie": {"type": "string", "enum": ["materiel", "logiciel", "acces", "reseau", "autre"]},
+          "urgence": {"type": "string", "enum": ["basse", "normale", "haute"]}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "categorie", "value": "autre"},
+        {"type": "json_equals", "path": "urgence", "value": "basse"}
+      ]
+    }
+  ]
+}

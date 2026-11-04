@@ -1,0 +1,32 @@
+{
+  "id": "resume-reunion",
+  "title": "Résumé de réunions",
+  "kind": "text",
+  "category": "resume",
+  "language": "fr",
+  "system": "Tu rédiges des résumés de réunion pour un dirigeant pressé. Tu t'en tiens aux décisions, aux chiffres, aux dates et aux responsables. Tu respectes strictement la limite de mots demandée.",
+  "items": [
+    {
+      "id": "reunion-drive",
+      "prompt": "Résume cette réunion en 80 mots maximum.\n\nNadia (directrice du magasin d'Aurance-Nord) : Merci d'être là. Un seul sujet ce matin, le nouveau drive. Le planning initial prévoyait une ouverture le 7 décembre. Marc, où en est-on ?\n\nMarc (responsable logistique) : Les travaux avancent, mais les rayonnages de la zone de préparation ont pris du retard chez le fournisseur. Ouvrir le 7 décembre, en plein pic de Noël, avec une équipe qui découvre le lieu, me paraît très risqué.\n\nThéo (contrôleur de gestion) : Je partage cet avis. Un démarrage raté en décembre coûterait plus cher qu'un décalage de quelques semaines. Côté budget, l'enveloppe totale reste à 85 000 euros, le retard du fournisseur n'entraîne aucun surcoût pour nous.\n\nNadia : Alors je tranche : on décale l'ouverture au 18 janvier 2027. Le budget de 85 000 euros est validé, sans rallonge. Inès, côté équipe ?\n\nInès (responsable RH) : Il faut recruter 6 préparateurs de commandes. Avec ce nouveau calendrier, je vise des contrats signés avant le 1er décembre, puis deux semaines de formation au début du mois de janvier.\n\nNadia : Parfait. Marc, tu pilotes l'ensemble du projet et tu me fais un point chaque semaine ?\n\nMarc : D'accord. Je demande aussi au fournisseur une date de livraison ferme pour les rayonnages.\n\nThéo : Et il faudra prévenir le service communication, car les affiches annonçaient décembre.\n\nNadia : Exact. Marc s'en charge aussi, les affiches seront refaites. On a beaucoup parlé de retards, alors pour une fois je serai brève : on se revoit le 20 novembre pour vérifier le recrutement et la date de livraison. Merci à tous.",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)18\\s+janvier|18/01"},
+        {"type": "regex", "pattern": "85\\D{0,2}000|85\\s*k"},
+        {"type": "regex", "pattern": "(?i)\\b(6|six)\\b"},
+        {"type": "contains_any", "values": ["Marc"]},
+        {"type": "max_words", "value": 80}
+      ]
+    },
+    {
+      "id": "reunion-catalogue",
+      "prompt": "Résume cette réunion en 80 mots maximum.\n\nSophie (directrice d'Hélianthe Voyages) : Bonjour à tous. Nous devons arrêter ce matin le plan du catalogue de printemps 2027. Karim, tu commences ?\n\nKarim (responsable marketing) : Oui. Le catalogue est presque bouclé. Je propose de mettre les Açores en destination phare : la demande a nettement progressé, et nous avons un nouveau partenaire hôtelier sur place. En tirage, je recommande 40 000 exemplaires, contre un peu moins l'an dernier. Le budget total serait de 22 000 euros, impression et envoi compris.\n\nLou (responsable des agences) : Sur les Açores, je suis d'accord, les conseillers ont beaucoup de demandes. Mon seul point, c'est la formation. Il faut que les 12 agences connaissent le produit avant l'envoi du catalogue, sinon le client en saura plus que nous.\n\nSophie : Ce serait dommage. Quelle date d'envoi vises-tu, Karim ?\n\nKarim : Le 2 février 2027. Plus tard, nous perdrions les clients qui réservent leurs vacances de printemps dès la fin de l'hiver.\n\nSophie : Très bien. Je valide les Açores en destination phare, le tirage de 40 000 exemplaires, le budget de 22 000 euros et l'envoi au 2 février 2027. Lou, tu pilotes la formation des 12 agences, à terminer avant le 26 janvier. Karim, tu gères l'impression. Quel objectif fixons-nous ?\n\nKarim : Je propose 1 500 réservations issues du catalogue d'ici le 30 avril.\n\nLou : C'est ambitieux, mais accessible si les agences suivent, et elles suivront.\n\nSophie : Va pour 1 500 réservations au 30 avril. Nous ferons un premier bilan à la mi-mars. Je vous remercie, et merci d'éviter de partir tous aux Açores en même temps.",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)2\\s+f[ée]vrier|02/02"},
+        {"type": "regex", "pattern": "1\\D?500"},
+        {"type": "regex", "pattern": "22\\D{0,2}000|22\\s*k"},
+        {"type": "regex", "pattern": "(?i)a[çc]ores"},
+        {"type": "max_words", "value": 80}
+      ]
+    }
+  ]
+}

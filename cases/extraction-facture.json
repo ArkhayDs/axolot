@@ -1,0 +1,76 @@
+{
+  "id": "extraction-facture",
+  "title": "Extraction de factures fournisseurs",
+  "kind": "decision",
+  "category": "extraction",
+  "language": "fr",
+  "system": "Tu extrais les données de documents fournisseurs. Réponds uniquement avec un objet JSON contenant : fournisseur (nom de l'émetteur du document, tel qu'écrit), numero_facture (tel qu'écrit), date_facture (date d'émission au format AAAA-MM-JJ ; les dates numériques sont au format français JJ/MM/AAAA), total_ttc (montant total TTC de la facture, en nombre, avec un point décimal, sans symbole).",
+  "items": [
+    {
+      "id": "facture-menuiseries",
+      "prompt": "Menuiseries Tarvel\n8 rue des Ateliers, Aurance\n\nFACTURE N° MT-2026-0312\nDate d'émission : 14 mars 2026\nDate d'échéance : 13 avril 2026\nVotre commande : CMD-88421\nClient : Hélianthe Brico, magasin d'Aurance-Nord\n\nRayonnages bois, lot de 12 : 1 070,50 EUR HT\n\nTotal HT : 1 070,50 EUR\nTVA 20 % : 214,10 EUR\nTotal TTC : 1 284,60 EUR",
+      "schema": {
+        "type": "object",
+        "required": ["fournisseur", "numero_facture", "date_facture", "total_ttc"],
+        "properties": {
+          "fournisseur": {"type": "string"},
+          "numero_facture": {"type": "string"},
+          "date_facture": {"type": "string"},
+          "total_ttc": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "fournisseur", "value": "Menuiseries Tarvel"},
+        {"type": "json_equals", "path": "numero_facture", "value": "MT-2026-0312"},
+        {"type": "json_equals", "path": "date_facture", "value": "2026-03-14"},
+        {"type": "json_equals", "path": "total_ttc", "value": 1284.60}
+      ]
+    },
+    {
+      "id": "facture-vergers-tva-mixte",
+      "prompt": "Vergers du Haut Aurance\nChemin des Pommiers, Aurance\nFacture VHA/26/1187 du 03/09/2026\nBon de livraison associé : BL-55120, livré le 05/09/2026\nClient : Hélianthe Hyper, magasin de Villeneuve-sur-Aurance\n\nPommes et poires, 412,00 EUR HT, TVA 5,5 % : 22,66 EUR\nCagettes et présentoirs, 150,00 EUR HT, TVA 20 % : 30,00 EUR\n\nNet HT : 562,00 EUR\nTotal TVA : 52,66 EUR\nNet à payer TTC : 614,66 EUR",
+      "schema": {
+        "type": "object",
+        "required": ["fournisseur", "numero_facture", "date_facture", "total_ttc"],
+        "properties": {
+          "fournisseur": {"type": "string"},
+          "numero_facture": {"type": "string"},
+          "date_facture": {"type": "string"},
+          "total_ttc": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "fournisseur", "value": "Vergers du Haut Aurance"},
+        {"type": "json_equals", "path": "numero_facture", "value": "VHA/26/1187"},
+        {"type": "json_equals", "path": "date_facture", "value": "2026-09-03"},
+        {"type": "json_equals", "path": "total_ttc", "value": 614.66}
+      ]
+    },
+    {
+      "id": "facture-logistique-acompte",
+      "prompt": "Bonjour,\n\nVeuillez trouver ci-dessous notre facture FA-2026-00871 du 28 octobre 2026, relative au transport des présentoirs de Noël (commande CMD-90233).\n\nMontant HT : 2 875,00 EUR\nTVA 20 % : 575,00 EUR\nTotal TTC : 3 450,00 EUR\nAcompte déjà versé le 2 octobre : 1 000,00 EUR\nReste à payer : 2 450,00 EUR, avant le 27 novembre 2026.\n\nCordialement,\nLe service facturation\nLogistique Orvane",
+      "schema": {
+        "type": "object",
+        "required": ["fournisseur", "numero_facture", "date_facture", "total_ttc"],
+        "properties": {
+          "fournisseur": {"type": "string"},
+          "numero_facture": {"type": "string"},
+          "date_facture": {"type": "string"},
+          "total_ttc": {"type": "number"}
+        }
+      },
+      "checks": [
+        {"type": "json_valid"},
+        {"type": "json_required"},
+        {"type": "json_equals", "path": "fournisseur", "value": "Logistique Orvane"},
+        {"type": "json_equals", "path": "numero_facture", "value": "FA-2026-00871"},
+        {"type": "json_equals", "path": "date_facture", "value": "2026-10-28"},
+        {"type": "json_equals", "path": "total_ttc", "value": 3450.00}
+      ]
+    }
+  ]
+}

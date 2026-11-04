@@ -1,0 +1,190 @@
+{
+  "id": "rag-helianthe",
+  "title": "Questions sur la documentation du Groupe Hélianthe",
+  "kind": "rag",
+  "category": "rag",
+  "language": "fr",
+  "system": "Tu réponds aux collaborateurs du Groupe Hélianthe en t'appuyant uniquement sur les extraits fournis. Réponds brièvement, en donnant seulement la règle applicable aujourd'hui à la situation posée, sans citer d'anciennes versions ni les règles d'autres entités. Si l'information ne figure pas dans les extraits, dis-le clairement et n'invente rien.",
+  "items": [
+    {
+      "id": "rag-mot-de-passe-longueur",
+      "prompt": "Quelle est la longueur minimale d'un mot de passe ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b14\\b|quatorze"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "charte-informatique.md", "quote": "Un mot de passe doit comporter au moins 14 caractères."}]
+      }
+    },
+    {
+      "id": "rag-portable-perdu",
+      "prompt": "J'ai perdu mon ordinateur portable professionnel. Sous quel délai dois-je le signaler ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b2\\s*(h|heures)\\b|deux\\s+heures"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "charte-informatique.md", "quote": "Signaler la perte au helpdesk dans un délai de 2 heures"}]
+      }
+    },
+    {
+      "id": "rag-retour-non-alimentaire",
+      "prompt": "Sous quel délai un client peut-il retourner un produit non alimentaire acheté chez Hélianthe Hyper ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b40\\b|quarante"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "procedure-retours-clients.md", "quote": "Les produits non alimentaires d'Hélianthe Hyper peuvent être retournés sous 40 jours après l'achat."}]
+      }
+    },
+    {
+      "id": "rag-retour-frais",
+      "prompt": "Un client rapporte un produit frais défectueux. Jusqu'à quand peut-on le reprendre ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b48\\s*(h|heures)\\b|quarante[- ]huit"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "procedure-retours-clients.md", "quote": "Les produits frais défectueux sont repris sous 48 heures après l'achat."}]
+      }
+    },
+    {
+      "id": "rag-retour-outillage",
+      "prompt": "Quel est le délai de retour pour une perceuse électroportative qui n'a pas servi, achetée chez Hélianthe Brico ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b60\\b|soixante"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "procedure-retours-clients.md", "quote": "L'outillage électroportatif d'Hélianthe Brico peut être retourné sous 60 jours s'il n'a pas servi."}]
+      }
+    },
+    {
+      "id": "rag-rapport-etonnement",
+      "prompt": "À quel moment du parcours d'intégration le rapport d'étonnement doit-il être remis ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b45\\b|quarante[- ]cinq"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "guide-integration.md", "quote": "Le rapport d'étonnement est à remettre au service RH à J+45."}]
+      }
+    },
+    {
+      "id": "rag-accueil-premier-jour",
+      "prompt": "À quelle heure un nouveau collaborateur est-il attendu le premier jour ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b0?8\\s*(h|:)\\s*45\\b"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "guide-integration.md", "quote": "Le premier jour, l'accueil a lieu à 8 h 45 à la réception du site."}]
+      }
+    },
+    {
+      "id": "rag-annulation-voyage",
+      "prompt": "Un client annule son voyage 40 jours avant le départ. Quel pourcentage de frais d'annulation s'applique ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b30\\D{0,3}(%|pour)"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "conditions-annulation-voyages.md", "quote": "Entre 30 et 59 jours avant le départ, les frais d'annulation s'élèvent à 30 % du prix du voyage."}]
+      }
+    },
+    {
+      "id": "rag-detartrage-cafe",
+      "prompt": "Quand la machine à café est-elle détartrée ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)(premier|1er)\\s+lundi"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "charte-machine-a-cafe.md", "quote": "Le détartrage a lieu le premier lundi de chaque mois, à 7 h 30."}]
+      }
+    },
+    {
+      "id": "rag-magasins-brico",
+      "prompt": "Combien de magasins compte Hélianthe Brico ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b21\\b|vingt[- ]et[- ]un"}
+      ],
+      "rag": {
+        "trap": "none",
+        "sources": [{"file": "presentation-groupe.md", "quote": "exploite 21 magasins de bricolage et jardin"}]
+      }
+    },
+    {
+      "id": "rag-absent-mutuelle",
+      "prompt": "Quelle part de la mutuelle santé est prise en charge par l'employeur ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)je ne sais pas|\\bne\\s+(figure|trouve|mentionne|pr[ée]cise|contien|dispose|comporte|indique|permet|peux|donne|fourni|sont\\s+pas\\s+(mentionn|indiqu|pr[ée]cis|renseign|disponibl))|\\bpas\\s+(dans|d.information|d.indication|de\\s+r[ée]ponse|de\\s+donn|assez|suffisamment)|aucune\\s+(information|mention|donn|indication|pr[ée]cision)|n.ai\\s+pas|n.(abord|[ée]voqu|appara)|n.est\\s+pas\\s+(mentionn|indiqu|pr[ée]cis|pr[ée]sent|renseign|disponible|abord|communiqu|trait)"}
+      ],
+      "rag": {
+        "trap": "absent",
+        "sources": []
+      }
+    },
+    {
+      "id": "rag-absent-prime",
+      "prompt": "Quel est le montant de la prime de fin d'année chez Hélianthe Brico ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)je ne sais pas|\\bne\\s+(figure|trouve|mentionne|pr[ée]cise|contien|dispose|comporte|indique|permet|peux|donne|fourni|sont\\s+pas\\s+(mentionn|indiqu|pr[ée]cis|renseign|disponibl))|\\bpas\\s+(dans|d.information|d.indication|de\\s+r[ée]ponse|de\\s+donn|assez|suffisamment)|aucune\\s+(information|mention|donn|indication|pr[ée]cision)|n.ai\\s+pas|n.(abord|[ée]voqu|appara)|n.est\\s+pas\\s+(mentionn|indiqu|pr[ée]cis|pr[ée]sent|renseign|disponible|abord|communiqu|trait)"}
+      ],
+      "rag": {
+        "trap": "absent",
+        "sources": []
+      }
+    },
+    {
+      "id": "rag-perime-jours-conges",
+      "prompt": "Combien de jours de congés payés a un collaborateur à temps plein par an ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b27\\b|vingt[- ]sept"},
+        {"type": "not_contains", "values": ["25 jours", "vingt-cinq"]}
+      ],
+      "rag": {
+        "trap": "outdated",
+        "sources": [{"file": "conges-2026.md", "quote": "Chaque collaborateur à temps plein dispose de 27 jours ouvrés de congés payés par an."}]
+      }
+    },
+    {
+      "id": "rag-perime-delai-demande",
+      "prompt": "Je pars deux semaines en mai. Combien de temps à l'avance dois-je déposer ma demande de congés ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b21\\b|vingt[- ]et[- ]un|\\b(3|trois)\\s+semaines"},
+        {"type": "not_contains", "values": ["30 jours", "trente jours"]}
+      ],
+      "rag": {
+        "trap": "outdated",
+        "sources": [{"file": "conges-2026.md", "quote": "Une demande de 5 jours ouvrés ou plus doit être déposée au moins 21 jours calendaires avant le départ."}]
+      }
+    },
+    {
+      "id": "rag-entite-repas-voyages",
+      "prompt": "Je travaille chez Hélianthe Voyages. Quel est le plafond de remboursement d'un repas en déplacement ?",
+      "checks": [
+        {"type": "regex", "pattern": "28[,.]50?"},
+        {"type": "not_contains", "values": ["19,5", "19.5"]}
+      ],
+      "rag": {
+        "trap": "other_entity",
+        "sources": [{"file": "notes-de-frais-2026.md", "quote": "Chez Hélianthe Voyages, un repas en déplacement est remboursé dans la limite de 28,50 euros TTC."}]
+      }
+    },
+    {
+      "id": "rag-entite-delai-note-hyper",
+      "prompt": "Je travaille chez Hélianthe Hyper. Sous quel délai dois-je déposer ma note de frais ?",
+      "checks": [
+        {"type": "regex", "pattern": "(?i)\\b20\\b|\\bvingt\\b"},
+        {"type": "not_contains", "values": ["50 jours", "cinquante"]}
+      ],
+      "rag": {
+        "trap": "other_entity",
+        "sources": [{"file": "notes-de-frais-2026.md", "quote": "Chez Hélianthe Hyper, la note de frais doit être déposée sous 20 jours calendaires après la dépense."}]
+      }
+    }
+  ]
+}
