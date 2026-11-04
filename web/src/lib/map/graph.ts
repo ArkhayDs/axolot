@@ -17,6 +17,9 @@ export interface GraphNode extends Body {
   label: string;
   // Theme whose color the node takes, empty outside communities.
   community: string;
+  // Place in the default layout, where clearing a selection brings it back.
+  homeX: number;
+  homeY: number;
   // Width of the hub's label on screen, what framing and hit testing go by.
   textWidth: number;
   // Questions under the node, or answers for a question: what its size and counter say.
@@ -122,6 +125,8 @@ export function buildGraph(content: MapContent, cells: CellIndex, items: ItemInd
       y: known?.y ?? y,
       vx: 0,
       vy: 0,
+      homeX: known?.homeX ?? x,
+      homeY: known?.homeY ?? y,
       seedX: x,
       seedY: y,
       anchorX,

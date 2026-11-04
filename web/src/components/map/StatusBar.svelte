@@ -97,7 +97,7 @@
 
 <footer class="status">
   {#if pills.length > 0 || focusLabel}
-    <SelectionRow {pills} {focusLabel} {results} {onremove} {onclearfocus} {onclearall} />
+    <SelectionRow {pills} {focusLabel} {results} rearranged={Boolean(filter.model || filter.category)} {onremove} {onclearfocus} {onclearall} />
   {/if}
   <div class="main">
     <ul class="counters" aria-label="Contenu de l'Atlas">

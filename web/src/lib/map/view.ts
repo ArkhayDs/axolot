@@ -5,7 +5,7 @@ import type { GraphNode } from './graph';
 const HUB_LABEL_HEIGHT = 30;
 
 /**
- * Frames the nodes in the area the panels leave free; the zoom floor also bounds the labels, drawn at 1/zoom
+ * Frames the default layout in the area the panels leave free, so a rearrangement never reframes; the zoom floor also bounds the labels, drawn at 1/zoom
  * @param {GraphNode[]} nodes - nodes, not empty
  * @param {{ top: number; right: number; bottom: number; left: number }} free - margins the panels cover
  * @param {number} width - canvas width
@@ -17,10 +17,11 @@ const HUB_LABEL_HEIGHT = 30;
 export function frameNodes(nodes: GraphNode[], free: { top: number; right: number; bottom: number; left: number }, width: number, height: number, minZoom: number, maxZoom: number): { x: number; y: number; k: number } {
   let [minX, maxX, minY, maxY] = [Infinity, -Infinity, Infinity, -Infinity];
   for (const node of nodes) {
-    minX = Math.min(minX, node.x - node.radius);
-    maxX = Math.max(maxX, node.x + node.radius + node.textWidth);
-    minY = Math.min(minY, node.y - Math.max(node.radius, node.textWidth > 0 ? HUB_LABEL_HEIGHT / 2 : 0));
-    maxY = Math.max(maxY, node.y + Math.max(node.radius, node.textWidth > 0 ? HUB_LABEL_HEIGHT / 2 : 0));
+    const halfHeight = Math.max(node.radius, node.textWidth > 0 ? HUB_LABEL_HEIGHT / 2 : 0);
+    minX = Math.min(minX, node.homeX - node.radius);
+    maxX = Math.max(maxX, node.homeX + node.radius + node.textWidth);
+    minY = Math.min(minY, node.homeY - halfHeight);
+    maxY = Math.max(maxY, node.homeY + halfHeight);
   }
   const freeWidth = Math.max(width - free.left - free.right, 1);
   const freeHeight = Math.max(height - free.top - free.bottom, 1);

@@ -9,6 +9,7 @@
     pills,
     focusLabel,
     results,
+    rearranged,
     onremove,
     onclearfocus,
     onclearall,
@@ -16,6 +17,7 @@
     pills: { axis: keyof MapFilter; label: string }[];
     focusLabel: string;
     results: Record<ResultState, number> | null;
+    rearranged: boolean;
     onremove: (axis: keyof MapFilter) => void;
     onclearfocus: () => void;
     onclearall: () => void;
@@ -37,6 +39,7 @@
       {/each}
     </ul>
   {/if}
+  {#if rearranged}<span class="distance">Plus près = meilleur score</span>{/if}
 </div>
 
 <style>
@@ -100,6 +103,11 @@
     align-items: center;
     gap: var(--s1);
     padding-inline: var(--s1);
+  }
+
+  .distance {
+    margin-inline-start: auto;
+    color: var(--ink-2);
   }
 
   strong {

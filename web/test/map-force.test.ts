@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { solve, tick } from '../src/lib/map/force.ts';
 import type { Body, Spring } from '../src/lib/map/force.ts';
+import { islandScale, modelDistance } from '../src/lib/map/arrange.ts';
 import { stateOfItem, stateOfScore } from '../src/lib/map/results.ts';
 
 /** @returns {Body} - node at the given place */
@@ -63,6 +64,15 @@ test('anchors hold two islands apart', () => {
 test('stops once nothing moves, within the step cap', () => {
   const { bodies, springs } = chain(120);
   assert.ok(solve(bodies, springs) <= 320);
+});
+
+test('the better the score, the closer, up to the default ring', () => {
+  assert.ok(islandScale(100) < islandScale(80));
+  assert.ok(islandScale(80) < islandScale(0));
+  assert.equal(islandScale(0), 1);
+  assert.equal(islandScale(null), 1);
+  assert.ok(modelDistance(100) < modelDistance(50));
+  assert.ok(modelDistance(50) < modelDistance(0));
 });
 
 test('reads a result like the answer matrix', () => {

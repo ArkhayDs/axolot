@@ -2,8 +2,10 @@
 
 import type { MapBenchmark } from '../api';
 import { duration, score as formatScore } from '../format';
+import type { Selection } from './arrange';
 import { questionKept } from './content';
 import type { MapContent } from './content';
+import { nodeId } from './graph';
 import type { Graph, GraphLink, GraphNode } from './graph';
 import { benchmarkScore, cellOf, sameScore, shortModel } from './ranking';
 import type { CellIndex, MapFilter, RankSection } from './ranking';
@@ -116,6 +118,38 @@ export function familyOf(graph: Graph, node: GraphNode): Set<string> {
     if (link.to === node) family.add(link.from.id);
   }
   return family;
+}
+
+/**
+ * @param {MapFilter} filter - current selection
+ * @param {CellIndex} cells - figures per theme
+ * @returns {Selection} - what the rearrangement needs
+ */
+export function selectionOf({ machine, model, category }: MapFilter, cells: CellIndex): Selection {
+  return {
+    model,
+    category,
+    themeScore: (theme) => cellOf(cells, machine, model, theme)?.avg_score ?? null,
+    modelScore: (key) => cellOf(cells, machine, key, category)?.avg_score ?? null,
+  };
+}
+
+/**
+ * @param {Graph} graph - graph
+ * @param {MapContent} content - what the map holds
+ * @param {{ model: string; caseId: string; item: string }} live - running answer
+ * @returns {GraphNode[]} - the real route of the answer, empty at rest
+ */
+export function activeRoute(graph: Graph, content: MapContent, live: { model: string; caseId: string; item: string }): GraphNode[] {
+  const scenario = content.scenarios.find((item) => item.id === live.caseId);
+  if (!live.model || !scenario) return [];
+  const path = [
+    graph.byId.get(nodeId('model', live.model)),
+    graph.byId.get(nodeId('theme', scenario.category)),
+    graph.byId.get(nodeId('scenario', scenario.id)),
+    graph.byId.get(nodeId('question', `${scenario.id}/${live.item}`)),
+  ];
+  return path.every(Boolean) ? (path as GraphNode[]) : [];
 }
 
 /**

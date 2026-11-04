@@ -151,7 +151,8 @@ function paintLinks(context: CanvasRenderingContext2D, scene: Scene, kept: Set<s
         context.globalAlpha = 1;
         context.lineWidth = 2 * pixel;
       }
-      if (focused && !faded && link.kind === 'score') {
+      // Under a selected model each hub already reads its score: a pill per link would only cover the islands.
+      if (focused && !faded && link.kind === 'score' && !filter.model) {
         pills.push({ x: link.from.x + (link.to.x - link.from.x) * 0.6, y: link.from.y + (link.to.y - link.from.y) * 0.6, text: formatScore(value) });
       }
     } else {

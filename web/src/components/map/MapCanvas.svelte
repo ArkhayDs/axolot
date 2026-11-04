@@ -2,16 +2,19 @@
   import { onMount, untrack } from 'svelte';
 
   import { score as formatScore, seriesColor } from '../../lib/format';
+  import { applyMoves, planMoves } from '../../lib/map/arrange';
+  import type { Move } from '../../lib/map/arrange';
   import type { MapContent } from '../../lib/map/content';
   import { drawScene } from '../../lib/map/draw';
   import type { Particle, Ripple, View } from '../../lib/map/draw';
-  import { settle, solve, tick } from '../../lib/map/force';
+  import { activeRoute, selectionOf } from '../../lib/map/figures';
+  import { settle, solve } from '../../lib/map/force';
   import { buildGraph, nodeId } from '../../lib/map/graph';
   import type { Graph, GraphNode, NodeKind } from '../../lib/map/graph';
   import { resolve } from '../../lib/map/paint';
   import type { CellIndex, MapFilter, RankSection } from '../../lib/map/ranking';
-  import { stateOfScore } from '../../lib/map/results';
-  import type { ItemIndex, ResultState } from '../../lib/map/results';
+  import { resultsOfRuns } from '../../lib/map/results';
+  import type { ItemIndex } from '../../lib/map/results';
   import { closestNode, frameNodes } from '../../lib/map/view';
   import { live, onPulse } from '../../lib/live.svelte';
 
@@ -40,12 +43,11 @@
   const MAX_PARTICLES = 140;
   const PARTICLE_SPEED = 0.022;
   const RIPPLE_SPEED = 0.018;
-  const COOLING = 0.94;
-  const ALPHA_FLOOR = 0.01;
   const MIN_ZOOM = 0.35;
   const MAX_ZOOM = 6;
   const FIT_ZOOM = 1.5;
   const GRAB_PIXELS = 7;
+  const ARRANGE_MS = 500;
 
   let wrap: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -60,41 +62,16 @@
   let panning = false;
   let travelled = 0;
   let last = { x: 0, y: 0 };
-  let alpha = 0;
   let particles: Particle[] = [];
   let ripples: Ripple[] = [];
   let raf = 0;
+  let moves: Move[] = [];
+  let movesStart = 0;
+  let arranged = false;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const newLiveModel = $derived(content.models.includes(live.model) ? '' : live.model);
-  const liveResults = $derived.by(() => {
-    const results = new Map<string, ResultState>();
-    for (const run of live.runs) {
-      const state = stateOfScore(run.score, run.error !== '');
-      results.set(`${run.model}|${run.case_id}/${run.item_id}`, state);
-      results.set(`|${run.case_id}/${run.item_id}`, state);
-    }
-    return results;
-  });
-
-  /** @returns {GraphNode[]} - the real route of the running answer, empty at rest */
-  function activePath(): GraphNode[] {
-    const scenario = content.scenarios.find((item) => item.id === live.caseId);
-    if (!live.model || !scenario) return [];
-    const path = [
-      graph.byId.get(nodeId('model', live.model)),
-      graph.byId.get(nodeId('theme', scenario.category)),
-      graph.byId.get(nodeId('scenario', scenario.id)),
-      graph.byId.get(nodeId('question', `${scenario.id}/${live.item}`)),
-    ];
-    return path.every(Boolean) ? (path as GraphNode[]) : [];
-  }
-
-  /** @returns {number} - free area width over height */
-  function freeAspect(): number {
-    const free = reserve();
-    return Math.max(width - free.left - free.right, 240) / Math.max(height - free.top - free.bottom, 240);
-  }
+  const liveResults = $derived(resultsOfRuns(live.runs));
 
   /** Frames the whole graph in the area the panels leave free */
   function fit(): void {
@@ -116,13 +93,36 @@
     context.font = `650 12.5px ${resolve('var(--font)')}`;
     const known = graph.byId;
     const models = newLiveModel ? [...content.models, newLiveModel].sort() : content.models;
-    graph = buildGraph({ ...content, models }, cells, items, known, freeAspect(), (text) => context.measureText(text).width);
+    const free = reserve();
+    const aspect = Math.max(width - free.left - free.right, 240) / Math.max(height - free.top - free.bottom, 240);
+    graph = buildGraph({ ...content, models }, cells, items, known, aspect, (text) => context.measureText(text).width);
     hover = null;
     dragged = null;
     if (graph.nodes.some((node) => !known.has(node.id))) {
-      if (known.size === 0) solve(graph.nodes, graph.springs);
-      else settle(graph.nodes);
+      if (known.size === 0) {
+        solve(graph.nodes, graph.springs);
+        for (const node of graph.nodes) {
+          node.homeX = node.x;
+          node.homeY = node.y;
+        }
+      } else {
+        settle(graph.nodes);
+      }
       if (!viewMoved) fit();
+    }
+    schedule();
+  }
+
+  /** Follows the selection: distance says the score, no selection means the default layout */
+  function arrange(): void {
+    const selective = Boolean(filter.model || filter.category);
+    if (graph.nodes.length === 0 || (!selective && !arranged)) return;
+    arranged = selective;
+    moves = planMoves(graph.nodes, selectionOf(filter, cells));
+    movesStart = performance.now();
+    if (reducedMotion.matches) {
+      applyMoves(moves, 1);
+      moves = [];
     }
     schedule();
   }
@@ -132,9 +132,10 @@
     raf = 0;
     const context = canvas.getContext('2d');
     if (!context || width === 0) return;
-    if (alpha > ALPHA_FLOOR) {
-      tick(graph.nodes, graph.springs, alpha);
-      alpha *= COOLING;
+    if (moves.length > 0) {
+      const progress = Math.min((performance.now() - movesStart) / ARRANGE_MS, 1);
+      applyMoves(moves, progress);
+      if (progress === 1) moves = [];
     }
     for (const particle of particles) particle.progress += PARTICLE_SPEED;
     particles = particles.filter((particle) => particle.progress < 1);
@@ -152,12 +153,12 @@
       focus: focus ? (graph.byId.get(nodeId(focus.kind, focus.key)) ?? null) : null,
       sections,
       hover,
-      activePath: activePath(),
+      activePath: activeRoute(graph, content, live),
       liveResults,
       particles,
       ripples,
     });
-    if (alpha > ALPHA_FLOOR || particles.length > 0 || ripples.length > 0) schedule();
+    if (moves.length > 0 || particles.length > 0 || ripples.length > 0) schedule();
   }
 
   /** Queues a frame unless one is already pending */
@@ -189,6 +190,7 @@
     travelled = 0;
     last = { x: event.clientX, y: event.clientY };
     dragged = nodeAt(event);
+    if (dragged) moves = [];
     panning = dragged === null;
     if (dragged) dragged.pinned = true;
   }
@@ -208,7 +210,6 @@
       const { x, y } = toWorld(event);
       dragged.x = x;
       dragged.y = y;
-      if (!reducedMotion.matches) alpha = Math.max(alpha, 0.18);
     } else if (panning) {
       view.x += event.clientX - last.x;
       view.y += event.clientY - last.y;
@@ -223,7 +224,6 @@
     if (dragged) {
       dragged.pinned = false;
       if (travelled < 5) onpick(dragged);
-      else settle(graph.nodes);
     } else if (panning && travelled < 5) {
       onclear();
     }
@@ -257,7 +257,7 @@
         return;
       }
       if (pulse.type === 'token') {
-        const path = activePath();
+        const path = activeRoute(graph, content, live);
         if (path.length > 0 && particles.length < MAX_PARTICLES) particles.push({ path, progress: 0, color: resolve(seriesColor(live.model, content.models)) });
       } else {
         const node = graph.byId.get(nodeId('question', `${pulse.caseId}/${pulse.itemId}`));
@@ -271,7 +271,7 @@
       unsubscribe();
       cancelAnimationFrame(raf);
       raf = 0;
-      alpha = 0;
+      moves = [];
     };
   });
 
@@ -287,10 +287,15 @@
     });
   });
 
-  // Only what changes the set of nodes or the link weights: a live event never reaches this.
+  // Only what changes the set of nodes: a live event never reaches this.
   $effect(() => {
     void [content, cells, items, newLiveModel];
     untrack(rebuild);
+  });
+
+  $effect(() => {
+    void [filter.machine, filter.model, filter.category, cells];
+    untrack(arrange);
   });
 
   $effect(() => {
@@ -308,9 +313,7 @@
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
     onpointercancel={onPointerUp}
-    onpointerleave={() => {
-      if (hover) hover = null;
-    }}
+    onpointerleave={() => (hover = null)}
     ondblclick={recenter}
   ></canvas>
 </div>

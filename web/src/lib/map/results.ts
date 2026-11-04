@@ -1,6 +1,6 @@
 // Results per question: the same four states as the answer matrix, from the cumulated figures or a live answer.
 
-import type { MapItem } from '../api';
+import type { MapItem, Run } from '../api';
 
 export type ResultState = 'passed' | 'partial' | 'failed' | 'none';
 
@@ -56,4 +56,18 @@ export function stateOfScore(score: number, failed: boolean): ResultState {
  */
 export function stateOfItem(item: MapItem | undefined): ResultState {
   return item ? stateOfScore(item.avg_score, item.errors === item.runs) : 'none';
+}
+
+/**
+ * @param {Run[]} runs - answers of the running benchmark
+ * @returns {Map<string, ResultState>} - by "model|question", and by "|question" for the latest of any model
+ */
+export function resultsOfRuns(runs: Run[]): Map<string, ResultState> {
+  const results = new Map<string, ResultState>();
+  for (const run of runs) {
+    const state = stateOfScore(run.score, run.error !== '');
+    results.set(`${run.model}|${run.case_id}/${run.item_id}`, state);
+    results.set(`|${run.case_id}/${run.item_id}`, state);
+  }
+  return results;
 }
