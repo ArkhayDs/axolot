@@ -9,6 +9,7 @@
   const LINKS: { route: string; label: string; icon: IconName }[] = [
     { route: '', label: 'Carte', icon: 'target' },
     { route: 'cas', label: 'Scénarios', icon: 'list' },
+    { route: 'benchmarks', label: 'Benchmarks', icon: 'refresh' },
     { route: 'chat', label: 'Chat', icon: 'chat' },
     { route: 'resultats', label: 'Résultats', icon: 'bars' },
     { route: 'reglages', label: 'Réglages', icon: 'sliders' },

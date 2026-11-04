@@ -197,6 +197,7 @@ export interface MapBenchmark {
   name: string;
   status: Campaign['status'];
   created_at: string;
+  finished_at: string | null;
   done_items: number;
   machine: string;
   models: string[];

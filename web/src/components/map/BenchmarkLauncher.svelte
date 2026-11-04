@@ -10,11 +10,7 @@
   import { categoryLabel, estimateLabel } from '../../lib/format';
   import { launch } from '../../lib/live.svelte';
 
-  let {
-    category,
-    onclose,
-    onstarted,
-  }: { category: string; onclose: () => void; onstarted: () => void } = $props();
+  let { category, onclose }: { category: string; onclose: () => void } = $props();
 
   let catalog = $state<CasesResponse | null>(null);
   let models = $state<Models | null>(null);
@@ -63,7 +59,6 @@
       );
       await launch(name, chosenCases);
       await refreshCampaigns();
-      onstarted();
     } catch (startError) {
       error = errorMessage(startError);
     } finally {
@@ -206,9 +201,13 @@
     text-decoration-color: var(--accent);
   }
 
+  /* Scrolls on its own so the launch button stays in view. */
   .case-list {
     display: grid;
     gap: var(--s2);
+    max-height: 32vh;
+    overflow-y: auto;
+    scrollbar-color: var(--axis) transparent;
   }
 
   .check {

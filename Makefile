@@ -29,4 +29,4 @@ lint: ## Format check and vet
 	docker compose run --rm go sh -c 'test -z "$$(gofmt -l .)" && go vet ./...'
 
 web-check: ## Type-check the front-end
-	docker compose --profile dev run --rm web sh -c 'npm install && npm run check'
+	docker compose --profile dev run --rm web sh -c 'npm install && npm run check && npm test'

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
   import { categoryLabel } from '../../lib/format';
+  import { live } from '../../lib/live.svelte';
   import type { MapFilter, MapLists } from '../../lib/map/ranking';
 
   let {
@@ -51,7 +52,7 @@
   >
     <Icon name="cross" /> Tout effacer
   </button>
-  <button class="btn btn-primary launch" type="button" aria-expanded={launching} onclick={onlaunch}>
+  <button class="btn btn-primary launch" type="button" aria-expanded={launching} disabled={live.campaign !== ''} onclick={onlaunch}>
     <Icon name="play" /> Lancer un Benchmark
   </button>
 </form>

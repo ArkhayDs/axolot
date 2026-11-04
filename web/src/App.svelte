@@ -2,6 +2,8 @@
   import { flushSync, onMount } from 'svelte';
 
   import Nav from './components/Nav.svelte';
+  import BenchmarkDetail from './pages/BenchmarkDetail.svelte';
+  import Benchmarks from './pages/Benchmarks.svelte';
   import { refreshCampaigns } from './lib/campaigns.svelte';
   import { connectLive, live } from './lib/live.svelte';
   import CaseDetail from './pages/CaseDetail.svelte';
@@ -52,6 +54,12 @@
     {/key}
   {:else if route[0] === 'cas'}
     <CaseList />
+  {:else if route[0] === 'benchmarks' && route[1]}
+    {#key route[1]}
+      <BenchmarkDetail id={route[1]} />
+    {/key}
+  {:else if route[0] === 'benchmarks'}
+    <Benchmarks />
   {:else if route[0] === 'chat'}
     <Chat />
   {:else if route[0] === 'resultats'}

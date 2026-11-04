@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
   import type { IconName } from '../Icon.svelte';
-  import { BASE_VIEW, picked } from '../../lib/campaigns.svelte';
   import { benchmarkName, score, statusLabel, when } from '../../lib/format';
   import type { MapBenchmark } from '../../lib/api';
   import { benchmarkScore } from '../../lib/map/ranking';
@@ -36,23 +35,17 @@
     void [filter.machine, filter.model, filter.category, pinned];
     closed = [];
   });
-
-  /** @param {string} id - opens this benchmark in the results page */
-  function open(id: string): void {
-    picked.id = id;
-    picked.view = id;
-  }
 </script>
 
 {#if shown.length > 0}
   <section class="stack" aria-label="Benchmarks de la sélection">
     {#if matching.length > SHOWN}
-      <p class="more glass">+{matching.length - SHOWN} autres dans Résultats</p>
+      <p class="more glass">+{matching.length - SHOWN} autres dans <a class="all" href="#/benchmarks">Benchmarks</a></p>
     {/if}
     <ul>
       {#each shown as { benchmark, value }, position (benchmark.id)}
         <li class="card glass" style:--i={position}>
-          <a href="#/resultats" onclick={() => open(benchmark.id)}>
+          <a href="#/benchmarks/{benchmark.id}">
             <span class="head">
               <strong>{benchmarkName(benchmark.name)}</strong>
               <span class="figure">{value === null ? '-' : score(value)}<small>/100</small></span>
@@ -99,6 +92,12 @@
     border-radius: var(--radius-sm);
     color: var(--ink-2);
     font-size: var(--text-sm);
+  }
+
+  .all {
+    display: inline;
+    padding: 0;
+    text-decoration: underline;
   }
 
   /* Corner brackets give the heads-up display look; the rest stays the app's glass. */

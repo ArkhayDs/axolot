@@ -26,6 +26,7 @@ type MapBenchmark struct {
 	Name       string          `json:"name"`
 	Status     string          `json:"status"`
 	CreatedAt  time.Time       `json:"created_at"`
+	FinishedAt *time.Time      `json:"finished_at"`
 	DoneItems  int             `json:"done_items"`
 	Machine    string          `json:"machine"`
 	Models     []string        `json:"models"`
@@ -132,7 +133,7 @@ func (s *Store) PlayedItems(ctx context.Context, campaignID string) ([]PlayedIte
 
 // MapBenchmarks lists campaigns newest first, with what each one played.
 func (s *Store) MapBenchmarks(ctx context.Context) ([]MapBenchmark, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.id::text, c.name, c.status, c.created_at,
+	rows, err := s.pool.Query(ctx, `SELECT c.id::text, c.name, c.status, c.created_at, c.finished_at,
 			(SELECT count(*)::int FROM runs r WHERE r.campaign_id = c.id),
 			COALESCE(c.hardware->>'label', ''),
 			ARRAY(SELECT DISTINCT r.model FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),

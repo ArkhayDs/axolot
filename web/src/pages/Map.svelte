@@ -110,7 +110,7 @@
     {#if running}
       <LivePanel {catalog} />
     {:else if launching}
-      <BenchmarkLauncher category={filter.category} onclose={() => (launching = false)} onstarted={() => void load()} />
+      <BenchmarkLauncher category={filter.category} onclose={() => (launching = false)} />
     {:else if lists}
       <RankingPanel {sections} {heading} models={lists.models} onpick={pick} />
     {/if}
