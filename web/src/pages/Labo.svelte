@@ -5,6 +5,7 @@
   import ModelName from '../components/ModelName.svelte';
   import NeuralCanvas from '../components/NeuralCanvas.svelte';
   import Notice from '../components/Notice.svelte';
+  import RunMatrix from '../components/RunMatrix.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { CasesResponse, Models, Selection } from '../lib/api';
   import { refreshCampaigns } from '../lib/campaigns.svelte';
@@ -46,6 +47,11 @@
   });
   const currentCase = $derived(catalog?.cases.find((item) => item.id === live.caseId));
   const lastRun = $derived(live.runs.at(-1));
+  const matrixRuns = $derived(running ? live.runs : live.lastRuns);
+  const matrixModels = $derived([...new Set([...matrixRuns.map((run) => run.model), ...(running ? networkModels : [])])].sort());
+  const matrixCases = $derived(
+    (catalog?.cases ?? []).filter((item) => matrixRuns.some((run) => run.case_id === item.id) || (running && networkCases.includes(item))),
+  );
 
   /** Loads what the launcher offers and restores the saved selection */
   async function load(): Promise<void> {
@@ -108,7 +114,12 @@
   <Notice message={error} />
 
   <div class="layout">
-    <NeuralCanvas models={networkModels} cases={networkCases} />
+    <div class="main">
+      <NeuralCanvas models={networkModels} cases={networkCases} />
+      {#if matrixRuns.length > 0 || running}
+        <RunMatrix cases={matrixCases} models={matrixModels} runs={matrixRuns} activeItem={live.item} activeModel={live.model} />
+      {/if}
+    </div>
 
     <aside class="side glass" aria-label={running ? 'Campagne en cours' : 'Lancer une campagne'}>
       {#if running}
@@ -186,6 +197,12 @@
     grid-template-columns: minmax(0, 1fr) 360px;
     align-items: start;
     gap: var(--s4);
+  }
+
+  .main {
+    display: grid;
+    gap: var(--s4);
+    min-width: 0;
   }
 
   .side {

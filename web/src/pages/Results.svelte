@@ -1,13 +1,21 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+
   import CampaignPicker from '../components/CampaignPicker.svelte';
   import GroupedBars from '../components/GroupedBars.svelte';
   import type { BarGroup } from '../components/GroupedBars.svelte';
   import Icon from '../components/Icon.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
-  import type { ModelStats } from '../lib/api';
+  import RunMatrix from '../components/RunMatrix.svelte';
+  import ScoreScatter from '../components/ScoreScatter.svelte';
+  import { api, errorMessage } from '../lib/api';
+  import type { Case, ModelStats } from '../lib/api';
   import { campaignResults, picked } from '../lib/campaigns.svelte';
   import { categoryLabel, duration, number, score, seriesColor, statusLabel } from '../lib/format';
+
+  let cases = $state<Case[]>([]);
+  let casesError = $state('');
 
   const results = campaignResults(() => picked.id);
   const stats = $derived(results.detail?.stats ?? []);
@@ -15,6 +23,15 @@
   const categories = $derived([...new Set(stats.map((stat) => stat.category))].sort());
   const rows = $derived([...stats].sort((a, b) => a.category.localeCompare(b.category) || a.model.localeCompare(b.model)));
   const maxTime = $derived(Math.max(0, ...stats.map((stat) => stat.p50_total_ms ?? 0)));
+  const playedCases = $derived(cases.filter((item) => results.detail?.runs.some((run) => run.case_id === item.id)));
+
+  onMount(async () => {
+    try {
+      cases = (await api.cases()).cases;
+    } catch (error) {
+      casesError = errorMessage(error);
+    }
+  });
 
   /**
    * @param {ModelStats} stat - model figures
@@ -58,7 +75,7 @@
     <CampaignPicker bind:value={picked.id} campaigns={picked.list} />
   </div>
 
-  <Notice message={results.error || picked.error} />
+  <Notice message={results.error || picked.error || casesError} />
 
   {#if stats.length > 0}
     <ul class="legend" aria-label="Légende">
@@ -67,10 +84,16 @@
       {/each}
     </ul>
 
+    <ScoreScatter {stats} {models} />
+
     <div class="charts">
       <GroupedBars title="Score moyen, sur 100" max={100} groups={groups((stat) => stat.avg_score, (stat) => score(stat.avg_score))} />
       <GroupedBars title="Temps médian par réponse" max={maxTime} groups={groups((stat) => stat.p50_total_ms ?? 0, (stat) => duration(stat.p50_total_ms))} />
     </div>
+
+    {#if results.detail}
+      <RunMatrix cases={playedCases} {models} runs={results.detail.runs} />
+    {/if}
 
     <div class="table-wrap">
       <table>

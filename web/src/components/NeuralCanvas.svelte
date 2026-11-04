@@ -250,7 +250,7 @@
 <style>
   .network {
     position: relative;
-    height: clamp(420px, 78vh, 760px);
+    height: clamp(360px, 54vh, 560px);
     border: 1px solid var(--hairline);
     border-radius: var(--radius);
     background: var(--panel);
