@@ -234,9 +234,9 @@
                   {#if turn.searchMs !== null}
                     <div><dt>Recherche</dt><dd>{duration(turn.searchMs)}</dd></div>
                   {/if}
-                  <div><dt>1er jeton</dt><dd>{duration(answer.metrics.ttft_ms)}</dd></div>
+                  <div><dt>1er token</dt><dd>{duration(answer.metrics.ttft_ms)}</dd></div>
                   <div><dt>Total</dt><dd>{duration(answer.metrics.total_ms)}</dd></div>
-                  <div><dt>Jetons/s</dt><dd>{number(answer.metrics.tok_per_sec)}</dd></div>
+                  <div><dt>Tokens/s</dt><dd>{number(answer.metrics.tok_per_sec)}</dd></div>
                   {#if answer.metrics.load_ms && answer.metrics.load_ms >= 500}
                     <div><dt>Chargement</dt><dd>{duration(answer.metrics.load_ms)}</dd></div>
                   {/if}

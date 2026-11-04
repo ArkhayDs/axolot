@@ -46,7 +46,7 @@
               <span class="tiles">
                 {#if row.ms !== null}<span class="tile"><small>Temps médian</small>{duration(row.ms)}</span>{/if}
                 {#if row.p95 !== null}<span class="tile"><small>95 % des réponses sous</small>{duration(row.p95)}</span>{/if}
-                {#if row.tokPerSec !== null}<span class="tile"><small>Vitesse</small>{number(row.tokPerSec)} jetons/s</span>{/if}
+                {#if row.tokPerSec !== null}<span class="tile"><small>Vitesse</small>{number(row.tokPerSec)} tokens/s</span>{/if}
                 <span class="tile"><small>Réponses</small>{row.runs}</span>
                 <span class="tile"><small>Questions</small>{row.questions}</span>
               </span>

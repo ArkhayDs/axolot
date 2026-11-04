@@ -20,8 +20,8 @@
         <th scope="col" class="num">Échecs</th>
         <th scope="col" class="num">Score</th>
         <th scope="col" class="num">Temps médian</th>
-        <th scope="col" class="num">1er jeton</th>
-        <th scope="col" class="num">Jetons/s</th>
+        <th scope="col" class="num">1er token</th>
+        <th scope="col" class="num">Tokens/s</th>
         <th scope="col" class="num">Chargement</th>
         <th scope="col" class="num">Passages trouvés</th>
       </tr>

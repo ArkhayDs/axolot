@@ -157,13 +157,13 @@ func validateSettings(settings store.Settings) string {
 	case !corpusName.MatchString(settings.CorpusDir):
 		return "Dossier de corpus invalide"
 	case settings.ChunkSize < 100 || settings.ChunkSize > 8000:
-		return "Taille de découpe : entre 100 et 8000"
+		return "Taille des chunks : entre 100 et 8000"
 	case settings.ChunkOverlap < 0 || settings.ChunkOverlap >= settings.ChunkSize:
-		return "Chevauchement : doit rester sous la taille de découpe"
+		return "Overlap : doit rester sous la taille des chunks"
 	case settings.TopK < 1 || settings.TopK > 20:
-		return "Extraits retenus : entre 1 et 20"
+		return "Top K : entre 1 et 20"
 	case settings.EmbedModel == "":
-		return "Modèle d'embeddings requis"
+		return "Modèle d'embedding requis"
 	case settings.ReservedGB < 0 || settings.ReservedGB > 256:
 		return "RAM réservée invalide"
 	}

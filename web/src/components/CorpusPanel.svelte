@@ -86,10 +86,10 @@
         {/each}
       </select>
     </label>
-    <label class="field">Taille de découpe<input class="input" type="number" min="100" max="8000" bind:value={settings.chunk_size} /></label>
-    <label class="field">Chevauchement<input class="input" type="number" min="0" bind:value={settings.chunk_overlap} /></label>
-    <label class="field">Extraits retenus<input class="input" type="number" min="1" max="20" bind:value={settings.top_k} /></label>
-    <label class="field">Modèle d'embeddings<input class="input" bind:value={settings.embed_model} required /></label>
+    <label class="field">Chunking : taille<input class="input" type="number" min="100" max="8000" bind:value={settings.chunk_size} /></label>
+    <label class="field">Chunking : overlap<input class="input" type="number" min="0" bind:value={settings.chunk_overlap} /></label>
+    <label class="field">Top K<input class="input" type="number" min="1" max="20" bind:value={settings.top_k} /></label>
+    <label class="field">Modèle d'embedding<input class="input" bind:value={settings.embed_model} required /></label>
     <label class="field">RAM réservée (Go)<input class="input" type="number" min="0" max="256" bind:value={settings.reserved_gb} /></label>
     <div class="save">
       <button class="btn" type="submit">Enregistrer</button>
@@ -100,12 +100,12 @@
   <div class="panel index">
     <div class="index-state">
       {#if ingesting}
-        <p>Indexation en cours{live.ingest ? ` : ${number(live.ingest.done)} / ${number(live.ingest.total)} extraits` : ''}</p>
+        <p>Indexation en cours{live.ingest ? ` : ${number(live.ingest.done)} / ${number(live.ingest.total)} chunks` : ''}</p>
         <div class="progress" role="progressbar" aria-label="Indexation" aria-valuemin="0" aria-valuemax={live.ingest?.total ?? 0} aria-valuenow={live.ingest?.done ?? 0}>
           <span style:width="{live.ingest?.total ? (100 * live.ingest.done) / live.ingest.total : 0}%"></span>
         </div>
       {:else if index}
-        <p class="state state-good"><Icon name="check" size={16} /> Indexé : {index.chunks} extraits, {index.files} fichiers</p>
+        <p class="state state-good"><Icon name="check" size={16} /> Indexé : {index.chunks} chunks, {index.files} fichiers</p>
         {#if stale}<p class="state state-warning"><Icon name="alert" size={16} /> {folder?.files.length} fichiers dans le dossier : à réindexer</p>{/if}
       {:else}
         <p class="state state-warning"><Icon name="alert" size={16} /> Non indexé avec {settings.embed_model}</p>

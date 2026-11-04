@@ -16,7 +16,7 @@
   {:else}
     <p class="figures">
       <strong class:zero={run.score === 0}>{score(run.score)}/100</strong>
-      <span class="muted">{duration(run.total_ms)}, {number(run.tok_per_sec)} jetons/s</span>
+      <span class="muted">{duration(run.total_ms)}, {number(run.tok_per_sec)} tokens/s</span>
     </p>
     <ul>
       {#each run.checks ?? [] as check, index (index)}

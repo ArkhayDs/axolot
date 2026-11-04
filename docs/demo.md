@@ -42,7 +42,8 @@ Axolot fait passer les mêmes épreuves à plusieurs IA sur notre propre machine
 - **Score** : le pourcentage de contrôles réussis, sur 100.
 - **Temps médian** : la moitié des réponses arrive plus vite que ce temps.
 - **RAG** : l'IA cherche d'abord les passages utiles dans nos documents, puis répond à partir d'eux.
-- **Jeton** : un petit morceau de texte produit par le modèle.
+- **Token** : un petit morceau de texte produit par le modèle.
+- **Chunk** : un morceau de document, l'unité que le RAG retrouve.
 
 ## Si on te pose la question
 - **"Lequel on choisit ?"** Ça dépend de la tâche, et c'est le but de l'outil. Rapide pour le tri et le routage, Qwen pour les documents et le raisonnement, sur ce qu'on a testé.

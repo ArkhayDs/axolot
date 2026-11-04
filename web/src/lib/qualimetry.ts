@@ -22,7 +22,7 @@ export const INDICATORS: { label: string; hint: string }[] = [
   { label: 'Diversité lexicale', hint: 'Mots distincts sur mots, en moyenne par réponse en texte. Baisse quand une réponse se répète.' },
   { label: 'JSON valide', hint: 'Part des réponses qui se lisent en JSON, là où un schéma est attendu.' },
   { label: 'Source citée', hint: 'Part des réponses qui citent la source attendue, sur les questions documentaires.' },
-  { label: 'Vides ou tronquées', hint: 'Part des réponses sans texte, ou arrêtées par la limite de jetons.' },
+  { label: 'Vides ou tronquées', hint: 'Part des réponses sans texte, ou arrêtées par la limite de tokens.' },
 ];
 
 /**
