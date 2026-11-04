@@ -35,7 +35,7 @@ func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		"messages":       req.Messages,
 		"stream":         true,
 		"stream_options": map[string]any{"include_usage": true},
-		"temperature":    0,
+		"temperature":    Temperature,
 		"max_tokens":     req.MaxTokens,
 	}
 	if len(req.Schema) > 0 {

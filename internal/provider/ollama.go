@@ -9,11 +9,8 @@ import (
 	"time"
 )
 
-// Fixed so every model gets the same conditions: deterministic sampling, same context window.
-const (
-	ollamaNumCtx = 8192
-	ollamaSeed   = 42
-)
+// ollamaNumCtx is fixed so every model gets the same context window.
+const ollamaNumCtx = 8192
 
 // Ollama calls a local or remote Ollama server.
 type Ollama struct {
@@ -50,8 +47,7 @@ func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		"messages": req.Messages,
 		"stream":   true,
 		"options": map[string]any{
-			"temperature": 0,
-			"seed":        ollamaSeed,
+			"temperature": Temperature,
 			"num_ctx":     ollamaNumCtx,
 			"num_predict": req.MaxTokens,
 		},

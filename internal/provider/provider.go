@@ -15,6 +15,10 @@ import (
 // maxErrorBody caps how much of a failed response ends up in an error message.
 const maxErrorBody = 2048
 
+// Temperature is low but not zero, with no fixed seed: repeating a question must yield a new measure,
+// otherwise the cumulative base would count the same answer many times and show false precision.
+const Temperature = 0.3
+
 // Message is one chat turn.
 type Message struct {
 	Role    string `json:"role"`
