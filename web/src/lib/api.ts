@@ -318,6 +318,26 @@ export interface ChatMetrics {
   tok_per_sec: number | null;
 }
 
+export interface ChatPassage {
+  file: string;
+  position: number;
+  start_offset: number;
+  content: string;
+  similarity: number;
+}
+
+export interface ChatSearch {
+  passages: ChatPassage[];
+  search_ms: number;
+}
+
+export interface ChatBody {
+  provider_id: number;
+  model: string;
+  messages: { role: string; content: string }[];
+  passages?: ChatPassage[];
+}
+
 /**
  * Streams one chat answer
  * @param {{ provider_id: number; model: string; messages: { role: string; content: string }[] }} body - question and history
@@ -326,7 +346,7 @@ export interface ChatMetrics {
  * @returns {Promise<ChatMetrics>} - timings of the finished answer
  */
 export async function streamChat(
-  body: { provider_id: number; model: string; messages: { role: string; content: string }[] },
+  body: ChatBody,
   onDelta: (text: string) => void,
   signal: AbortSignal,
 ): Promise<ChatMetrics> {
@@ -387,4 +407,13 @@ export const api = {
   base: (): Promise<BaseDetail> => get('/base'),
   estimate: (models: string[], cases: string[]): Promise<Estimate> => write('POST', '/estimate', { models, cases }),
   remaining: (): Promise<Estimate> => get('/estimate/remaining'),
+  chatSearch: async (question: string, signal: AbortSignal): Promise<ChatSearch> =>
+    (
+      await send('/chat/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+        signal,
+      })
+    ).json() as Promise<ChatSearch>,
 };

@@ -4,8 +4,9 @@
   import Icon from '../components/Icon.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
+  import ChatSources from '../components/ChatSources.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
-  import type { ChatMetrics, Models } from '../lib/api';
+  import type { ChatMetrics, ChatPassage, Models } from '../lib/api';
   import { duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -22,11 +23,16 @@
   interface Turn {
     question: string;
     answers: Answer[];
+    searching: boolean;
+    searchError: string;
+    searchMs: number | null;
+    passages: ChatPassage[];
   }
 
   let models = $state<Models | null>(null);
   let chosen = $state<string[]>([]);
   let question = $state('');
+  let useDocuments = $state(false);
   let turns = $state<Turn[]>([]);
   let sending = $state(false);
   let error = $state('');
@@ -75,14 +81,36 @@
     turns.push({
       question: text,
       answers: picks.map((model) => ({ key: model.key, model: model.name, providerId: model.providerId, text: '', state: 'waiting', error: '', metrics: null })),
+      searching: useDocuments,
+      searchError: '',
+      searchMs: null,
+      passages: [],
     });
-    const answers = turns[turns.length - 1].answers;
+    const turn = turns[turns.length - 1];
+    const answers = turn.answers;
     question = '';
     sending = true;
     error = '';
     controller = new AbortController();
     await tick();
     thread?.lastElementChild?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (turn.searching) {
+      try {
+        const found = await api.chatSearch(text, controller.signal);
+        turn.passages = found.passages;
+        turn.searchMs = found.search_ms;
+      } catch (searchError) {
+        if (!controller.signal.aborted) {
+          turn.searchError = errorMessage(searchError);
+          turn.answers = [];
+          turn.searching = false;
+          question = text;
+          sending = false;
+          return;
+        }
+      }
+      turn.searching = false;
+    }
     for (const answer of answers) {
       if (controller.signal.aborted) {
         answer.state = 'stopped';
@@ -91,7 +119,7 @@
       answer.state = 'streaming';
       try {
         answer.metrics = await streamChat(
-          { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }] },
+          { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages) },
           (delta) => {
             answer.text += delta;
           },
@@ -132,7 +160,7 @@
   <div class="page-head">
     <div>
       <h1>Chat</h1>
-      <p>Une question, chaque modèle coché répond à son tour, sans instruction cachée.</p>
+      <p>Une question, chaque modèle coché répond à son tour. Aucune instruction cachée, sauf la consigne documentaire si vous activez les documents.</p>
     </div>
     <fieldset class="models">
       <legend>Modèles</legend>
@@ -153,6 +181,13 @@
     {#each turns as turn, index (index)}
       <article class="turn">
         <p class="question">{turn.question}</p>
+        {#if turn.searching}
+          <p class="muted">Recherche dans les documents...</p>
+        {/if}
+        {#if turn.searchError}
+          <p class="state state-critical"><Icon name="alert" size={16} /> <span>{turn.searchError}. <a href="#/reglages">Ouvrir les réglages</a></span></p>
+        {/if}
+        <ChatSources passages={turn.passages} />
         <div class="answers">
           {#each turn.answers as answer (answer.key)}
             <div class="answer">
@@ -171,6 +206,9 @@
               {/if}
               {#if answer.metrics}
                 <dl class="metrics">
+                  {#if turn.searchMs !== null}
+                    <div><dt>Recherche</dt><dd>{duration(turn.searchMs)}</dd></div>
+                  {/if}
                   <div><dt>1er jeton</dt><dd>{duration(answer.metrics.ttft_ms)}</dd></div>
                   <div><dt>Total</dt><dd>{duration(answer.metrics.total_ms)}</dd></div>
                   <div><dt>Jetons/s</dt><dd>{number(answer.metrics.tok_per_sec)}</dd></div>
@@ -189,15 +227,24 @@
   </section>
 
   <form class="composer glass" onsubmit={send}>
-    <label class="field">
-      <span class="visually-hidden">Votre question</span>
-      <textarea class="input" rows="2" bind:value={question} onkeydown={onKeydown} placeholder={blocked ? 'Un Benchmark est en cours : le chat fausserait ses temps.' : 'Votre question'} disabled={blocked}></textarea>
-    </label>
-    {#if sending}
-      <button class="btn" type="button" onclick={() => controller?.abort()}><Icon name="stop" /> Arrêter</button>
-    {:else}
-      <button class="btn btn-primary" type="submit" disabled={blocked || !question.trim() || chosen.length === 0}><Icon name="play" /> Envoyer</button>
-    {/if}
+    <div class="compose-row">
+      <label class="field">
+        <span class="visually-hidden">Votre question</span>
+        <textarea class="input" rows="2" bind:value={question} onkeydown={onKeydown} placeholder={blocked ? 'Un Benchmark est en cours : le chat fausserait ses temps.' : 'Votre question'} disabled={blocked}></textarea>
+      </label>
+      {#if sending}
+        <button class="btn" type="button" onclick={() => controller?.abort()}><Icon name="stop" /> Arrêter</button>
+      {:else}
+        <button class="btn btn-primary" type="submit" disabled={blocked || !question.trim() || chosen.length === 0}><Icon name="play" /> Envoyer</button>
+      {/if}
+    </div>
+    <div class="options">
+      <label class="switch">
+        <input type="checkbox" role="switch" bind:checked={useDocuments} disabled={blocked} />
+        <span class="track" aria-hidden="true"></span>
+        Documents (RAG)
+      </label>
+    </div>
   </form>
 </div>
 
@@ -240,7 +287,7 @@
     display: grid;
     gap: var(--s6);
     /* The composer floats over the page bottom: the last answer must clear it. */
-    padding-bottom: 7rem;
+    padding-bottom: 10rem;
   }
 
   .turn {
@@ -303,17 +350,84 @@
     bottom: var(--s4);
     left: 50%;
     z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: var(--s3);
+    display: grid;
+    gap: var(--s2);
     width: min(calc(100% - 2 * var(--s5)), calc(var(--page-width) - 2 * var(--s5)));
     padding: var(--s3);
     border-radius: var(--radius-lg);
     transform: translateX(-50%);
   }
 
-  .composer .field {
+  .compose-row {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+  }
+
+  .compose-row .field {
     flex: 1;
+  }
+
+  .options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s2) var(--s4);
+  }
+
+  .switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s2);
+    min-height: 32px;
+    font-size: var(--text-sm);
+    cursor: pointer;
+  }
+
+  .switch input {
+    position: absolute;
+    opacity: 0;
+  }
+
+  .track {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    border: 1px solid var(--axis);
+    border-radius: 9px;
+    transition: background 120ms ease-out;
+  }
+
+  .track::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--ink-2);
+    content: '';
+    transition: transform 120ms ease-out;
+  }
+
+  .switch input:checked + .track {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .switch input:checked + .track::after {
+    background: var(--on-accent);
+    transform: translateX(14px);
+  }
+
+  .switch input:focus-visible + .track {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .switch input:disabled + .track {
+    opacity: 0.5;
   }
 
   textarea {
@@ -337,7 +451,7 @@
     }
 
     .thread {
-      padding-bottom: 9rem;
+      padding-bottom: 12rem;
     }
   }
 </style>
