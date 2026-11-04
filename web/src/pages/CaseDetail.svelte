@@ -10,7 +10,7 @@
   import { api, errorMessage } from '../lib/api';
   import type { CasesResponse, Models, Run, Selection, Settings, Source } from '../lib/api';
   import { campaignResults, picked, refreshCampaigns } from '../lib/campaigns.svelte';
-  import { number, seriesColor, trapLabel } from '../lib/format';
+  import { number, seriesColor, splitPrompt, trapLabel } from '../lib/format';
   import { launch, live } from '../lib/live.svelte';
 
   let { id }: { id: string } = $props();
@@ -132,9 +132,15 @@
       {@const itemRuns = runsByItem.get(item.id) ?? []}
       {@const retrieved = itemRuns.find((run) => run.retrieved)?.retrieved ?? []}
       {@const hit = itemRuns.find((run) => run.retrieval_hit !== null)?.retrieval_hit}
+      {@const parts = splitPrompt(item.prompt)}
       <section class="item">
+        {#if parts.context}
+          <h3 class="part-label">Contexte</h3>
+          <p class="context">{parts.context}</p>
+        {/if}
+        <h3 class="part-label">Demande</h3>
         <div class="question">
-          <p class="prompt">{item.prompt}</p>
+          <p class="prompt">{parts.request}</p>
           {#if item.rag}
             <div class="rag">
               <span class="state"><Icon name="alert" size={16} /> {trapLabel(item.rag.trap)}</span>
@@ -163,6 +169,7 @@
           {/if}
         </div>
 
+        <h3 class="part-label">Résultats</h3>
         {#if itemRuns.length > 0}
           <div class="columns">
             {#each itemRuns as run (run.id || run.model)}
@@ -217,11 +224,26 @@
     background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
+  /* A label rail keeps context, request and results apart without one more box. */
   .item {
     display: grid;
-    gap: var(--s3);
-    padding-top: var(--s4);
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: var(--s3) var(--s4);
+    padding-top: var(--s5);
     border-top: 1px solid var(--hairline);
+  }
+
+  .part-label {
+    padding-top: 2px;
+    color: var(--ink-3);
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+
+  .context {
+    max-width: 75ch;
+    color: var(--ink-2);
+    white-space: pre-wrap;
   }
 
   .question {
@@ -262,5 +284,12 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     gap: var(--s3);
+  }
+
+  @media (max-width: 760px) {
+    .item {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s2);
+    }
   }
 </style>

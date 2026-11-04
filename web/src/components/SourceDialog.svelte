@@ -40,7 +40,7 @@
 
 <dialog class="sheet glass" bind:this={dialog} onclose={onclose} aria-labelledby="source-title">
   <div class="sheet-head">
-    <h2 id="source-title"><Icon name="doc" /> {source?.file}</h2>
+    <h2 id="source-title"><Icon name="doc" /> {source?.file} <span class="fictif">Document fictif</span></h2>
     <button class="btn" type="button" onclick={onclose} aria-label="Fermer"><Icon name="cross" /></button>
   </div>
   <Notice message={error} />
@@ -86,6 +86,12 @@
     align-items: center;
     gap: var(--s2);
     overflow-wrap: anywhere;
+  }
+
+  .fictif {
+    color: var(--ink-3);
+    font-size: var(--text-sm);
+    font-weight: 400;
   }
 
   .document {

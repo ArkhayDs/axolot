@@ -7,11 +7,11 @@
 
 {#if campaigns.length > 0}
   <label class="field picker">
-    Campagne
+    Historique des campagnes
     <select class="input" bind:value>
       {#each campaigns as campaign (campaign.id)}
         <option value={campaign.id}>
-          {campaign.name} - {when(campaign.created_at)} - {campaign.done_items} réponses{campaign.status === 'done' ? '' : ` - ${statusLabel(campaign.status)}`}
+          {campaign.name}, {when(campaign.created_at)}{campaign.status === 'done' ? '' : `, ${statusLabel(campaign.status).toLowerCase()}`}
         </option>
       {/each}
     </select>

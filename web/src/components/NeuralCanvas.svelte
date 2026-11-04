@@ -37,6 +37,7 @@
   const caseAverages = $derived.by(() => {
     const totals = new Map<string, { sum: number; count: number }>();
     for (const run of live.runs) {
+      if (run.model !== live.model) continue;
       const entry = totals.get(run.case_id) ?? { sum: 0, count: 0 };
       totals.set(run.case_id, { sum: entry.sum + run.score, count: entry.count + 1 });
     }
@@ -241,7 +242,7 @@
     {#if caseNodes[index] && !compact}
       <span class="label label-case" class:active={live.caseId === item.id} style:top="{caseNodes[index].y}px" style:left="{rightX + 16}px">
         <span class="case-title">{item.title}</span>
-        {#if average !== undefined}<span class="case-score">{score(average)}</span>{/if}
+        {#if average !== undefined}<span class="case-score">{score(average)}/100</span>{/if}
       </span>
     {/if}
   {/each}

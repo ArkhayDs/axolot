@@ -43,6 +43,16 @@ const CHECKS: Record<string, string> = {
   citation: 'Source citée',
 };
 
+const FIELDS: Record<string, string> = {
+  decision: 'la décision',
+  cible: 'la cible',
+  reponse: 'la réponse',
+  categorie: 'la catégorie',
+  urgence: "l'urgence",
+};
+
+const VALUES: Record<string, string> = { executer: 'exécuter', demander_precision: 'demander une précision' };
+
 const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -83,7 +93,10 @@ export function trapLabel(trap: NonNullable<Item['rag']>['trap']): string {
  * @returns {string} - display label
  */
 export function checkLabel(check: Check): string {
-  if (check.name.startsWith('json_equals:')) return `Valeur de ${check.name.slice('json_equals:'.length)}`;
+  if (check.name.startsWith('json_equals:')) {
+    const field = check.name.slice('json_equals:'.length);
+    return `Valeur de ${FIELDS[field] ?? field}`;
+  }
   return CHECKS[check.name] ?? check.name;
 }
 
@@ -94,7 +107,7 @@ export function checkLabel(check: Check): string {
  */
 export function checkDetail(detail: string): string {
   const mismatch = /^got (.*), want (.*)$/.exec(detail);
-  if (mismatch) return `obtenu ${mismatch[1] || '(vide)'}, attendu ${mismatch[2]}`;
+  if (mismatch) return `obtenu ${VALUES[mismatch[1]] ?? (mismatch[1] || '(vide)')}, attendu ${VALUES[mismatch[2]] ?? mismatch[2]}`;
   const length = /^(\d+) words, limit (.*)$/.exec(detail);
   if (length) return `${length[1]} mots, limite ${length[2]}`;
   return detail
@@ -143,6 +156,18 @@ export function score(score: number): string {
  */
 export function gigabytes(bytes: number): string {
   return `${decimal.format(bytes / 1e9)} Go`;
+}
+
+/**
+ * Splits a prompt into what the model is told and what it is asked: the request is the last paragraph
+ * @param {string} prompt - full prompt
+ * @returns {{ context: string; request: string }} - context, empty for a one-paragraph prompt
+ */
+export function splitPrompt(prompt: string): { context: string; request: string } {
+  const cut = prompt.trimEnd().lastIndexOf('\n\n');
+  if (cut < 0) return { context: '', request: prompt.trim() };
+  const context = prompt.slice(0, cut).replace(/^Contexte : /, '').trim();
+  return { context: context.charAt(0).toUpperCase() + context.slice(1), request: prompt.slice(cut).trim() };
 }
 
 /**

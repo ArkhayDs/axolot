@@ -14,7 +14,7 @@
     <pre class="output">{run.error}</pre>
   {:else}
     <p class="figures">
-      <strong>{score(run.score)}/100</strong>
+      <strong class:zero={run.score === 0}>{score(run.score)}/100</strong>
       <span class="muted">{duration(run.total_ms)}, {number(run.tok_per_sec)} jetons/s</span>
     </p>
     <ul>
@@ -54,6 +54,10 @@
 
   .figures strong {
     font-size: var(--text-lg);
+  }
+
+  .figures .zero {
+    color: var(--critical);
   }
 
   .figures .muted {
