@@ -1,0 +1,208 @@
+// Pure figures of the map: cell lookups, rankings with explicit ties, and gaps to the leader.
+
+import type { MapBenchmark, MapCell, MapData } from '../api';
+import { categoryLabel, number, score as formatScore } from '../format';
+
+export interface MapFilter {
+  machine: string;
+  model: string;
+  category: string;
+}
+
+export type RankKind = 'model' | 'theme' | 'machine';
+
+export interface RankRow {
+  kind: RankKind;
+  key: string;
+  label: string;
+  rank: number;
+  tied: boolean;
+  score: number;
+  runs: number;
+  questions: number;
+  // Most questions any row of the ranking covers: below it, the scores do not compare the same work.
+  coverage: number;
+  errors: number;
+  ms: number | null;
+  p95: number | null;
+  tokPerSec: number | null;
+  gap: string;
+  picked: boolean;
+}
+
+export interface RankSection {
+  kind: RankKind;
+  title: string;
+  rows: RankRow[];
+}
+
+export interface MapLists {
+  machines: string[];
+  models: string[];
+  themes: string[];
+}
+
+export type CellIndex = Map<string, MapCell>;
+
+/**
+ * @param {string} machine - machine label, empty for all
+ * @param {string} model - model tag
+ * @param {string} category - theme, empty for all
+ * @returns {string} - cell lookup key
+ */
+function cellKey(machine: string, model: string, category: string): string {
+  return `${machine}|${model}|${category}`;
+}
+
+/**
+ * @param {MapCell[]} cells - cells and rollups sent by the API
+ * @returns {CellIndex} - cells by machine, model and theme
+ */
+export function indexCells(cells: MapCell[]): CellIndex {
+  return new Map(cells.map((cell) => [cellKey(cell.machine, cell.model, cell.category), cell]));
+}
+
+/**
+ * @param {CellIndex} index - indexed cells
+ * @param {string} machine - machine label, empty for all
+ * @param {string} model - model tag
+ * @param {string} category - theme, empty for all
+ * @returns {MapCell | undefined} - figures, absent when never played
+ */
+export function cellOf(index: CellIndex, machine: string, model: string, category: string): MapCell | undefined {
+  return index.get(cellKey(machine, model, category));
+}
+
+/**
+ * @param {MapData} data - API answer
+ * @returns {MapLists} - sorted axes; the current machine is listed even without data
+ */
+export function listsOf(data: MapData): MapLists {
+  const axis = (pick: (cell: MapCell) => string): string[] => [...new Set(data.cells.map(pick).filter(Boolean))].sort();
+  return {
+    machines: [...new Set([...axis((cell) => cell.machine), data.current_machine])].filter(Boolean).sort(),
+    models: axis((cell) => cell.model),
+    themes: axis((cell) => cell.category),
+  };
+}
+
+/**
+ * @param {string} model - model tag
+ * @param {string[]} models - every model of the view
+ * @returns {string} - family alone while it still identifies the model
+ */
+export function shortModel(model: string, models: string[]): string {
+  const family = model.split(':')[0];
+  return models.filter((other) => other.split(':')[0] === family).length > 1 ? model : family;
+}
+
+/**
+ * Two scores shown with the same figure tie: a rank must never rest on a digit nobody can see
+ * @param {number} a - score
+ * @param {number} b - score
+ * @returns {boolean} - same displayed score
+ */
+export function sameScore(a: number, b: number): boolean {
+  return formatScore(a) === formatScore(b);
+}
+
+/**
+ * @param {RankRow} row - ranked row
+ * @param {RankRow} leader - first row
+ * @returns {string} - gap to the leader, in points and speed
+ */
+function gapLabel(row: RankRow, leader: RankRow): string {
+  if (row === leader) return row.tied ? '' : 'En tête';
+  const parts: string[] = [];
+  if (!sameScore(row.score, leader.score)) parts.push(`-${formatScore(leader.score - row.score)} pts`);
+  if (row.ms && leader.ms) {
+    const ratio = leader.ms / row.ms;
+    if (ratio >= 1.05) parts.push(`${number(ratio)}× plus rapide`);
+    else if (ratio <= 0.95) parts.push(`${number(1 / ratio)}× plus lent`);
+  }
+  return parts.join(', ');
+}
+
+/**
+ * Best score first; on a tie the faster row is listed first but shares the rank
+ * @param {RankKind} kind - what is ranked
+ * @param {{ key: string; label: string; cell: MapCell | undefined }[]} entries - candidates, absent cells dropped
+ * @param {string} picked - key of the selected row
+ * @returns {RankRow[]} - ranked rows
+ */
+function rankRows(kind: RankKind, entries: { key: string; label: string; cell: MapCell | undefined }[], picked: string): RankRow[] {
+  const rows = entries.flatMap(({ key, label, cell }): RankRow[] =>
+    cell
+      ? [{
+          kind,
+          key,
+          label,
+          rank: 0,
+          tied: false,
+          score: cell.avg_score,
+          runs: cell.runs,
+          questions: cell.questions,
+          coverage: 0,
+          errors: cell.errors,
+          ms: cell.p50_total_ms,
+          p95: cell.p95_total_ms,
+          tokPerSec: cell.p50_tok_per_sec,
+          gap: '',
+          picked: key === picked,
+        }]
+      : [],
+  );
+  rows.sort((a, b) => (sameScore(a.score, b.score) ? (a.ms ?? Infinity) - (b.ms ?? Infinity) : b.score - a.score));
+  rows.forEach((row, position) => {
+    const previous = rows[position - 1];
+    const next = rows[position + 1];
+    row.rank = previous && sameScore(previous.score, row.score) ? previous.rank : position + 1;
+    row.tied = Boolean((previous && sameScore(previous.score, row.score)) || (next && sameScore(next.score, row.score)));
+  });
+  // Themes hold different question counts by nature: only models and machines answer the same list.
+  const coverage = kind === 'theme' ? 0 : Math.max(0, ...rows.map((row) => row.questions));
+  rows.forEach((row) => {
+    row.gap = gapLabel(row, rows[0]);
+    row.coverage = coverage;
+  });
+  return rows;
+}
+
+/**
+ * Picks what the filters ask to compare: models by default, a model's themes and machines once it is chosen
+ * @param {CellIndex} index - indexed cells
+ * @param {MapLists} lists - axes
+ * @param {MapFilter} filter - current selection
+ * @returns {RankSection[]} - rankings to display
+ */
+export function rankSections(index: CellIndex, lists: MapLists, filter: MapFilter): RankSection[] {
+  const { machine, model, category } = filter;
+  const sections: RankSection[] = [];
+  if (!model || category) {
+    const entries = lists.models.map((key) => ({ key, label: key, cell: cellOf(index, machine, key, category) }));
+    sections.push({ kind: 'model', title: 'Modèles', rows: rankRows('model', entries, model) });
+  }
+  if (model && !category) {
+    const entries = lists.themes.map((key) => ({ key, label: categoryLabel(key), cell: cellOf(index, machine, model, key) }));
+    sections.push({ kind: 'theme', title: 'Thèmes', rows: rankRows('theme', entries, '') });
+  }
+  if (model && !machine) {
+    const entries = lists.machines.map((key) => ({ key, label: key, cell: cellOf(index, key, model, category) }));
+    sections.push({ kind: 'machine', title: 'Machines', rows: rankRows('machine', entries, '') });
+  }
+  return sections;
+}
+
+/**
+ * @param {MapBenchmark} benchmark - past benchmark
+ * @param {MapFilter} filter - current selection
+ * @returns {number | null} - score over what the selection covers, null when it covers nothing
+ */
+export function benchmarkScore(benchmark: MapBenchmark, filter: MapFilter): number | null {
+  if (filter.machine && benchmark.machine !== filter.machine) return null;
+  const cells = benchmark.cells.filter(
+    (cell) => (!filter.model || cell.model === filter.model) && (!filter.category || cell.category === filter.category),
+  );
+  const runs = cells.reduce((total, cell) => total + cell.runs, 0);
+  return runs === 0 ? null : cells.reduce((total, cell) => total + cell.avg_score * cell.runs, 0) / runs;
+}

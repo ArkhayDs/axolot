@@ -38,7 +38,7 @@
   <table class="eval">
     <thead>
       <tr>
-        <th scope="col" rowspan="2">Tâche</th>
+        <th scope="col" rowspan="2">Thème</th>
         <th scope="col" class="num" rowspan="2">Questions</th>
         <th scope="colgroup" colspan={models.length} class="group">Score sur 100</th>
         <th scope="colgroup" colspan={models.length} class="group">Temps médian</th>
@@ -62,7 +62,7 @@
         {@const first = byKey.get(`${category}|${models[0]}`)}
         <tr class:overall={category === ''}>
           <th scope="row">{categoryLabel(category)}</th>
-          <td class="num muted">{first?.runs ?? '-'}</td>
+          <td class="num muted">{first?.questions ?? first?.runs ?? '-'}</td>
           {#each models as model, index (model)}
             {@const stat = byKey.get(`${category}|${model}`)}
             <td class="num heat" class:group-start={index === 0} class:best={stat?.avg_score === bestScore} style:background={stat ? lossFill(stat.avg_score) : undefined}>

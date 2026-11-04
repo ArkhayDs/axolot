@@ -25,7 +25,7 @@
 <div class="page">
   <div class="page-head">
     <div>
-      <h1>Cas</h1>
+      <h1>Scénarios</h1>
       <p>Chaque question a un résultat attendu, vérifié automatiquement.</p>
     </div>
   </div>
@@ -37,9 +37,9 @@
       <table>
         <thead>
           <tr>
-            <th scope="col">Cas</th>
+            <th scope="col">Scénario</th>
             <th scope="col" class="wide">Type</th>
-            <th scope="col" class="wide">Tâche</th>
+            <th scope="col" class="wide">Thème</th>
             <th scope="col" class="num">Questions</th>
             <th scope="col" class="wide">Modèles choisis</th>
           </tr>

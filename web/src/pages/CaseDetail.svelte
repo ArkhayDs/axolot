@@ -97,7 +97,7 @@
 <div class="page">
   <div class="page-head">
     <div>
-      <a class="back" href="#/cas">Tous les cas</a>
+      <a class="back" href="#/cas">Tous les scénarios</a>
       <h1>{current?.title ?? id}</h1>
     </div>
     <CampaignPicker bind:value={campaignId} campaigns={picked.list} />
@@ -106,9 +106,9 @@
   <Notice message={error || results.error} />
 
   {#if catalog && !current}
-    <p class="empty">Ce cas n'existe pas.</p>
+    <p class="empty">Ce scénario n'existe pas.</p>
   {:else if current}
-    <section class="panel controls" aria-label="Modèles du cas">
+    <section class="panel controls" aria-label="Modèles du scénario">
       <div class="chips">
         {#each models?.connections ?? [] as connection (connection.provider.id)}
           {#each connection.models.filter((model) => !embedding.has(model.name) && !embedding.has(model.name.split(':')[0])) as model (model.name)}
@@ -120,10 +120,10 @@
         {/each}
       </div>
       {#if live.campaign}
-        <a class="btn" href="#/labo"><Icon name="flask" /> Campagne en cours : voir le Labo</a>
+        <a class="btn" href="#/"><Icon name="target" /> Benchmark en cours : voir la carte</a>
       {:else}
         <button class="btn btn-primary" type="button" onclick={runCase} disabled={busy || selections.length === 0}>
-          <Icon name="play" /> Lancer ce cas
+          <Icon name="play" /> Lancer ce scénario
         </button>
       {/if}
     </section>
@@ -177,7 +177,7 @@
             {/each}
           </div>
         {:else}
-          <p class="muted">Pas de résultat dans cette campagne.</p>
+          <p class="muted">Pas de résultat dans ce Benchmark.</p>
         {/if}
       </section>
     {/each}

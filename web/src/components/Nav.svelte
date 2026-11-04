@@ -7,9 +7,8 @@
   let { active }: { active: string } = $props();
 
   const LINKS: { route: string; label: string; icon: IconName }[] = [
-    { route: '', label: 'Direction', icon: 'target' },
-    { route: 'labo', label: 'Labo', icon: 'flask' },
-    { route: 'cas', label: 'Cas', icon: 'list' },
+    { route: '', label: 'Carte', icon: 'target' },
+    { route: 'cas', label: 'Scénarios', icon: 'list' },
     { route: 'chat', label: 'Chat', icon: 'chat' },
     { route: 'resultats', label: 'Résultats', icon: 'bars' },
     { route: 'reglages', label: 'Réglages', icon: 'sliders' },
@@ -30,7 +29,7 @@
     {/each}
   </nav>
   {#if live.campaign}
-    <a class="running" href="#/labo" aria-label="Campagne en cours, {live.done} sur {live.total} réponses">
+    <a class="running" href="#/" aria-label="Benchmark en cours, {live.done} sur {live.total} réponses">
       <span class="running-count">{live.done}/{live.total}</span>
       <span class="progress"><span style:width="{live.total ? (100 * live.done) / live.total : 0}%"></span></span>
     </a>

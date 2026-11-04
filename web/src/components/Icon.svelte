@@ -2,7 +2,6 @@
   // One path list per icon: pathLength lets the CSS redraw any stroke with the same animation.
   const PATHS = {
     target: ['M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18', 'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8', 'M12 12h.01'],
-    flask: ['M9 3h6', 'M10 3v6.5L4.8 18a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3L14 9.5V3', 'M7.5 15h9'],
     chat: ['M4 5h16v11H9l-5 4z', 'M8 9h8', 'M8 12.5h5'],
     list: ['M8 6h12', 'M8 12h12', 'M8 18h12', 'M4 6h.01', 'M4 12h.01', 'M4 18h.01'],
     bars: ['M4 20h16', 'M7 20v-7', 'M12 20V5', 'M17 20v-10'],

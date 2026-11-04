@@ -1,9 +1,9 @@
 // French display helpers for figures, statuses and scoring labels.
 
-import type { Campaign, Check, Fit, Item } from './api';
+import type { Campaign, Check, Estimate, Fit, Item } from './api';
 
 const CATEGORIES: Record<string, string> = {
-  '': 'Toutes les tâches',
+  '': 'Tous les thèmes',
   ambiguite: 'Questions ambiguës',
   calcul: 'Calcul',
   lecture: 'Lecture de documents',
@@ -17,9 +17,9 @@ const CATEGORIES: Record<string, string> = {
 
 const STATUSES: Record<Campaign['status'], string> = {
   running: 'En cours',
-  done: 'Terminée',
-  cancelled: 'Annulée',
-  interrupted: 'Interrompue',
+  done: 'Terminé',
+  cancelled: 'Annulé',
+  interrupted: 'Interrompu',
 };
 
 const FITS: Record<Fit, string> = { ok: 'OK', tight: 'Juste', too_big: 'Trop gros', unknown: 'Inconnu' };
@@ -70,6 +70,27 @@ export function categoryLabel(category: string): string {
  */
 export function statusLabel(status: Campaign['status']): string {
   return STATUSES[status];
+}
+
+/**
+ * Names saved before the rename still read "Campagne" in the database
+ * @param {string} name - benchmark name
+ * @returns {string} - display name
+ */
+export function benchmarkName(name: string): string {
+  return name.replace(/^Campagne\b/, 'Benchmark');
+}
+
+/**
+ * @param {Estimate} estimate - range sent by the API
+ * @returns {string} - range in whole minutes; never a figure when something could not be estimated
+ */
+export function estimateLabel(estimate: Estimate): string {
+  if (!estimate.known) return 'Durée inconnue';
+  const low = Math.round(estimate.low_ms / 60_000);
+  const high = Math.round(estimate.high_ms / 60_000);
+  if (high < 1) return "moins d'une minute";
+  return low === high || low < 1 ? `environ ${high} min` : `environ ${low} à ${high} min`;
 }
 
 /**

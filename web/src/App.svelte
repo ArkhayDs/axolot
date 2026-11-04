@@ -7,8 +7,7 @@
   import CaseDetail from './pages/CaseDetail.svelte';
   import CaseList from './pages/CaseList.svelte';
   import Chat from './pages/Chat.svelte';
-  import Direction from './pages/Direction.svelte';
-  import Labo from './pages/Labo.svelte';
+  import Map from './pages/Map.svelte';
   import Results from './pages/Results.svelte';
   import Settings from './pages/Settings.svelte';
 
@@ -16,6 +15,7 @@
    * @returns {string[]} - hash route segments
    */
   function readRoute(): string[] {
+    if (location.hash.startsWith('#/labo')) history.replaceState(null, '', '#/');
     return location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   }
 
@@ -46,9 +46,7 @@
 <Nav active={route[0] ?? ''} />
 
 <main>
-  {#if route[0] === 'labo'}
-    <Labo />
-  {:else if route[0] === 'cas' && route[1]}
+  {#if route[0] === 'cas' && route[1]}
     {#key route[1]}
       <CaseDetail id={route[1]} />
     {/key}
@@ -61,6 +59,6 @@
   {:else if route[0] === 'reglages'}
     <Settings />
   {:else}
-    <Direction />
+    <Map />
   {/if}
 </main>

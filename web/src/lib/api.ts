@@ -153,6 +153,8 @@ export interface ModelStats {
   model: string;
   category: string;
   runs: number;
+  // Distinct questions behind the runs, only in the whole-database view.
+  questions?: number;
   errors: number;
   avg_score: number;
   p50_ttft_ms: number | null;
@@ -182,6 +184,53 @@ export interface CampaignDetail {
   runs: Run[];
   stats: ModelStats[];
   verdicts: Verdict[];
+}
+
+export interface MapCell extends ModelStats {
+  machine: string;
+  questions: number;
+  p95_total_ms: number | null;
+}
+
+export interface MapBenchmark {
+  id: string;
+  name: string;
+  status: Campaign['status'];
+  created_at: string;
+  done_items: number;
+  machine: string;
+  models: string[];
+  categories: string[];
+  cells: { model: string; category: string; runs: number; avg_score: number }[];
+}
+
+export interface MapData {
+  cells: MapCell[];
+  benchmarks: MapBenchmark[];
+  current_machine: string;
+}
+
+export interface Answer {
+  id: string;
+  item_id: string;
+  model: string;
+  category: string;
+  total_ms: number;
+  error: string;
+}
+
+export interface BaseDetail {
+  stats: MapCell[];
+  verdicts: Verdict[];
+  answers: Answer[];
+}
+
+export interface Estimate {
+  answers: number;
+  low_ms: number;
+  high_ms: number;
+  partial: boolean;
+  known: boolean;
 }
 
 export interface CorpusResponse {
@@ -315,4 +364,8 @@ export const api = {
   campaign: (id: string): Promise<CampaignDetail> => get(`/campaigns/${id}`),
   startCampaign: (name: string, cases: string[]): Promise<{ id: string }> => write('POST', '/campaigns', { name, cases }),
   cancelCampaign: (id: string): Promise<void> => write('POST', `/campaigns/${id}/cancel`),
+  map: (): Promise<MapData> => get('/map'),
+  base: (): Promise<BaseDetail> => get('/base'),
+  estimate: (models: string[], cases: string[]): Promise<Estimate> => write('POST', '/estimate', { models, cases }),
+  remaining: (): Promise<Estimate> => get('/estimate/remaining'),
 };

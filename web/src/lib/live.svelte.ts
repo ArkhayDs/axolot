@@ -22,8 +22,6 @@ export const live = $state({
   done: 0,
   total: 0,
   runs: [] as Run[],
-  // Kept after the campaign ends, so the lab can still show what just ran.
-  lastRuns: [] as Run[],
   // Bumped when a campaign ends, so pages reload their results.
   finished: 0,
   pulls: {} as Record<string, Pull>,
@@ -99,7 +97,6 @@ function apply(event: Record<string, unknown>): void {
       break;
     }
     case 'campaign_end':
-      live.lastRuns = live.runs;
       reset();
       live.finished += 1;
       break;

@@ -63,7 +63,7 @@
 <figure class="panel scatter" bind:clientWidth={width}>
   <figcaption>
     <h3>Qualité et temps de réponse</h3>
-    <p class="muted">Un point par modèle et par tâche. En haut à gauche : juste et rapide.</p>
+    <p class="muted">Un point par modèle et par thème. En haut à gauche : juste et rapide.</p>
   </figcaption>
   {#if width > 0}
     <div class="plot">

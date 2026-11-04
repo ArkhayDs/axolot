@@ -1,10 +1,13 @@
-// Campaign shown across the synthesis and results pages, and the reactive loader of its results.
+// Benchmark shown across the results and scenario pages, and the reactive loader of its results.
 
 import { api, errorMessage } from './api';
 import type { Campaign, CampaignDetail } from './api';
 import { live } from './live.svelte';
 
-export const picked = $state({ id: '', list: [] as Campaign[], error: '' });
+export const BASE_VIEW = 'base';
+
+// id: benchmark the scenario pages read. view: what the results page shows, the whole database or one benchmark id.
+export const picked = $state({ id: '', view: BASE_VIEW, list: [] as Campaign[], error: '' });
 
 /**
  * Default view: the most complete finished campaign, so a single case run live never replaces the full comparison

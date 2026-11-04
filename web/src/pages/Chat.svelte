@@ -191,7 +191,7 @@
   <form class="composer glass" onsubmit={send}>
     <label class="field">
       <span class="visually-hidden">Votre question</span>
-      <textarea class="input" rows="2" bind:value={question} onkeydown={onKeydown} placeholder={blocked ? 'Une campagne est en cours : le chat fausserait ses temps.' : 'Votre question'} disabled={blocked}></textarea>
+      <textarea class="input" rows="2" bind:value={question} onkeydown={onKeydown} placeholder={blocked ? 'Un Benchmark est en cours : le chat fausserait ses temps.' : 'Votre question'} disabled={blocked}></textarea>
     </label>
     {#if sending}
       <button class="btn" type="button" onclick={() => controller?.abort()}><Icon name="stop" /> Arrêter</button>

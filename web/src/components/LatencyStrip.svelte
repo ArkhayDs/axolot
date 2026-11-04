@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Run } from '../lib/api';
+  import type { Answer } from '../lib/api';
   import { categoryLabel, duration, seriesColor } from '../lib/format';
 
-  let { runs, models }: { runs: Run[]; models: string[] } = $props();
+  let { runs, models }: { runs: Answer[]; models: string[] } = $props();
 
   const LABEL_WIDTH = 170;
   const RIGHT_MARGIN = 20;
@@ -62,7 +62,7 @@
     <p class="muted">Un point par réponse, un trait à la médiane. Échelle logarithmique.</p>
   </figcaption>
   {#if width > 0}
-    <svg {width} {height} role="img" aria-label="Temps de chaque réponse par tâche et par modèle, médianes reprises dans le tableau ci-dessous">
+    <svg {width} {height} role="img" aria-label="Temps de chaque réponse par thème et par modèle, médianes reprises dans le tableau ci-dessous">
       {#each ticks as tick (tick)}
         <line class="grid" x1={x(tick)} x2={x(tick)} y1="0" y2={height - AXIS_HEIGHT} />
         <text class="tick" x={x(tick)} y={height - 8} text-anchor="middle">{duration(tick)}</text>
@@ -70,7 +70,7 @@
       {#each rows as row (row.category)}
         <text class="label" x="0" y={row.top + (models.length * LANE_HEIGHT) / 2 + 4}>{categoryLabel(row.category)}</text>
         {#each row.lanes as lane (lane.model)}
-          {#each lane.laneRuns as run (run.id || run.item_id)}
+          {#each lane.laneRuns as run (run.id)}
             <circle class="run" cx={x(run.total_ms)} cy={lane.y} r="3.5" fill={seriesColor(lane.model, models)}>
               <title>{run.item_id}, {lane.model} : {duration(run.total_ms)}</title>
             </circle>

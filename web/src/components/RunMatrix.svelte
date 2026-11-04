@@ -49,7 +49,7 @@
     <table>
       <thead>
         <tr>
-          <th scope="col">Cas</th>
+          <th scope="col">Scénario</th>
           {#each models as model (model)}
             <th scope="col"><ModelName name={model} /></th>
           {/each}
