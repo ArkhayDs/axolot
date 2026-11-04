@@ -42,6 +42,9 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 `gemma4:e4b-it-q4_K_M` (6,6 Go), `qwen3.6:27b-q4_K_M` (17 Go), `bge-m3` (1,2 Go, embeddings). `qwen3.6:35b-a3b` (23 Go) est juste en RAM avec Colima.
 
 ## Après la démo
+- Nom de machine avec le type d'appareil (MacBook Pro ou Mac mini, via `system_profiler`). Le libellé est la clé de la base cumulée : prévoir la migration des snapshots existants, sinon la machine se scinde en deux dans l'Atlas.
+- Retester le hot reload sans `usePolling`, `mountInotify` étant actif dans Colima.
+- Atlas : retirer ou non les micro-points de réponses, pris pour des étoiles. Molette de souris : elle déplace maintenant la vue, le zoom passe par le pincement ou Ctrl.
 - Énergie par modèle : script hôte relevant `ioreg` pendant les Benchmarks (sans `sudo`, sur batterie, toute la machine ; `powermetrics` pour CPU/GPU), croisé avec les réponses, en Wh par réponse.
 - Thème de Benchmark sur l'appel d'outils, avec date et heure comme premier outil.
 - Plusieurs machines : export/import des résultats, le filtre machine n'a tourné qu'avec une seule.
