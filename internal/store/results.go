@@ -89,6 +89,10 @@ func (s *Store) MarkInterrupted(ctx context.Context) error {
 	return nil
 }
 
+// runColumns must stay in the order of the Run fields.
+const runColumns = `r.id::text, r.campaign_id::text, r.case_id, r.item_id, r.category, r.provider_name, r.model, r.output, r.error,
+	r.ttft_ms, r.total_ms, r.load_ms, r.prompt_tokens, r.output_tokens, r.tok_per_sec, r.score, r.checks, r.retrieved, r.retrieval_hit, COALESCE(r.item_hash, '')`
+
 const campaignColumns = `c.id::text, c.name, c.status, c.hardware, c.rag_config, c.total_items,
 	(SELECT count(*)::int FROM runs r WHERE r.campaign_id = c.id), c.created_at, c.finished_at`
 
@@ -130,9 +134,8 @@ func (s *Store) CreateRun(ctx context.Context, run Run) error {
 
 // Runs returns the results of a campaign, grouped by case then item.
 func (s *Store) Runs(ctx context.Context, campaignID string) ([]Run, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id::text, campaign_id::text, case_id, item_id, category, provider_name, model, output, error,
-		ttft_ms, total_ms, load_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit, COALESCE(item_hash, '')
-		FROM runs WHERE campaign_id = $1::uuid ORDER BY case_id, item_id, provider_name, model`, campaignID)
+	rows, err := s.pool.Query(ctx, `SELECT `+runColumns+`
+		FROM runs r WHERE r.campaign_id = $1::uuid ORDER BY r.case_id, r.item_id, r.provider_name, r.model`, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("list runs: %w", err)
 	}

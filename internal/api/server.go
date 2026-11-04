@@ -64,6 +64,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/models/pull", s.pullModel)
 	mux.HandleFunc("GET /api/cases", s.listCases)
 	mux.HandleFunc("PUT /api/cases/{id}/models", s.setCaseModels)
+	mux.HandleFunc("GET /api/cases/{id}/answers", s.caseAnswers)
 	mux.HandleFunc("GET /api/corpus", s.listCorpus)
 	mux.HandleFunc("POST /api/corpus", s.createCorpus)
 	mux.HandleFunc("GET /api/corpus/{name}/files/{file}", s.readCorpusFile)
@@ -192,6 +193,25 @@ func (s *Server) setCaseModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, selections)
+}
+
+// caseAnswers returns the latest answer of each model to each question of a case, with cumulated figures.
+func (s *Server) caseAnswers(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.findCase(r.PathValue("id"))
+	if !ok {
+		writeError(w, http.StatusNotFound, "Scénario inconnu")
+		return
+	}
+	hashes := make([]string, 0, len(c.Items))
+	for _, item := range c.Items {
+		hashes = append(hashes, item.Hash)
+	}
+	answers, err := s.cfg.Store.CaseAnswers(r.Context(), c.ID, hashes)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, answers)
 }
 
 // findCase looks a case up by id.
