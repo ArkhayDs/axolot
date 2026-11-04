@@ -163,17 +163,17 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	}
 }
 
-func TestMapKeepsLatestAnswerPerQuestion(t *testing.T) {
+func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	mac, pc := json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{"label":"pc"}`)
-	play := func(hardware json.RawMessage, status string, item, category string, score float64) string {
+	play := func(hardware json.RawMessage, status, item, category string, score float64, totalMs int64) string {
 		t.Helper()
 		id, err := s.CreateCampaign(ctx, "demo", hardware, json.RawMessage(`{}`), 1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := Run{CampaignID: id, CaseID: "c", ItemID: item, Category: category, ProviderName: "p", Model: "m", TotalMs: 100, Score: score, Checks: json.RawMessage(`[]`)}
+		run := Run{CampaignID: id, CaseID: "c", ItemID: item, Category: category, ProviderName: "p", Model: "m", TotalMs: totalMs, Score: score, Checks: json.RawMessage(`[]`), ItemHash: "h-" + item}
 		if err := s.CreateRun(ctx, run); err != nil {
 			t.Fatal(err)
 		}
@@ -182,13 +182,16 @@ func TestMapKeepsLatestAnswerPerQuestion(t *testing.T) {
 		}
 		return id
 	}
-	play(mac, StatusDone, "i1", "code", 0)
-	newest := play(mac, StatusCancelled, "i1", "code", 100)
-	play(mac, StatusDone, "i2", "rag", 50)
-	play(pc, StatusDone, "i1", "code", 20)
-	play(mac, StatusRunning, "i2", "rag", 0)
+	play(mac, StatusDone, "i1", "code", 0, 100)
+	cancelled := play(mac, StatusCancelled, "i1", "code", 100, 200)
+	play(mac, StatusInterrupted, "i1", "code", 100, 300)
+	play(mac, StatusDone, "i2", "rag", 100, 400)
+	play(pc, StatusDone, "i1", "code", 20, 500)
+	play(mac, StatusRunning, "i2", "rag", 0, 600)
+	play(mac, StatusDone, "old", "rag", 0, 700)
 
-	cells, err := s.MapCells(ctx)
+	hashes := []string{"h-i1", "h-i2"}
+	cells, err := s.MapCells(ctx, hashes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,28 +202,30 @@ func TestMapKeepsLatestAnswerPerQuestion(t *testing.T) {
 	if len(cells) != 8 {
 		t.Fatalf("cells=%+v", cells)
 	}
-	if cell := found["mac|code"]; cell.Runs != 1 || cell.AvgScore != 100 {
-		t.Fatalf("latest answer not kept: %+v", cell)
+	if cell := found["mac|code"]; cell.Runs != 3 || cell.Questions != 1 || *cell.P50TotalMs != 200 {
+		t.Fatalf("every answer counts, cancelled ones included: %+v", cell)
 	}
-	if cell := found["mac|rag"]; cell.Runs != 1 || cell.AvgScore != 50 {
-		t.Fatalf("running campaign counted: %+v", cell)
+	if cell := found["mac|rag"]; cell.Runs != 1 || cell.AvgScore != 100 {
+		t.Fatalf("running campaign or stale version counted: %+v", cell)
 	}
-	if cell := found["mac|"]; cell.Runs != 2 || cell.AvgScore != 75 {
+	// Questions weigh the same however often they were played: (66.67 + 100) / 2, not the 75 of the raw answers.
+	if cell := found["mac|"]; cell.Runs != 4 || cell.Questions != 2 || cell.AvgScore < 83.3 || cell.AvgScore > 83.4 {
 		t.Fatalf("machine rollup: %+v", cell)
 	}
-	if cell := found["|code"]; cell.Runs != 2 || cell.AvgScore != 60 {
-		t.Fatalf("category rollup: %+v", cell)
-	}
-	if cell := found["|"]; cell.Runs != 3 {
+	if cell := found["|"]; cell.Runs != 5 || cell.Questions != 2 || cell.P95TotalMs == nil {
 		t.Fatalf("model rollup: %+v", cell)
+	}
+	answers, err := s.MapAnswers(ctx, hashes)
+	if err != nil || len(answers) != 5 {
+		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
 
 	benchmarks, err := s.MapBenchmarks(ctx)
-	if err != nil || len(benchmarks) != 5 {
+	if err != nil || len(benchmarks) != 7 {
 		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
 	}
 	for _, benchmark := range benchmarks {
-		if benchmark.ID != newest {
+		if benchmark.ID != cancelled {
 			continue
 		}
 		if benchmark.Machine != "mac" || benchmark.DoneItems != 1 || benchmark.Models[0] != "m" || benchmark.Categories[0] != "code" {

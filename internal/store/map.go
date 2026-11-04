@@ -7,20 +7,17 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/arkhayds/axolot/internal/analytics"
 )
 
-// MapCell aggregates a model's answers; an empty Machine or Category is a rollup over that axis.
+// MapCell aggregates a model's cumulated answers; an empty Machine or Category is a rollup over that axis.
 // Rollups come from the database because medians of cells cannot be combined afterwards.
 type MapCell struct {
-	Machine      string   `json:"machine"`
-	Provider     string   `json:"provider"`
-	Model        string   `json:"model"`
-	Category     string   `json:"category"`
-	Runs         int      `json:"runs"`
-	Errors       int      `json:"errors"`
-	AvgScore     float64  `json:"avg_score"`
-	P50TotalMs   *float64 `json:"p50_total_ms"`
-	P50TokPerSec *float64 `json:"p50_tok_per_sec"`
+	Machine string `json:"machine"`
+	analytics.ModelStats
+	Questions  int      `json:"questions"`
+	P95TotalMs *float64 `json:"p95_total_ms"`
 }
 
 // MapBenchmark summarizes a campaign for the map; Cells holds one {model, category, runs, avg_score} per pair.
@@ -36,30 +33,55 @@ type MapBenchmark struct {
 	Cells      json.RawMessage `json:"cells"`
 }
 
-// MapCells aggregates the most recent answer to each question per machine and model, so replaying
-// a benchmark replaces its answers instead of counting them twice. Running campaigns wait for their end.
+// Answer is the part of a run the cumulated time distribution draws.
+type Answer struct {
+	Model    string `json:"model"`
+	Category string `json:"category"`
+	TotalMs  int64  `json:"total_ms"`
+	Error    string `json:"error"`
+}
+
+// MapCells cumulates every finished answer to the current version of each question.
+// Scores average per (machine, model, question) first, so a question repeated ten times weighs as much as
+// one played once; the weight below does that in a single pass while times stay medians of all answers.
 // shortcut: a tag served by two connections counts as one model, split on provider if that ever happens.
-func (s *Store) MapCells(ctx context.Context) ([]MapCell, error) {
-	rows, err := s.pool.Query(ctx, `WITH latest AS (
-			SELECT DISTINCT ON (c.hardware->>'label', r.model, r.case_id, r.item_id)
-				c.hardware->>'label' AS machine, r.provider_name, r.model, r.category, r.error, r.score, r.total_ms, r.tok_per_sec
+func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error) {
+	rows, err := s.pool.Query(ctx, `WITH answers AS (
+			SELECT c.hardware->>'label' AS machine, r.*,
+				1.0::float8 / count(*) OVER (PARTITION BY c.hardware->>'label', r.model, r.case_id, r.item_id) AS weight
 			FROM runs r JOIN campaigns c ON c.id = r.campaign_id
-			WHERE c.status <> $1
-			ORDER BY c.hardware->>'label', r.model, r.case_id, r.item_id, c.created_at DESC, r.created_at DESC
+			WHERE c.status <> $1 AND r.item_hash = ANY($2)
 		)
 		SELECT COALESCE(machine, ''), min(provider_name), model, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
-			avg(score),
+			sum(score * weight) / sum(weight),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec)
-		FROM latest
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec),
+			max(load_ms),
+			count(*) FILTER (WHERE retrieval_hit)::int,
+			count(retrieval_hit)::int,
+			count(DISTINCT case_id || '/' || item_id)::int,
+			percentile_cont(0.95) WITHIN GROUP (ORDER BY total_ms)
+		FROM answers
 		GROUP BY GROUPING SETS ((machine, model, category), (machine, model), (model, category), (model))
-		ORDER BY 1, 3, 4`, StatusRunning)
+		ORDER BY 1, 3, 4`, StatusRunning, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("compute map cells: %w", err)
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[MapCell])
+}
+
+// MapAnswers lists what MapCells counted, without the heavy columns.
+func (s *Store) MapAnswers(ctx context.Context, hashes []string) ([]Answer, error) {
+	rows, err := s.pool.Query(ctx, `SELECT r.model, r.category, r.total_ms, r.error
+		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
+		WHERE c.status <> $1 AND r.item_hash = ANY($2)`, StatusRunning, hashes)
+	if err != nil {
+		return nil, fmt.Errorf("list map answers: %w", err)
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[Answer])
 }
 
 // MapBenchmarks lists campaigns newest first, with what each one played.

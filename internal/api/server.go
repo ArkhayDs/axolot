@@ -71,6 +71,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/campaigns/{id}/cancel", s.cancelCampaign)
 	mux.HandleFunc("GET /api/campaigns/{id}", s.getCampaign)
 	mux.HandleFunc("GET /api/map", s.getMap)
+	mux.HandleFunc("GET /api/base", s.getBase)
 	mux.HandleFunc("POST /api/chat", s.chat)
 	mux.Handle("/", spa(cfg.Static))
 	return sameOrigin(mux)
