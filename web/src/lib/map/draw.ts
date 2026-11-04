@@ -49,26 +49,31 @@ export interface Scene {
   ripples: Ripple[];
 }
 
-const STAR_COUNT = 170;
-// Stars drift slower than the graph when panning, so they read as a far background.
-const STAR_PARALLAX = 0.12;
+const GRID_STEP = 48;
 
 /**
- * Static star field in screen space, positions derived from the index so it never changes between frames
+ * Light grid in screen space, following pan and zoom, doubling its step when zoomed out
  * @param {CanvasRenderingContext2D} context - canvas without the view transform
  * @param {Scene} scene - what to paint
  */
-function paintStars(context: CanvasRenderingContext2D, scene: Scene): void {
+function paintGrid(context: CanvasRenderingContext2D, scene: Scene): void {
   const { view, width, height } = scene;
-  context.fillStyle = resolve('var(--map-star)');
-  for (let index = 0; index < STAR_COUNT; index += 1) {
-    const x = (index * 137.508 * 7.31 + view.x * STAR_PARALLAX) % width;
-    const y = (index * 61.803 * 11.17 + view.y * STAR_PARALLAX) % height;
-    context.globalAlpha = 0.1 + (index % 7) * 0.05;
-    const size = index % 11 === 0 ? 1.6 : 1;
-    context.fillRect(x < 0 ? x + width : x, y < 0 ? y + height : y, size, size);
+  let step = GRID_STEP * view.k;
+  while (step < 28) step *= 2;
+  const left = ((view.x % step) + step) % step;
+  const top = ((view.y % step) + step) % step;
+  context.strokeStyle = resolve('var(--map-grid)');
+  context.lineWidth = 1;
+  context.beginPath();
+  for (let x = left; x < width; x += step) {
+    context.moveTo(Math.round(x) + 0.5, 0);
+    context.lineTo(Math.round(x) + 0.5, height);
   }
-  context.globalAlpha = 1;
+  for (let y = top; y < height; y += step) {
+    context.moveTo(0, Math.round(y) + 0.5);
+    context.lineTo(width, Math.round(y) + 0.5);
+  }
+  context.stroke();
 }
 
 /**
@@ -269,7 +274,7 @@ export function drawScene(context: CanvasRenderingContext2D, scene: Scene): void
   const font = resolve('var(--font)');
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.clearRect(0, 0, width, height);
-  paintStars(context, scene);
+  paintGrid(context, scene);
   context.setTransform(ratio * view.k, 0, 0, ratio * view.k, ratio * view.x, ratio * view.y);
 
   const kept = new Set(graph.nodes.filter((node) => nodeMatches(node, cells, content, filter)).map((node) => node.id));

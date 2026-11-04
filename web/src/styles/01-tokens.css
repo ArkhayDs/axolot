@@ -47,8 +47,8 @@
   --community-8: #cc9a82;
   --community-9: #a2b1b7;
 
-  /* Atlas background: stars, links and halo strength, read by the canvas */
-  --map-star: #c9d6e6;
+  /* Atlas background: hairlines and halo strength, read by the canvas */
+  --map-grid: #0f1621;
   --map-link: #4c5f70;
   --map-halo-opacity: 0.04;
 
