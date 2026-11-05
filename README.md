@@ -17,7 +17,7 @@ make up      # détecte le matériel, build et démarre
 
 Interface sur http://localhost:5090, en loopback uniquement : pas d'authentification.
 
-Modèles : `gemma4:e4b-it-q4_K_M`, `qwen3.6:27b-q4_K_M`, `bge-m3` pour les embeddings. Après un changement de corpus : Réglages, puis Indexer.
+Modèles : à télécharger dans Réglages, qui indique lesquels conviennent à la machine et accepte tout autre nom Ollama. Pour commencer : un modèle rapide, un plus lourd pour comparer, et un modèle d'embedding pour le RAG (`bge-m3` par défaut). Après un changement de corpus : Réglages, puis Indexer.
 
 ## Parcours
 
@@ -61,13 +61,13 @@ Faire répondre un modèle à partir de nos documents, sans l'entraîner dessus 
 
 **Indexation** (Réglages, puis Indexer) :
 1. **Extraction** du texte : Word, PDF, Excel, PowerPoint, mail, Markdown, texte (`internal/rag/extract*.go`).
-2. **Chunking** : découpe en morceaux de 800 caractères, avec 120 d'overlap pour ne pas couper une idée en deux. La coupe se fait de préférence entre paragraphes, puis entre phrases.
-3. **Embedding** : `bge-m3`, via Ollama, transforme chaque chunk en vecteur qui représente son sens.
+2. **Chunking** : découpe en morceaux (800 caractères par défaut), avec un overlap (120 par défaut) pour ne pas couper une idée en deux. La coupe se fait de préférence entre paragraphes, puis entre phrases.
+3. **Embedding** : le modèle d'embedding (`bge-m3` par défaut), via Ollama, transforme chaque chunk en vecteur qui représente son sens.
 4. **Stockage** : vecteurs dans PostgreSQL avec pgvector.
 
 **À chaque question** :
 1. La question devient un vecteur, avec le même modèle.
-2. **Retrieval** : les 5 chunks les plus proches (top K, similarité cosinus, recherche exacte).
+2. **Retrieval** : les chunks les plus proches (top K, 5 par défaut, similarité cosinus, recherche exacte).
 3. **Génération** : le modèle reçoit ces chunks et la question, avec la consigne de répondre uniquement à partir d'eux, de citer le fichier et de dire s'il ne sait pas.
 
 **Notation** : sur les scénarios RAG, on contrôle sans IA que le bon passage a été retrouvé, que la source est citée et que la réponse est juste. Tous les modèles lisent les mêmes chunks, donc l'écart vient du modèle.
