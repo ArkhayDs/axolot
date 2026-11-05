@@ -52,6 +52,11 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - Atlas : chevauchements de libellés restants, place des Benchmarks au centre.
 - Formats réels : PDF multi-colonnes, exports Outlook, mails HTML à éprouver.
 - Intervalles de confiance sur les Benchmarks répétés, à faire de la main de Raphaël.
+- Logo en corps entier, style planche scientifique, validé par Raphaël. Images dans `~/Downloads/axolot-logos/` (hors dépôt) :
+  - Bannière du README : planche horizontale `Gemini_Generated_Image_eyxgn0eyxgn0eyxg.jpg`, recadrée et allégée.
+  - Grand format carré si besoin : vue de dessus gravée `Gemini_Generated_Image_2qwabh2qwabh2qwa.jpg`.
+  - Navigation et onglet : silhouette de la vue de dessus sans hachures, redessinée en SVG (`web/src/components/Logo.svelte`, `web/public/favicon.svg`), à montrer à Raphaël avant intégration. La gravure ne tient pas à 32 px.
+- Revoir la DA et les noms de menus pour les rendre cohérents avec Axolot et l'axolotl, en restant labo IA. Badges du README à reconsidérer.
 - `DESIGN.md` à générer depuis l'interface finale.
 - Pause explicative du RAG, à la demande de Raphaël : il doit en mettre un en place pour l'entreprise (`~/Gitlab/projects/ai-local`). Le parcours tuteur de `ai-local/notes-labo-rag.md` reste à faire de sa main.
 - JEV (TypeSafe AI) : connecteur si le compte est ouvert. Modèle de décision sans génération de texte, à comparer sur `routage-sentinelle`. Clarifier les données envoyées au fournisseur.
