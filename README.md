@@ -1,10 +1,27 @@
-# Axolot
+<p align="center"><img src="docs/banner.svg" alt="Axolot"></p>
 
-Labo de comparaison de modèles d'IA sur des cas à résultat attendu. Quel modèle pour quelle tâche, à quelle vitesse et avec quelle qualité, sur la machine présente. Notation déterministe : aucune autre IA que les modèles testés.
+<p align="center">
+  <a href="#démarrer">Démarrer</a> | <a href="#parcours">Parcours</a> | <a href="#le-rag-en-bref">Le RAG en bref</a> | <a href="docs/demo.md">Présentation en 5 minutes</a>
+</p>
+
+<h3 align="center">Quel modèle pour quelle tâche, à quelle vitesse et avec quelle qualité ?</h3>
+
+<p align="center">Labo de comparaison de modèles d'IA sur des cas à résultat attendu. Notation déterministe : aucune autre IA que les modèles testés.</p>
+
+---
+
+<p align="center">
+  <img src="https://img.shields.io/badge/mod%C3%A8les-locaux%20et%20cloud-e6a0bb" alt="modèles : locaux et cloud">
+  <img src="https://img.shields.io/badge/notation-d%C3%A9terministe-e6a0bb" alt="notation : déterministe">
+  <img src="https://img.shields.io/badge/RAG-Word%2C%20PDF%2C%20Excel-e6a0bb" alt="RAG : Word, PDF, Excel">
+  <img src="https://img.shields.io/badge/r%C3%A9sultats-cumul%C3%A9s%20par%20machine-e6a0bb" alt="résultats : cumulés par machine">
+  <img src="https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white" alt="Go">
+  <img src="https://img.shields.io/badge/Svelte-FF3E00?logo=svelte&logoColor=white" alt="Svelte">
+  <img src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL : pgvector">
+  <img src="https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white" alt="Ollama">
+</p>
 
 ![Atlas](docs/captures/atlas-desktop.png)
-
-**Présenter Axolot :** parcours de 5 minutes dans [docs/demo.md](docs/demo.md).
 
 ## Démarrer
 

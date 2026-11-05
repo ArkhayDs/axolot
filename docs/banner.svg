@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="Axolot">
+  <defs>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#0f1621" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="320" fill="#060a12"/>
+  <rect width="1280" height="320" fill="url(#grid)"/>
+
+  <g fill="none" stroke-width="2.5" stroke-opacity="0.55">
+    <path stroke="#3987e5" d="M300 165L112 72M300 165L72 196M300 165L186 268M300 165L256 56"/>
+    <path stroke="#d95926" d="M980 165L1172 76M980 165L1216 214M980 165L1084 276M980 165L1050 50"/>
+    <path stroke="#8c9dac" stroke-dasharray="4 7" stroke-opacity="0.5" stroke-width="1.5" d="M312 165H388M968 165H892"/>
+  </g>
+
+  <g fill="#8f9bd6" stroke="#8f9bd6" stroke-opacity="0.4">
+    <path fill="none" d="M112 72L74 38M112 72L58 74M112 72L114 26M112 72L150 30"/>
+    <circle cx="74" cy="38" r="5"/><circle cx="58" cy="74" r="5"/><circle cx="114" cy="26" r="5"/><circle cx="150" cy="30" r="5"/>
+    <circle cx="112" cy="72" r="13"/>
+  </g>
+  <g fill="#cc9a82" stroke="#cc9a82" stroke-opacity="0.4">
+    <path fill="none" d="M72 196L30 172M72 196L24 216M72 196L52 246M72 196L92 246"/>
+    <circle cx="30" cy="172" r="5"/><circle cx="24" cy="216" r="5"/><circle cx="52" cy="246" r="5"/><circle cx="92" cy="246" r="5"/>
+    <circle cx="72" cy="196" r="13"/>
+  </g>
+  <g fill="#7fb4d0" stroke="#7fb4d0" stroke-opacity="0.4">
+    <path fill="none" d="M186 268L138 288M186 268L160 304M186 268L208 306M186 268L246 288"/>
+    <circle cx="138" cy="288" r="5"/><circle cx="160" cy="304" r="5"/><circle cx="208" cy="306" r="5"/><circle cx="246" cy="288" r="5"/>
+    <circle cx="186" cy="268" r="13"/>
+  </g>
+  <g fill="#70b3aa" stroke="#70b3aa" stroke-opacity="0.4">
+    <path fill="none" d="M256 56L222 22M256 56L272 16M256 56L312 34"/>
+    <circle cx="222" cy="22" r="5"/><circle cx="272" cy="16" r="5"/><circle cx="312" cy="34" r="5"/>
+    <circle cx="256" cy="56" r="11"/>
+  </g>
+
+  <g fill="#ab92cf" stroke="#ab92cf" stroke-opacity="0.4">
+    <path fill="none" d="M1172 76L1136 28M1172 76L1190 22M1172 76L1236 44M1172 76L1244 92"/>
+    <circle cx="1136" cy="28" r="5"/><circle cx="1190" cy="22" r="5"/><circle cx="1236" cy="44" r="5"/><circle cx="1244" cy="92" r="5"/>
+    <circle cx="1172" cy="76" r="13"/>
+  </g>
+  <g fill="#c692b3" stroke="#c692b3" stroke-opacity="0.4">
+    <path fill="none" d="M1216 214L1258 178M1216 214L1262 226M1216 214L1244 264M1216 214L1186 262"/>
+    <circle cx="1258" cy="178" r="5"/><circle cx="1262" cy="226" r="5"/><circle cx="1244" cy="264" r="5"/><circle cx="1186" cy="262" r="5"/>
+    <circle cx="1216" cy="214" r="13"/>
+  </g>
+  <g fill="#c6ac86" stroke="#c6ac86" stroke-opacity="0.4">
+    <path fill="none" d="M1084 276L1032 294M1084 276L1064 308M1084 276L1124 306M1084 276L1146 292"/>
+    <circle cx="1032" cy="294" r="5"/><circle cx="1064" cy="308" r="5"/><circle cx="1124" cy="306" r="5"/><circle cx="1146" cy="292" r="5"/>
+    <circle cx="1084" cy="276" r="13"/>
+  </g>
+  <g fill="#abb27c" stroke="#abb27c" stroke-opacity="0.4">
+    <path fill="none" d="M1050 50L1002 28M1050 50L1034 12M1050 50L1096 20"/>
+    <circle cx="1002" cy="28" r="5"/><circle cx="1034" cy="12" r="5"/><circle cx="1096" cy="20" r="5"/>
+    <circle cx="1050" cy="50" r="11"/>
+  </g>
+
+  <circle cx="300" cy="165" r="19" fill="#060a12" stroke="#3987e5" stroke-width="2.5"/>
+  <circle cx="300" cy="165" r="11" fill="#3987e5"/>
+  <circle cx="980" cy="165" r="19" fill="#060a12" stroke="#d95926" stroke-width="2.5"/>
+  <circle cx="980" cy="165" r="11" fill="#d95926"/>
+
+  <g transform="translate(396 84) scale(2.4)">
+    <g fill="none" stroke="#e6a0bb" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
+      <path d="M17 27C13 21 9 17 3 13M12 21L12 13M8 17L3 19M14 33C10 32 6 31 1 32M9 32L5 26M9 32L5 38M17 39C13 45 9 48 4 53M12 45L4 45M9 48L11 56"/>
+      <path transform="matrix(-1 0 0 1 64 0)" d="M17 27C13 21 9 17 3 13M12 21L12 13M8 17L3 19M14 33C10 32 6 31 1 32M9 32L5 26M9 32L5 38M17 39C13 45 9 48 4 53M12 45L4 45M9 48L11 56"/>
+    </g>
+    <path fill="#efd3da" d="M32 17C45 17 53 25 53 35C53 45 44 51 32 51C20 51 11 45 11 35C11 25 19 17 32 17Z"/>
+    <circle cx="21" cy="32" r="3.6" fill="#0b1a20"/>
+    <circle cx="43" cy="32" r="3.6" fill="#0b1a20"/>
+    <path d="M23 39C27 44 37 44 41 39" fill="none" stroke="#0b1a20" stroke-linecap="round" stroke-width="2.4"/>
+  </g>
+  <text x="572" y="197" fill="#ecf4f2" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="96" font-weight="700" letter-spacing="-1">Axolot</text>
+</svg>
