@@ -2,7 +2,6 @@
   import { live } from '../lib/live.svelte';
   import Icon from './Icon.svelte';
   import type { IconName } from './Icon.svelte';
-  import Logo from './Logo.svelte';
 
   let { active }: { active: string } = $props();
 
@@ -20,7 +19,7 @@
 
 <header class="bar glass">
   <a class="brand" href="#/" aria-label="Axolot, accueil">
-    <Logo active={live.campaign !== ''} />
+    <img src="/logo.png" width="40" height="40" alt="" />
     <span>Axolot</span>
   </a>
   <nav aria-label="Navigation principale">
@@ -63,6 +62,10 @@
     font-weight: 650;
     letter-spacing: -0.01em;
     text-decoration: none;
+  }
+
+  .brand img {
+    flex: none;
   }
 
   nav {

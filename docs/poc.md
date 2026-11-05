@@ -33,7 +33,7 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - **Une page par cas** : choix des modèles, résultats côte à côte par item, vérifications, sortie, pour le RAG les passages retrouvés et la source attendue ouvrable (citation surlignée).
 - **Résultats** : tableaux et graphiques, charger le skill `dataviz`.
 - **Réglages** : machine détectée, bibliothèque de modèles avec aptitude (ok / juste / trop gros) et téléchargement avec progression, connexions, corpus et paramètres RAG, envoi de fichiers, indexation.
-- **Style** : sombre, liquid glass limité à la navigation et aux panneaux flottants, jamais sur les tableaux ni les chiffres. Axolotl en SVG original comme icône. `prefers-reduced-motion` respecté. CSS selon `css-conventions.md`.
+- **Style** : sombre, liquid glass limité à la navigation et aux panneaux flottants, jamais sur les tableaux ni les chiffres. Axolotl gravé, vue de dessus, comme icône (`web/public/logo.png`, `favicon.png`). `prefers-reduced-motion` respecté. CSS selon `css-conventions.md`.
 
 ## API
 `GET /api/status` | `GET /api/events` (SSE : `item_start`, `delta`, `item_end`, `campaign_end`, `pull`, `ingest`) | `GET,PUT /api/settings` | `GET,POST /api/providers`, `DELETE /api/providers/{id}` | `GET /api/models`, `POST /api/models/pull` | `GET /api/cases`, `PUT /api/cases/{id}/models` | `GET,POST /api/corpus`, `GET /api/corpus/{name}/files/{file}`, `POST /api/corpus/{name}/files`, `POST /api/corpus/ingest` | `GET,POST /api/campaigns`, `GET /api/campaigns/{id}`, `POST /api/campaigns/{id}/cancel`.
@@ -52,10 +52,7 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - Atlas : chevauchements de libellés restants, place des Benchmarks au centre.
 - Formats réels : PDF multi-colonnes, exports Outlook, mails HTML à éprouver.
 - Intervalles de confiance sur les Benchmarks répétés, à faire de la main de Raphaël.
-- Logo en corps entier, style planche scientifique, validé par Raphaël. Images dans `~/Downloads/axolot-logos/` (hors dépôt) :
-  - Bannière du README : planche horizontale `Gemini_Generated_Image_eyxgn0eyxgn0eyxg.jpg`, recadrée et allégée.
-  - Grand format carré si besoin : vue de dessus gravée `Gemini_Generated_Image_2qwabh2qwabh2qwa.jpg`.
-  - Navigation et onglet : silhouette de la vue de dessus sans hachures, redessinée en SVG (`web/src/components/Logo.svelte`, `web/public/favicon.svg`), à montrer à Raphaël avant intégration. La gravure ne tient pas à 32 px.
+- Grand format carré du logo si besoin : vue de dessus gravée `~/Downloads/axolot-logos/Gemini_Generated_Image_2qwabh2qwabh2qwa.jpg` (hors dépôt).
 - Revoir la DA et les noms de menus pour les rendre cohérents avec Axolot et l'axolotl, en restant labo IA. Badges du README à reconsidérer.
 - `DESIGN.md` à générer depuis l'interface finale.
 - Pause explicative du RAG, à la demande de Raphaël : il doit en mettre un en place pour l'entreprise (`~/Gitlab/projects/ai-local`). Le parcours tuteur de `ai-local/notes-labo-rag.md` reste à faire de sa main.
