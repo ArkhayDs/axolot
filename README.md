@@ -1,4 +1,6 @@
-<p align="center"><img src="docs/banner.svg" alt="Axolot"></p>
+<p align="center"><img src="docs/banner.jpg" alt="Planche scientifique d'un axolotl"></p>
+
+<h1 align="center">Axolot</h1>
 
 <p align="center">
   <a href="#démarrer">Démarrer</a> | <a href="#parcours">Parcours</a> | <a href="#le-rag-en-bref">Le RAG en bref</a> | <a href="docs/demo.md">Présentation en 5 minutes</a>
