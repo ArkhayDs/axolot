@@ -1,6 +1,6 @@
 # POC Axolot - état et reste à faire
 
-Démo PDG : 2026-11-04 à 16h30. Dépôt privé `ArkhayDs/axolot`, rien de poussé sans demande explicite. Commits atomiques sur `main` sans validation individuelle jusqu'à la démo (accord de Raphaël le 2026-11-04).
+Démo PDG faite le 2026-11-04, retours dans « Prochains chantiers ». Dépôt privé `ArkhayDs/axolot`, rien de poussé sans demande explicite.
 
 ## Objectif de la démo
 Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec quelle qualité, RAG compris, sur la machine présente. Campagne lancée à l'avance + un cas en direct.
@@ -24,9 +24,6 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - Benchmarks : 8 min 54 sur batterie, 11 min 58 sur secteur, avec l'interface ouverte et en cours d'usage sur le second. Ne permet pas de conclure à un effet de l'alimentation.
 - Gel d'onglet vu une fois sur l'Atlas : cause non trouvée, non reproduit, protections ajoutées. Garder un onglet de secours sur Résultats.
 
-## Reste à faire
-- Répéter le parcours sur `http://localhost:5090` : Atlas, un scénario en direct, Résultats, citation ouverte, Chat avec et sans Documents.
-
 ## UI (`/impeccable`, français, peu de texte, icônes animées)
 - **Résultats** : base cumulée, synthèse pour non-tech en tête, gagnants qualité / vitesse / compromis par thème.
 - **Atlas** : graphe dense (canvas) machine, modèles, thèmes, scénarios, questions, documents sources et Benchmarks sur `GET /api/map` et `GET /api/cases`, classements, et direct piloté par `GET /api/events` : impulsions sur le vrai chemin de la question, point qui change à la réponse notée. Sélection d'un modèle : chaque question prend son résultat. Sélection au clic sur les nœuds, barre d'état en bas de page avec recherche et Recentrer.
@@ -41,7 +38,29 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 ## Modèles de la démo
 `gemma4:e4b-it-q4_K_M` (6,6 Go), `qwen3.6:27b-q4_K_M` (17 Go), `bge-m3` (1,2 Go, embeddings). `qwen3.6:35b-a3b` (23 Go) est juste en RAM avec Colima.
 
-## Après la démo
+## Prochains chantiers (retours de la démo, recherches à refaire en les attaquant)
+Axolot est un outil réel de comparaison, la démo n'était qu'un point d'étape.
+
+### 1. Modèles frontier et cloud
+Point de comparaison principal : Claude sur abonnement, seul accès disponible (aucune clé API). Plan validé le 2026-11-05.
+- PR 1 : pont local exposant `claude -p` comme une API compatible OpenAI, ajouté comme simple connexion. Loopback uniquement : faire passer d'autres utilisateurs par l'abonnement est interdit, le futur login d'Axolot devra passer par des clés API.
+- PR 2 : correctifs de la connexion par clé API, qui échoue aujourd'hui avec Claude (`temperature`, schéma sans `strict`). Testés sur serveur simulé, faute de clé.
+- À mesurer : quota consommé par un Benchmark complet.
+- Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement. Les temps incluent le réseau et la CLI. Note dans Résultats à décider sur un vrai Benchmark.
+- Corpus réels envoyés hors machine : à signaler dans le panneau Connexions, seul le corpus fictif part sans réserve.
+- Plus tard : pont Codex sur la machine du PDG, avec son compte (GPT Astra, abonnement uniquement). Mesure « Astra via Codex », éligibilité à un usage scripté à vérifier.
+
+### 2. Modèles locaux spécialisés
+- Tester des modèles supplémentaires, dont un modèle spécialisé français (Chocolatine, nom et base à vérifier).
+- Spécialités déclarées dans le catalogue (français, anglais, juridique, etc.), à confronter aux scores : une spécialité déclarée reste une hypothèse tant qu'un thème ne la mesure pas.
+- Affiner le scoring. Thèmes à ajouter pour que ça se mesure : cas en anglais et cas juridiques, absents aujourd'hui.
+- Routage automatique vers plusieurs modèles pour le RAG d'entreprise : à évaluer dans Axolot avant de le monter dans `ai-local`.
+
+### 3. Modèles décisionnels
+- JEV (TypeSafe AI) : connecteur, compte ouvert mais solde à 0,00 $, chercher des crédits d'essai. Modèle de décision sans génération de texte, à comparer sur `routage-sentinelle`. Clarifier les données envoyées au fournisseur.
+- Modèles locaux du même type, plus lents : nom exact de cette famille à retrouver.
+
+## Ensuite
 - Nom de machine avec le type d'appareil (MacBook Pro ou Mac mini, via `system_profiler`). Le libellé est la clé de la base cumulée : prévoir la migration des snapshots existants, sinon la machine se scinde en deux dans l'Atlas.
 - Retester le hot reload sans `usePolling`, `mountInotify` étant actif dans Colima.
 - Atlas : molette de souris : elle déplace maintenant la vue, le zoom passe par le pincement ou Ctrl.
@@ -56,7 +75,5 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - Revoir la DA et les noms de menus pour les rendre cohérents avec Axolot et l'axolotl, en restant labo IA. Badges du README à reconsidérer.
 - `DESIGN.md` à générer depuis l'interface finale.
 - Pause explicative du RAG, à la demande de Raphaël : il doit en mettre un en place pour l'entreprise (`~/Gitlab/projects/ai-local`). Le parcours tuteur de `ai-local/notes-labo-rag.md` reste à faire de sa main.
-- JEV (TypeSafe AI) : connecteur si le compte est ouvert. Modèle de décision sans génération de texte, à comparer sur `routage-sentinelle`. Clarifier les données envoyées au fournisseur.
-- Référence frontier sans clé API (avant la démo si le temps le permet, après le front et une campagne locale réussie) : script hôte exposant `claude -p` et l'abonnement Max comme une API compatible OpenAI, ajouté comme simple connexion. À vérifier : sortie structurée, mesures de temps, conditions de l'abonnement. Qualité comparable, vitesse moins directe (réseau, surcoût de Claude Code). Présenter comme référence cloud, hors démo 100 % locale.
 - Recommandations à partir des résultats mesurés, partage entre machines par export/import ou synchronisation via VPS ou m710q, app desktop.
 - Notation du code par exécution dans un bac à sable.

@@ -7,7 +7,7 @@
 ## Overview
 Labo de comparaison de modèles IA (locaux, cloud, modèles de décision) sur des cas d'usage à résultat attendu. Chiffres pour le dev, vue de synthèse pour un public non technique. L'outil ne dépend d'aucune IA autre que les modèles testés : la notation est déterministe.
 
-**Phase**: bootstrap. V1 pour une démo le 2026-11-04 à 16h30, état et reste à faire dans `docs/poc.md`.
+**Phase**: V1 fonctionnelle, outil réel en cours d'extension. État et reste à faire dans `docs/poc.md`.
 
 | Couche | Stack |
 |---|---|
