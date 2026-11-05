@@ -70,7 +70,7 @@
         {:else}
           <strong>{score(lastRun.score)}/100</strong>
         {/if}
-        <span class="muted">{duration(lastRun.total_ms)}, {number(lastRun.tok_per_sec)} tokens/s</span>
+        <span class="muted">{duration(lastRun.total_ms)}, {number(lastRun.tok_per_sec)} t/s</span>
       </p>
     {/if}
   </div>

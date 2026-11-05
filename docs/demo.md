@@ -42,7 +42,7 @@ Axolot fait passer les mêmes épreuves à plusieurs IA sur notre propre machine
 - **Score** : le pourcentage de contrôles réussis, sur 100.
 - **Temps médian** : la moitié des réponses arrive plus vite que ce temps.
 - **RAG** : l'IA cherche d'abord les passages utiles dans nos documents, puis répond à partir d'eux.
-- **Token** : un petit morceau de texte produit par le modèle.
+- **Token** : un petit morceau de texte produit par le modèle. La vitesse se lit en t/s, tokens par seconde.
 - **Chunk** : un morceau de document, l'unité que le RAG retrouve.
 
 ## Si on te pose la question
