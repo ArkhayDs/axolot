@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/banner.jpg" alt="Planche scientifique d'un axolotl"></p>
+<p align="center"><img src="docs/banner.svg" alt="Planche scientifique d'un axolotl, entouré de nœuds de l'Atlas"></p>
 
 <h1 align="center">Axolot</h1>
 
