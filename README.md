@@ -17,15 +17,43 @@ make up      # détecte le matériel, build et démarre
 
 Interface sur http://localhost:5090, en loopback uniquement : pas d'authentification.
 
+Modèles : `gemma4:e4b-it-q4_K_M`, `qwen3.6:27b-q4_K_M`, `bge-m3` pour les embeddings. Après un changement de corpus : Réglages, puis Indexer.
+
 ## Parcours
 
-- **Carte** : modèles, machines et thèmes reliés, filtres, classements chiffrés, lancement et suivi d'un Benchmark en direct.
-- **Benchmarks** : historique des exécutions, détail en onglets Résumé, Temps, Réponses, Qualimétrie.
-- **Cas** : résultats côte à côte par question, vérifications, passages RAG, citation source ouvrable.
-- **Résultats** : graphiques et tableau complet.
-- **Réglages** : machine, connexions, bibliothèque de modèles, corpus et indexation.
+### Atlas
 
-Modèles : `gemma4:e4b-it-q4_K_M`, `qwen3.6:27b-q4_K_M`, `bge-m3` pour les embeddings. Après un changement de corpus : Réglages, puis Indexer.
+Vue d'ensemble : machine, modèles, thèmes, scénarios, questions et documents reliés. Filtres dans la barre du bas, classements chiffrés, lancement et suivi d'un Benchmark en direct.
+
+Sélectionner un modèle colore chaque question selon son résultat et rapproche les thèmes où il a le meilleur score.
+
+![Atlas, modèle sélectionné](docs/captures/atlas-modele.png)
+
+### Chat
+
+Poser une question aux modèles cochés et comparer les réponses. Options : documents du corpus (RAG), document ou image joints.
+
+![Chat](docs/captures/chat-desktop.png)
+
+### Scénarios
+
+Résultats côte à côte par question, vérifications, passages RAG, citation source ouvrable.
+
+### Résultats
+
+Quel modèle pour quelle tâche, sur toute la base : score et temps médian par thème, modèle recommandé. Plus une case est rouge, plus le modèle a perdu de points.
+
+![Résultats](docs/captures/resultats-desktop.png)
+
+### Benchmarks
+
+Historique des exécutions, chacune alimente la base cumulée. Détail en onglets Résumé, Temps, Réponses, Qualimétrie.
+
+![Benchmarks](docs/captures/benchmarks-desktop.png)
+
+### Réglages
+
+Machine, connexions, bibliothèque de modèles, corpus et indexation.
 
 ## Le RAG en bref
 
@@ -58,11 +86,3 @@ make web-check  # svelte-check
 ```
 
 Conventions et pièges : `CLAUDE.md`. État du POC : `docs/poc.md`.
-
-![Atlas, modèle sélectionné](docs/captures/atlas-modele.png)
-
-![Résultats](docs/captures/resultats-desktop.png)
-
-![Benchmarks](docs/captures/benchmarks-desktop.png)
-
-![Chat](docs/captures/chat-desktop.png)
