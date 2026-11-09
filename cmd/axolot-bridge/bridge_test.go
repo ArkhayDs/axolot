@@ -37,7 +37,7 @@ func startBridge(t *testing.T, body string) (*httptest.Server, string) {
 for arg in "$@"; do printf '%%s\n' "$arg"; done > %[1]s/args
 cat > %[1]s/stdin
 pwd > %[1]s/cwd
-printf '%%s' "$CLAUDE_CODE_DISABLE_AUTO_MEMORY" > %[1]s/memory
+env > %[1]s/env
 %[2]s
 `, dir, body)
 	cli := filepath.Join(dir, "claude")
@@ -103,6 +103,8 @@ func TestChatStreamsTextAndReportsUsage(t *testing.T) {
 }
 
 func TestChatCutsCLIFromLocalContext(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "sk-ant-api")
+	t.Setenv("ANTHROPIC_AUTH_TOKEN", "sk-ant-auth")
 	server, dir := startBridge(t, printLines(okResult))
 
 	if _, _, err := ask(t, server, provider.Message{Role: "system", Content: "Consigne"}, user("Salut")); err != nil {
@@ -117,8 +119,12 @@ func TestChatCutsCLIFromLocalContext(t *testing.T) {
 	if got := readRecorded(t, dir, "stdin"); got != "Salut" {
 		t.Errorf("stdin = %q", got)
 	}
-	if got := readRecorded(t, dir, "memory"); got != "1" {
-		t.Errorf("auto memory switch = %q", got)
+	env := "\n" + readRecorded(t, dir, "env")
+	if !strings.Contains(env, "\nCLAUDE_CODE_DISABLE_AUTO_MEMORY=1\n") {
+		t.Errorf("auto memory switch missing:\n%s", env)
+	}
+	if strings.Contains(env, "ANTHROPIC_API_KEY") || strings.Contains(env, "ANTHROPIC_AUTH_TOKEN") {
+		t.Errorf("API credentials reach the CLI:\n%s", env)
 	}
 }
 
