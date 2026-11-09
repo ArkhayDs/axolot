@@ -72,8 +72,13 @@ func (b *bridge) listModels(w http.ResponseWriter, _ *http.Request) {
 
 // chatRequest is the part of /v1/chat/completions the CLI can honour: temperature and max_tokens have no CLI option.
 type chatRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
+	Model          string        `json:"model"`
+	Messages       []chatMessage `json:"messages"`
+	ResponseFormat struct {
+		JSONSchema struct {
+			Schema json.RawMessage `json:"schema"`
+		} `json:"json_schema"`
+	} `json:"response_format"`
 }
 
 // chatMessage only takes text content: a message with images comes as parts and fails to decode.
@@ -109,7 +114,11 @@ func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 	out := &eventStream{w: w, flusher: flusher}
 	ctx, cancel := context.WithTimeout(r.Context(), cliTimeout)
 	defer cancel()
-	usage, err := b.run(ctx, body.Model, system, prompt, out.text)
+	schema := body.ResponseFormat.JSONSchema.Schema
+	result, err := b.run(ctx, body.Model, system, schema, prompt, out.text)
+	if structured := string(result.StructuredOutput); err == nil && len(schema) > 0 && (structured == "" || structured == "null") {
+		err = errors.New("claude returned no structured output")
+	}
 	switch {
 	case r.Context().Err() != nil:
 	case err != nil && out.started:
@@ -117,7 +126,7 @@ func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		writeError(w, http.StatusBadGateway, err.Error())
 	default:
-		out.finish(usage)
+		out.finish(result.Usage)
 	}
 }
 
@@ -152,13 +161,18 @@ func splitMessages(messages []chatMessage) (string, string, error) {
 
 // cliArgs cuts everything local from the CLI: tools, MCP, settings, skills, sessions.
 // --system-prompt is always passed, or Claude Code's own prompt would apply.
-func cliArgs(model, system string) []string {
-	return []string{
+// --json-schema adds the StructuredOutput tool, the only one --tools "" leaves.
+func cliArgs(model, system string, schema json.RawMessage) []string {
+	args := []string{
 		"-p", "--model", model, "--system-prompt", system,
 		"--output-format", "stream-json", "--verbose", "--include-partial-messages",
 		"--no-session-persistence", "--setting-sources", "", "--strict-mcp-config",
 		"--disable-slash-commands", "--tools", "",
 	}
+	if len(schema) > 0 {
+		args = append(args, "--json-schema", string(schema))
+	}
+	return args
 }
 
 // cliUsage is the token count of the result line; the input splits over the prompt cache.
@@ -173,23 +187,29 @@ type cliUsage struct {
 type cliEvent struct {
 	Type  string `json:"type"`
 	Event struct {
-		Delta struct {
+		ContentBlock struct {
 			Type string `json:"type"`
-			Text string `json:"text"`
+		} `json:"content_block"`
+		Delta struct {
+			Type        string `json:"type"`
+			Text        string `json:"text"`
+			PartialJSON string `json:"partial_json"`
 		} `json:"delta"`
 	} `json:"event"`
-	IsError bool     `json:"is_error"`
-	Result  string   `json:"result"`
-	Usage   cliUsage `json:"usage"`
+	IsError          bool            `json:"is_error"`
+	Result           string          `json:"result"`
+	StructuredOutput json.RawMessage `json:"structured_output"`
+	Usage            cliUsage        `json:"usage"`
 }
 
 // run executes one generation and passes each piece of text to onText.
 // The prompt goes through stdin: documents can exceed what an argument holds.
-// @returns usage of the result line; an error when the CLI reports one, dies or prints something unreadable
-func (b *bridge) run(ctx context.Context, model, system, prompt string, onText func(string)) (cliUsage, error) {
+// @param schema - JSON schema the answer must follow, empty for free text
+// @returns result line; an error when the CLI reports one, dies or prints something unreadable
+func (b *bridge) run(ctx context.Context, model, system string, schema json.RawMessage, prompt string, onText func(string)) (cliEvent, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, b.cli, cliArgs(model, system)...)
+	cmd := exec.CommandContext(ctx, b.cli, cliArgs(model, system, schema)...)
 	cmd.Dir = b.dir
 	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
 	cmd.Stdin = strings.NewReader(prompt)
@@ -198,13 +218,13 @@ func (b *bridge) run(ctx context.Context, model, system, prompt string, onText f
 	cmd.Stderr = &stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return cliUsage{}, fmt.Errorf("open claude output: %w", err)
+		return cliEvent{}, fmt.Errorf("open claude output: %w", err)
 	}
 	if err := cmd.Start(); err != nil {
-		return cliUsage{}, fmt.Errorf("start claude: %w", err)
+		return cliEvent{}, fmt.Errorf("start claude: %w", err)
 	}
 
-	result, err := readResult(stdout, onText)
+	result, err := readResult(stdout, len(schema) > 0, onText)
 	if err != nil {
 		cancel()
 	}
@@ -219,14 +239,18 @@ func (b *bridge) run(ctx context.Context, model, system, prompt string, onText f
 		if !errors.Is(err, context.Canceled) {
 			slog.Error("claude failed", "model", model, "err", err, "stderr", string(stderr.Bytes()[:min(stderr.Len(), maxLogged)]))
 		}
-		return cliUsage{}, err
+		return cliEvent{}, err
 	}
-	return result.Usage, nil
+	return *result, nil
 }
 
 // readResult follows the stream up to its end and returns the result line, nil when none came.
-func readResult(stdout io.Reader, onText func(string)) (*cliEvent, error) {
+// With a schema the answer is the StructuredOutput tool's input, streamed like text so that TTFT and
+// tok/s stay measured; free text around it is dropped, and a second attempt fails since both would concatenate.
+// @param structured - a schema was requested
+func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEvent, error) {
 	var result *cliEvent
+	attempts := 0
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 64*1024), maxLine)
 	for scanner.Scan() {
@@ -237,8 +261,14 @@ func readResult(stdout io.Reader, onText func(string)) (*cliEvent, error) {
 		switch {
 		case event.Type == "result":
 			result = &event
-		case event.Event.Delta.Type == "text_delta":
+		case !structured && event.Event.Delta.Type == "text_delta":
 			onText(event.Event.Delta.Text)
+		case structured && event.Event.Delta.Type == "input_json_delta":
+			onText(event.Event.Delta.PartialJSON)
+		case structured && event.Event.ContentBlock.Type == "tool_use":
+			if attempts++; attempts > 1 {
+				return nil, errors.New("claude retried its structured output")
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -283,8 +313,11 @@ func (s *eventStream) send(chunk any) {
 	s.flusher.Flush()
 }
 
-// text sends one piece of answer.
+// text sends one piece of answer; an empty one would start the stream for nothing, losing the error status.
 func (s *eventStream) text(content string) {
+	if content == "" {
+		return
+	}
 	s.send(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]string{"content": content}}}})
 }
 

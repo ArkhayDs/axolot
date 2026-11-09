@@ -145,6 +145,60 @@ func TestChatSerializesHistoryIntoOnePrompt(t *testing.T) {
 	}
 }
 
+const (
+	toolStart        = `{"type":"stream_event","event":{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","name":"StructuredOutput","input":{}}}}`
+	structuredResult = `{"type":"result","is_error":false,"result":"{\"ville\":\"Paris\"}","structured_output":{"ville":"Paris"},"usage":{"input_tokens":2,"output_tokens":9}}`
+)
+
+// jsonDelta is the stream-json line of one piece of StructuredOutput input.
+func jsonDelta(partial string) string {
+	return fmt.Sprintf(`{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":%q}}}`, partial)
+}
+
+// askWithSchema sends one question that requires a JSON answer.
+func askWithSchema(t *testing.T, server *httptest.Server, schema string) ([]string, provider.ChatResult, error) {
+	t.Helper()
+	var deltas []string
+	req := provider.ChatRequest{Model: testModel, Messages: []provider.Message{user("Capitale ?")}, Schema: json.RawMessage(schema)}
+	result, err := client(server).Chat(context.Background(), req, func(d string) { deltas = append(deltas, d) })
+	return deltas, result, err
+}
+
+func TestChatStreamsStructuredOutputForASchema(t *testing.T) {
+	server, dir := startBridge(t, printLines(textDelta("Voici :"), toolStart, jsonDelta(""), jsonDelta(`{"ville": "Pa`), jsonDelta(`ris"}`), structuredResult))
+
+	schema := `{"type":"object","properties":{"ville":{"type":"string"}}}`
+	deltas, result, err := askWithSchema(t, server, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(deltas, "|") != `{"ville": "Pa|ris"}` {
+		t.Errorf("deltas = %v", deltas)
+	}
+	if result.OutputTokens == nil || *result.OutputTokens != 9 {
+		t.Errorf("usage = %+v", result)
+	}
+	if args := readRecorded(t, dir, "args"); !strings.Contains(args, "--json-schema\n"+schema+"\n") {
+		t.Errorf("args = %s", args)
+	}
+}
+
+func TestChatFailsWhenASchemaGetsNoStructuredOutput(t *testing.T) {
+	server, _ := startBridge(t, printLines(textDelta("Bonjour"), okResult))
+
+	if _, _, err := askWithSchema(t, server, `{"type":"object"}`); err == nil || !strings.Contains(err.Error(), "502") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestChatCutsConnectionWhenStructuredOutputIsRetried(t *testing.T) {
+	server, _ := startBridge(t, printLines(toolStart, jsonDelta(`{"ville": 1}`), toolStart, jsonDelta(`{"ville": "Paris"}`), structuredResult))
+
+	if _, _, err := askWithSchema(t, server, `{"type":"object"}`); err == nil {
+		t.Fatal("two concatenated attempts must not read as an answer")
+	}
+}
+
 func TestChatReturnsCLIErrorBeforeAnyText(t *testing.T) {
 	server, _ := startBridge(t, printLines(`{"type":"result","is_error":true,"api_error_status":429,"result":"Limite atteinte"}`))
 
