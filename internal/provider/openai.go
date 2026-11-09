@@ -30,15 +30,27 @@ type openAIChunk struct {
 	} `json:"usage"`
 }
 
-// Chat streams a generation; token rate is derived client-side from reported usage.
+// Chat streams a generation; models rejecting the temperature are retried with their default one.
 func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)) (ChatResult, error) {
+	result, err := o.chat(ctx, req, onDelta, true)
+	if err != nil && strings.Contains(err.Error(), "temperature") {
+		return o.chat(ctx, req, onDelta, false)
+	}
+	return result, err
+}
+
+// chat runs one /chat/completions call; token rate is derived client-side from reported usage.
+// @param withTemperature - send Temperature, rejected by some cloud reasoning models
+func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string), withTemperature bool) (ChatResult, error) {
 	body := map[string]any{
 		"model":          req.Model,
 		"messages":       openAIMessages(req.Messages),
 		"stream":         true,
 		"stream_options": map[string]any{"include_usage": true},
-		"temperature":    Temperature,
 		"max_tokens":     req.MaxTokens,
+	}
+	if withTemperature {
+		body["temperature"] = Temperature
 	}
 	if len(req.Schema) > 0 {
 		schema, err := strictSchema(req.Schema)
