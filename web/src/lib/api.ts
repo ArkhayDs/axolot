@@ -219,7 +219,7 @@ export interface MapBenchmark {
   machine: string;
   models: string[];
   categories: string[];
-  cells: { model: string; category: string; runs: number; avg_score: number }[];
+  cells: { model: string; category: string; measured: number; avg_score: number }[];
 }
 
 export interface MapData {
