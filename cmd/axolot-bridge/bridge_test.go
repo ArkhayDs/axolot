@@ -189,19 +189,27 @@ func TestChatStreamsStructuredOutputForASchema(t *testing.T) {
 	}
 }
 
-func TestChatFailsWhenASchemaGetsNoStructuredOutput(t *testing.T) {
+func TestChatAnswersProseWhenASchemaGetsNoStructuredOutput(t *testing.T) {
 	server, _ := startBridge(t, printLines(textDelta("Bonjour"), okResult))
 
-	if _, _, err := askWithSchema(t, server, `{"type":"object"}`); err == nil || !strings.Contains(err.Error(), "502") {
-		t.Fatalf("err = %v", err)
+	deltas, _, err := askWithSchema(t, server, `{"type":"object"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(deltas, "|") != "Bonjour" {
+		t.Errorf("deltas = %v", deltas)
 	}
 }
 
-func TestChatCutsConnectionWhenStructuredOutputIsRetried(t *testing.T) {
+func TestChatKeepsTheFirstStructuredAttempt(t *testing.T) {
 	server, _ := startBridge(t, printLines(toolStart, jsonDelta(`{"ville": 1}`), toolStart, jsonDelta(`{"ville": "Paris"}`), structuredResult))
 
-	if _, _, err := askWithSchema(t, server, `{"type":"object"}`); err == nil {
-		t.Fatal("two concatenated attempts must not read as an answer")
+	deltas, _, err := askWithSchema(t, server, `{"type":"object"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(deltas, "|") != `{"ville": 1}` {
+		t.Errorf("deltas = %v", deltas)
 	}
 }
 

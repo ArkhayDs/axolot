@@ -53,7 +53,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 | `claude-opus-5-5` | 99,2 | 1 / 66 | 19 min 29 | 1,8 s | 3,4 s | 116 t/s | 110 441 / 19 631 |
 
 - Quota : toujours 2 % après les deux Benchmarks (~270 000 tokens). Compteur affiché et délai de mise à jour non vérifiés, à recontrôler au prochain.
-- Erreur Opus : « retried its structured output » sur `routage-perimetres`, la CLI a rejeté son premier appel `StructuredOutput`. Fréquence à suivre.
+- Erreur Opus : « retried its structured output » sur `routage-perimetres`, la CLI a rejeté son premier appel `StructuredOutput`. Le pont note désormais la première tentative, comme pour un modèle local ; une réponse en texte libre est notée aussi.
 - Une réponse en erreur (pont, quota, délai) est « non mesurée » : hors moyenne, sans note 0.
 - Comparabilité :
   - Notes comparables aux modèles locaux.
