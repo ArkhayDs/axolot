@@ -6,6 +6,8 @@
   let { stats, models, showQuestions = false }: { stats: ModelStats[]; models: string[]; showQuestions?: boolean } = $props();
 
   const rows = $derived([...stats].sort((a, b) => a.category.localeCompare(b.category) || a.model.localeCompare(b.model)));
+  // shortcut: runs store only the connection name, so a Claude model is assumed to come through the bridge; store the connection type per run once an API key connection exists.
+  const viaBridge = $derived(stats.some((stat) => stat.model.startsWith('claude-')));
 </script>
 
 <div class="table-wrap">
@@ -44,6 +46,12 @@
     </tbody>
   </table>
 </div>
+{#if viaBridge}
+  <p class="muted note">
+    Modèles Claude (abonnement, via le pont) : scores comparables aux autres. Temps allongés d'environ 1 s par le lancement de Claude Code, 1er token
+    retardé par la réflexion du modèle, débit (t/s) possiblement surestimé.
+  </p>
+{/if}
 
 <style>
   .stats td,
@@ -55,5 +63,10 @@
   /* Headers may wrap: the eleven columns must fit the page without a hidden last one. */
   .stats thead th {
     white-space: normal;
+  }
+
+  .note {
+    margin-top: var(--s2);
+    font-size: var(--text-sm);
   }
 </style>
