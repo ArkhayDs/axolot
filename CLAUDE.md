@@ -17,13 +17,14 @@ Labo de comparaison de modèles IA (locaux, cloud, modèles de décision) sur de
 | Modèles | Ollama sur l'hôte (Metal hors conteneur), toute API compatible OpenAI |
 | Infra | Docker Compose, écoute sur loopback uniquement |
 
-Structure : `cmd/axolot` entrée, `internal/{api,runner,rag,scoring,analytics,provider,store,hardware,catalog,secret}`, `cases/*.json` cas embarqués, `corpus/<dossier>` documents RAG, `web/` front, `scripts/` côté hôte.
+Structure : `cmd/axolot` entrée, `cmd/axolot-bridge` pont Claude (hôte), `internal/{api,runner,rag,scoring,analytics,provider,store,hardware,catalog,secret}`, `cases/*.json` cas embarqués, `corpus/<dossier>` documents RAG, `web/` front, `scripts/` côté hôte.
 
 ## Commands
 ```bash
 make setup      # crée .env et ses secrets, une seule fois
 make up         # détecte le matériel, build et démarre (http://localhost:5090)
 make dev        # Vite avec hot reload (http://localhost:5191), proxy vers app
+make bridge     # pont Claude sur abonnement, sur l'hôte, au premier plan
 make test       # tests Go, base comprise
 make lint       # gofmt + go vet
 make web-check  # svelte-check

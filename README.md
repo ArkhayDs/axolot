@@ -38,6 +38,16 @@ Interface sur http://localhost:5090, en loopback uniquement : pas d'authentifica
 
 Modèles : à télécharger dans Réglages, qui indique lesquels conviennent à la machine et accepte tout autre nom Ollama. Pour commencer : un modèle rapide, un plus lourd pour comparer, et un modèle d'embedding pour le RAG (`bge-m3` par défaut). Après un changement de corpus : Réglages, puis Indexer.
 
+### Claude sur abonnement
+
+Prérequis : la CLI `claude` connectée sur l'hôte.
+
+```bash
+make bridge   # ajoute jeton et port à .env, compile et lance le pont au premier plan
+```
+
+Puis Réglages, Connexions : Compatible OpenAI, URL `http://host.docker.internal:5092/v1` (port `AXOLOT_BRIDGE_PORT`, 5092 par défaut), clé `AXOLOT_BRIDGE_TOKEN` de `.env`. Chaque question consomme le quota de l'abonnement. Pont en loopback uniquement : un abonnement ne se partage pas.
+
 ## Parcours
 
 ### Atlas
