@@ -117,7 +117,7 @@ function gapLabel(row: RankRow, leader: RankRow): string {
   if (row.score === null) return '';
   if (row === leader) return row.tied ? '' : 'En tête';
   const parts: string[] = [];
-  if (row.score !== null && leader.score !== null && !sameScore(row.score, leader.score)) {
+  if (leader.score !== null && !sameScore(row.score, leader.score)) {
     const gap = leader.score - row.score;
     parts.push(`${formatScore(gap)} point${gap >= 2 ? 's' : ''} de moins`);
   }
@@ -162,7 +162,7 @@ export function rankRows(kind: RankKind, entries: { key: string; label: string; 
   rows.forEach((row, position) => {
     const previous = rows[position - 1];
     const next = rows[position + 1];
-    row.rank = previous && sameScore(previous.score, row.score) ? previous.rank : position + 1;
+    row.rank = row.score === null ? 0 : previous && sameScore(previous.score, row.score) ? previous.rank : position + 1;
     row.tied = Boolean((previous && sameScore(previous.score, row.score)) || (next && sameScore(next.score, row.score)));
   });
   // Themes hold different question counts by nature: only models and machines answer the same list.

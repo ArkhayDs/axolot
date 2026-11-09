@@ -30,13 +30,13 @@
           <li>
             <button type="button" class="row" class:picked={row.picked} onclick={() => onpick(row.kind, row.key)}>
               <span class="top">
-                <span class="rank">{row.rank}</span>
+                <span class="rank">{row.rank || '-'}</span>
                 <span class="name">
                   {#if row.kind === 'model'}<ModelName name={row.key} />{:else}{row.label}{/if}
                 </span>
                 <strong class="value">{score(row.score)}{#if row.score !== null}<small>/100</small>{/if}</strong>
               </span>
-              <span class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={row.score ?? 0} aria-label="Score">
+              <span class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={row.score ?? 0} aria-valuetext={row.score === null ? 'Non mesuré' : undefined} aria-label="Score">
                 <span style:width="{row.score ?? 0}%" style:background={gaugeColor(row)}></span>
               </span>
               <span class="gap">

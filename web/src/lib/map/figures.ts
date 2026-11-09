@@ -61,7 +61,8 @@ export function nodeFigure(node: GraphNode, cells: CellIndex, content: MapConten
   const rank = sections.find((section) => section.kind === node.kind)?.rows.find((row) => row.key === node.key)?.rank;
   const figures = (machine: string, model: string, category: string, prefix = rank ? `n°${rank} · ` : ''): string => {
     const cell = cellOf(cells, machine, model, category);
-    return cell ? `${prefix}${formatScore(cell.avg_score)} · ${duration(cell.p50_total_ms)}` : 'Sans donnée';
+    if (!cell) return 'Sans donnée';
+    return `${prefix}${cell.avg_score === null ? 'Non mesuré' : `${formatScore(cell.avg_score)} · ${duration(cell.p50_total_ms)}`}`;
   };
   // Models compete on a machine; a machine alone among one would always read first, whatever its model is worth.
   const placeOf = (machine: string, model: string): string => {

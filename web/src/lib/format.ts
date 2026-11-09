@@ -54,7 +54,7 @@ const FIELDS: Record<string, string> = {
 
 const VALUES: Record<string, string> = { executer: 'exécuter', demander_precision: 'demander une précision' };
 
-export const UNMEASURED_HINT = "La question n'a pas pu être mesurée (connexion, quota, délai) : elle ne compte pas dans la moyenne.";
+export const UNMEASURED_HINT = "La question n'a pas pu être mesurée (pont, quota, connexion) : elle ne compte pas dans la moyenne.";
 
 const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
