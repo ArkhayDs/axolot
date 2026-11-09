@@ -93,11 +93,43 @@ func TestOpenAIChatSendsKeySchemaAndReadsUsage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gotAuth != "Bearer secret" || gotBody["response_format"] == nil {
+	if gotAuth != "Bearer secret" || gotBody["response_format"] == nil || gotBody["temperature"] != Temperature {
 		t.Fatalf("auth=%q body=%v", gotAuth, gotBody)
 	}
 	if result.Output != "Oui" || *result.PromptTokens != 3 || *result.OutputTokens != 7 {
 		t.Fatalf("result: %+v", result)
+	}
+}
+
+func TestOpenAIChatRetriesWithoutTemperature(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(body), `"temperature"`) {
+			http.Error(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`, http.StatusBadRequest)
+			return
+		}
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
+	if err != nil || result.Output != "Oui" || calls != 2 {
+		t.Fatalf("calls=%d output=%q err=%v", calls, result.Output, err)
+	}
+}
+
+func TestOpenAIChatDoesNotRetryOtherErrors(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.Error(w, `{"error":{"message":"invalid api key"}}`, http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil || calls != 1 {
+		t.Fatalf("calls=%d err=%v", calls, err)
 	}
 }
 
