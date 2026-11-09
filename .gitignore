@@ -1,4 +1,5 @@
 .env
+bin/
 data/*
 !data/.gitkeep
 web/dist/*
