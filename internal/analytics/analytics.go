@@ -11,7 +11,7 @@ type ModelStats struct {
 	Category       string   `json:"category"`
 	Runs           int      `json:"runs"`
 	Errors         int      `json:"errors"`
-	AvgScore       float64  `json:"avg_score"`
+	AvgScore       *float64 `json:"avg_score"`
 	P50TTFTMs      *float64 `json:"p50_ttft_ms"`
 	P50TotalMs     *float64 `json:"p50_total_ms"`
 	P50TokPerSec   *float64 `json:"p50_tok_per_sec"`
@@ -37,12 +37,12 @@ type Verdict struct {
 }
 
 // Verdicts picks winners per category, in input order.
-// Models failing every run are excluded: their zero speed must not win anything.
+// Models without any measured answer are excluded: their zero speed must not win anything.
 func Verdicts(stats []ModelStats) []Verdict {
 	byCategory := map[string][]ModelStats{}
 	var order []string
 	for _, s := range stats {
-		if s.Errors == s.Runs {
+		if s.AvgScore == nil {
 			continue
 		}
 		if _, seen := byCategory[s.Category]; !seen {
@@ -73,7 +73,7 @@ func verdictFor(category string, stats []ModelStats) Verdict {
 	}
 	for i := range stats {
 		s := &stats[i]
-		if s.AvgScore >= quality.AvgScore-compromiseMargin && isFaster(s, compromise) {
+		if *s.AvgScore >= *quality.AvgScore-compromiseMargin && isFaster(s, compromise) {
 			compromise = s
 		}
 	}
@@ -83,8 +83,8 @@ func verdictFor(category string, stats []ModelStats) Verdict {
 
 // isBetterQuality prefers the higher score, then the faster model on a tie.
 func isBetterQuality(a, b *ModelStats) bool {
-	if a.AvgScore != b.AvgScore {
-		return a.AvgScore > b.AvgScore
+	if *a.AvgScore != *b.AvgScore {
+		return *a.AvgScore > *b.AvgScore
 	}
 	return isFaster(a, b)
 }
@@ -102,5 +102,5 @@ func toPick(s *ModelStats) *Pick {
 	if s == nil {
 		return nil
 	}
-	return &Pick{Model: s.Model, Provider: s.Provider, Score: s.AvgScore, P50TotalMs: s.P50TotalMs}
+	return &Pick{Model: s.Model, Provider: s.Provider, Score: *s.AvgScore, P50TotalMs: s.P50TotalMs}
 }

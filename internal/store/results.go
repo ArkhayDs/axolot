@@ -149,7 +149,7 @@ func (s *Store) Stats(ctx context.Context, campaignID string) ([]analytics.Model
 	rows, err := s.pool.Query(ctx, `SELECT provider_name, model, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
-			COALESCE(avg(score) FILTER (WHERE error = ''), 0),
+			avg(score) FILTER (WHERE error = ''),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec),

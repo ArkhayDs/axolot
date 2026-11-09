@@ -51,7 +51,7 @@ type MapItem struct {
 	CaseID     string   `json:"case_id"`
 	ItemID     string   `json:"item_id"`
 	Runs       int      `json:"runs"`
-	AvgScore   float64  `json:"avg_score"`
+	AvgScore   *float64 `json:"avg_score"`
 	P50TotalMs *float64 `json:"p50_total_ms"`
 	Errors     int      `json:"errors"`
 }
@@ -59,8 +59,7 @@ type MapItem struct {
 // cumulatedAnswers selects what the cumulated figures count: finished answers to the current version of each
 // question. Scores average per (machine, model, question) first, so a question repeated ten times weighs as much
 // as one played once; the weight does that in a single pass while times stay medians of all answers. An unmeasured
-// answer (error) gets no weight.
-// shortcut: a group with no measured answer averages 0, make avg_score nullable if a whole theme ever goes unmeasured.
+// answer (error) gets no weight; a group without any has no score.
 const cumulatedAnswers = `WITH answers AS (
 		SELECT c.hardware->>'label' AS machine, r.*,
 			CASE WHEN r.error = '' THEN 1.0::float8 / count(*) FILTER (WHERE r.error = '')
@@ -76,7 +75,7 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 		SELECT COALESCE(machine, ''), min(provider_name), model, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
-			COALESCE(sum(score * weight) / sum(weight), 0),
+			sum(score * weight) / sum(weight),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec),
@@ -99,7 +98,7 @@ func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error
 	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
 		SELECT COALESCE(machine, ''), model, case_id, item_id,
 			count(*)::int,
-			COALESCE(sum(score * weight) / sum(weight), 0),
+			sum(score * weight) / sum(weight),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
 			count(*) FILTER (WHERE error <> '')::int
 		FROM answers
@@ -174,7 +173,7 @@ func (s *Store) MapBenchmarks(ctx context.Context) ([]MapBenchmark, error) {
 			ARRAY(SELECT DISTINCT r.category FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
 			COALESCE((SELECT jsonb_agg(jsonb_build_object('model', p.model, 'category', p.category, 'measured', p.measured, 'avg_score', p.avg_score))
 				FROM (SELECT r.model, r.category, count(*) FILTER (WHERE r.error = '') AS measured,
-						COALESCE(avg(r.score) FILTER (WHERE r.error = ''), 0) AS avg_score
+						avg(r.score) FILTER (WHERE r.error = '') AS avg_score
 					FROM runs r WHERE r.campaign_id = c.id GROUP BY r.model, r.category) p), '[]'::jsonb)
 		FROM campaigns c ORDER BY c.created_at DESC`)
 	if err != nil {
