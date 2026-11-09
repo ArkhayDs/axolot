@@ -59,11 +59,12 @@ export function contentOf(lists: MapLists, scenarios: Case[], benchmarks: MapBen
 export function rankOnQuestions(items: ItemIndex, models: string[], machine: string, questions: Question[]): RankSection[] {
   const entries = models.map((model) => {
     const played = questions.flatMap((question) => itemOf(items, machine, model, question.caseId, question.item.id) ?? []);
+    const scores = played.flatMap((item) => item.avg_score ?? []);
     const figures =
       played.length === 0
         ? undefined
         : {
-            avg_score: played.reduce((total, item) => total + item.avg_score, 0) / played.length,
+            avg_score: scores.length === 0 ? null : scores.reduce((total, value) => total + value, 0) / scores.length,
             runs: played.reduce((total, item) => total + item.runs, 0),
             questions: played.length,
             errors: played.reduce((total, item) => total + item.errors, 0),

@@ -17,7 +17,7 @@
 
   let width = $state(0);
 
-  const points = $derived(stats.filter((stat) => stat.p50_total_ms !== null && stat.p50_total_ms > 0));
+  const points = $derived(stats.filter((stat): stat is ModelStats & { avg_score: number } => stat.avg_score !== null && stat.p50_total_ms !== null && stat.p50_total_ms > 0));
   const categories = $derived([...new Set(points.map((stat) => stat.category))].sort());
   const times = $derived(points.map((stat) => stat.p50_total_ms as number));
   const minTime = $derived(Math.min(...times, 1000));

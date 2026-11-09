@@ -4,12 +4,12 @@
   import type { Run } from '../lib/api';
   import { UNMEASURED_HINT, checkDetail, checkLabel, duration, number, score } from '../lib/format';
 
-  let { run, color, answers, average }: { run: Run; color: string; answers: number; average: number } = $props();
+  let { run, color, answers, average }: { run: Run; color: string; answers: number; average: number | null } = $props();
 </script>
 
 <article class="run">
   <ModelName name={run.model} {color} />
-  <p class="cumul">{answers} {answers > 1 ? 'réponses' : 'réponse'}, moyenne {score(average)}/100. Dernière réponse :</p>
+  <p class="cumul">{answers} {answers > 1 ? 'réponses' : 'réponse'}{#if average !== null}, moyenne {score(average)}/100{/if}. Dernière réponse :</p>
   {#if run.error}
     <p class="muted" title={UNMEASURED_HINT}>Non mesurée</p>
     <pre class="output">{run.error}</pre>
