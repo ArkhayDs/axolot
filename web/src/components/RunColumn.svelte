@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import ModelName from './ModelName.svelte';
   import type { Run } from '../lib/api';
-  import { checkDetail, checkLabel, duration, number, score } from '../lib/format';
+  import { UNMEASURED_HINT, checkDetail, checkLabel, duration, number, score } from '../lib/format';
 
   let { run, color, answers, average }: { run: Run; color: string; answers: number; average: number } = $props();
 </script>
@@ -11,7 +11,7 @@
   <ModelName name={run.model} {color} />
   <p class="cumul">{answers} {answers > 1 ? 'réponses' : 'réponse'}, moyenne {score(average)}/100. Dernière réponse :</p>
   {#if run.error}
-    <p class="state state-critical"><Icon name="cross" size={16} /> Échec</p>
+    <p class="muted" title={UNMEASURED_HINT}>Non mesurée</p>
     <pre class="output">{run.error}</pre>
   {:else}
     <p class="figures">

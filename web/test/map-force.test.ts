@@ -80,8 +80,8 @@ test('reads a result like the answer matrix', () => {
   assert.equal(stateOfScore(99.99, false), 'passed');
   assert.equal(stateOfScore(50, false), 'partial');
   assert.equal(stateOfScore(0, false), 'failed');
-  assert.equal(stateOfScore(80, true), 'failed');
+  assert.equal(stateOfScore(80, true), 'none');
   assert.equal(stateOfItem(undefined), 'none');
   assert.equal(stateOfItem({ machine: '', model: 'm', case_id: 'c', item_id: 'i', runs: 2, avg_score: 40, p50_total_ms: 1, errors: 1 }), 'partial');
-  assert.equal(stateOfItem({ machine: '', model: 'm', case_id: 'c', item_id: 'i', runs: 2, avg_score: 0, p50_total_ms: 1, errors: 2 }), 'failed');
+  assert.equal(stateOfItem({ machine: '', model: 'm', case_id: 'c', item_id: 'i', runs: 2, avg_score: 0, p50_total_ms: 1, errors: 2 }), 'none');
 });

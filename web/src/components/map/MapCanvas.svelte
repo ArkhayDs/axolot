@@ -270,8 +270,8 @@
         if (path.length > 0 && particles.length < MAX_PARTICLES) particles.push({ path, progress: 0, color: resolve(seriesColor(live.model, content.models)) });
       } else {
         const node = graph.byId.get(nodeId('question', `${pulse.caseId}/${pulse.itemId}`));
-        const tone = pulse.failed || pulse.score < 60 ? 'var(--critical)' : pulse.score >= 90 ? 'var(--good)' : 'var(--warning)';
-        if (node) ripples.push({ node, age: 0, color: resolve(tone), text: pulse.failed ? 'Échec' : formatScore(pulse.score) });
+        const tone = pulse.unmeasured ? 'var(--axis)' : pulse.score < 60 ? 'var(--critical)' : pulse.score >= 90 ? 'var(--good)' : 'var(--warning)';
+        if (node) ripples.push({ node, age: 0, color: resolve(tone), text: pulse.unmeasured ? 'Non mesurée' : formatScore(pulse.score) });
       }
       schedule();
     });

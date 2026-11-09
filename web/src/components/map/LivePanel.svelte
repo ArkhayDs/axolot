@@ -5,7 +5,7 @@
   import RunMatrix from '../RunMatrix.svelte';
   import { api, errorMessage } from '../../lib/api';
   import type { CasesResponse, Estimate } from '../../lib/api';
-  import { duration, estimateLabel, number, score } from '../../lib/format';
+  import { UNMEASURED_HINT, duration, estimateLabel, number, score } from '../../lib/format';
   import { live } from '../../lib/live.svelte';
 
   let { catalog }: { catalog: CasesResponse | null } = $props();
@@ -66,7 +66,7 @@
     {#if lastRun}
       <p class="counts">
         {#if lastRun.error}
-          <span class="state state-critical"><Icon name="cross" size={16} /> Échec</span>
+          <span class="muted" title={UNMEASURED_HINT}>Non mesurée</span>
         {:else}
           <strong>{score(lastRun.score)}/100</strong>
         {/if}

@@ -15,11 +15,11 @@
 
   /**
    * @param {Run | undefined} run - answer, absent when not played yet
-   * @returns {string} - cell state: the shape carries it as well as the color
+   * @returns {string} - cell state: the shape carries it as well as the color; an execution error reads as no answer
    */
   function cellState(run: Run | undefined): string {
-    if (!run) return 'pending';
-    if (run.error || run.score === 0) return 'failed';
+    if (!run || run.error) return 'pending';
+    if (run.score === 0) return 'failed';
     return run.score >= 100 ? 'passed' : 'partial';
   }
 
@@ -31,7 +31,7 @@
    */
   function cellTitle(itemId: string, model: string, run: Run | undefined): string {
     if (!run) return `${itemId}, ${model} : pas de réponse`;
-    return `${itemId}, ${model} : ${run.error ? 'échec' : `${score(run.score)}/100`}`;
+    return `${itemId}, ${model} : ${run.error ? 'non mesurée' :`${score(run.score)}/100`}`;
   }
 </script>
 

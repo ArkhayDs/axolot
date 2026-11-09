@@ -30,7 +30,7 @@ export const live = $state({
   ingest: null as Ingest | null,
 });
 
-export type Pulse = { type: 'token' } | { type: 'score'; caseId: string; itemId: string; score: number; failed: boolean };
+export type Pulse = { type: 'token' } | { type: 'score'; caseId: string; itemId: string; score: number; unmeasured: boolean };
 
 const RECONNECT_MS = 2000;
 
@@ -96,7 +96,7 @@ function apply(event: Record<string, unknown>): void {
       live.runs.push(run);
       live.done = live.runs.length;
       pulseListeners.forEach((listener) =>
-        listener({ type: 'score', caseId: run.case_id, itemId: run.item_id, score: run.score, failed: run.error !== '' }),
+        listener({ type: 'score', caseId: run.case_id, itemId: run.item_id, score: run.score, unmeasured: run.error !== '' }),
       );
       break;
     }

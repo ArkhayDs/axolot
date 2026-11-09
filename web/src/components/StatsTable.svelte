@@ -1,8 +1,7 @@
 <script lang="ts">
-  import Icon from './Icon.svelte';
   import ModelName from './ModelName.svelte';
   import type { ModelStats } from '../lib/api';
-  import { categoryLabel, duration, number, score, seriesColor } from '../lib/format';
+  import { UNMEASURED_HINT, categoryLabel, duration, number, score, seriesColor } from '../lib/format';
 
   let { stats, models, showQuestions = false }: { stats: ModelStats[]; models: string[]; showQuestions?: boolean } = $props();
 
@@ -17,7 +16,7 @@
         <th scope="col">Modèle</th>
         <th scope="col" class="num">Réponses</th>
         {#if showQuestions}<th scope="col" class="num">Questions</th>{/if}
-        <th scope="col" class="num">Échecs</th>
+        <th scope="col" class="num" title={UNMEASURED_HINT}>Non mesurées</th>
         <th scope="col" class="num">Score</th>
         <th scope="col" class="num">Temps médian</th>
         <th scope="col" class="num">1er token</th>
@@ -33,13 +32,7 @@
           <td><ModelName name={stat.model} color={seriesColor(stat.model, models)} /></td>
           <td class="num">{stat.runs}</td>
           {#if showQuestions}<td class="num">{stat.questions}</td>{/if}
-          <td class="num">
-            {#if stat.errors > 0}
-              <span class="state state-critical"><Icon name="alert" size={16} /> {stat.errors}</span>
-            {:else}
-              0
-            {/if}
-          </td>
+          <td class="num">{stat.errors}</td>
           <td class="num">{score(stat.avg_score)}</td>
           <td class="num">{duration(stat.p50_total_ms)}</td>
           <td class="num">{duration(stat.p50_ttft_ms)}</td>
