@@ -43,6 +43,7 @@
 
 <section class="section" aria-labelledby="connections">
   <h2 id="connections">Connexions</h2>
+  <p class="muted">Une connexion vers un service en ligne, pont Claude compris, reçoit les questions, les fichiers joints et les extraits du corpus. Seul le corpus fictif part sans réserve.</p>
   <Notice message={error} />
   <div class="table-wrap">
     <table>
