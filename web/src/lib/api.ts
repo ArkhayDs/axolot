@@ -151,7 +151,7 @@ export interface Run {
 
 export interface CaseAnswer extends Run {
   answers: number;
-  avg_score: number;
+  avg_score: number | null;
 }
 
 export interface ModelStats {
@@ -162,7 +162,8 @@ export interface ModelStats {
   // Distinct questions behind the runs, only in the whole-database view.
   questions?: number;
   errors: number;
-  avg_score: number;
+  // Null when no answer could be measured.
+  avg_score: number | null;
   p50_ttft_ms: number | null;
   p50_total_ms: number | null;
   p50_tok_per_sec: number | null;
@@ -204,7 +205,7 @@ export interface MapItem {
   case_id: string;
   item_id: string;
   runs: number;
-  avg_score: number;
+  avg_score: number | null;
   p50_total_ms: number | null;
   errors: number;
 }
@@ -219,7 +220,7 @@ export interface MapBenchmark {
   machine: string;
   models: string[];
   categories: string[];
-  cells: { model: string; category: string; measured: number; avg_score: number }[];
+  cells: { model: string; category: string; measured: number; avg_score: number | null }[];
 }
 
 export interface MapData {

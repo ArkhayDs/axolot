@@ -29,8 +29,8 @@ function counted(count: number, unit: string): string {
  * @param {number | undefined} value - score
  * @returns {string} - score out of 100, a dash when never played
  */
-function outOf100(value: number | undefined): string {
-  return value === undefined ? '-' : `${score(value)}/100`;
+function outOf100(value: number | null | undefined): string {
+  return value === undefined || value === null ? '-' : `${score(value)}/100`;
 }
 
 /**

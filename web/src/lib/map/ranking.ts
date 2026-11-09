@@ -19,7 +19,7 @@ export interface RankRow {
   label: string;
   rank: number;
   tied: boolean;
-  score: number;
+  score: number | null;
   runs: number;
   questions: number;
   // Most questions any row of the ranking covers: below it, the scores do not compare the same work.
@@ -100,12 +100,12 @@ export function shortModel(model: string, models: string[]): string {
 
 /**
  * Two scores shown with the same figure tie: a rank must never rest on a digit nobody can see
- * @param {number} a - score
- * @param {number} b - score
- * @returns {boolean} - same displayed score
+ * @param {number | null} a - score
+ * @param {number | null} b - score
+ * @returns {boolean} - same displayed score, never for a missing one
  */
-export function sameScore(a: number, b: number): boolean {
-  return formatScore(a) === formatScore(b);
+export function sameScore(a: number | null, b: number | null): boolean {
+  return a !== null && b !== null && formatScore(a) === formatScore(b);
 }
 
 /**
@@ -116,7 +116,7 @@ export function sameScore(a: number, b: number): boolean {
 function gapLabel(row: RankRow, leader: RankRow): string {
   if (row === leader) return row.tied ? '' : 'En tête';
   const parts: string[] = [];
-  if (!sameScore(row.score, leader.score)) {
+  if (row.score !== null && leader.score !== null && !sameScore(row.score, leader.score)) {
     const gap = leader.score - row.score;
     parts.push(`${formatScore(gap)} point${gap >= 2 ? 's' : ''} de moins`);
   }
@@ -129,7 +129,7 @@ function gapLabel(row: RankRow, leader: RankRow): string {
 }
 
 /**
- * Best score first; on a tie the faster row is listed first but shares the rank
+ * Best score first, rows without score last; on a tie the faster row is listed first but shares the rank
  * @param {RankKind} kind - what is ranked
  * @param {{ key: string; label: string; cell: RankFigures | undefined }[]} entries - candidates, absent figures dropped
  * @param {string} picked - key of the selected row
@@ -157,7 +157,7 @@ export function rankRows(kind: RankKind, entries: { key: string; label: string; 
         }]
       : [],
   );
-  rows.sort((a, b) => (sameScore(a.score, b.score) ? (a.ms ?? Infinity) - (b.ms ?? Infinity) : b.score - a.score));
+  rows.sort((a, b) => (sameScore(a.score, b.score) ? (a.ms ?? Infinity) - (b.ms ?? Infinity) : (b.score ?? -1) - (a.score ?? -1)));
   rows.forEach((row, position) => {
     const previous = rows[position - 1];
     const next = rows[position + 1];
@@ -209,5 +209,5 @@ export function benchmarkScore(benchmark: MapBenchmark, filter: MapFilter): numb
     (cell) => (!filter.model || cell.model === filter.model) && (!filter.category || cell.category === filter.category),
   );
   const measured = cells.reduce((total, cell) => total + cell.measured, 0);
-  return measured === 0 ? null : cells.reduce((total, cell) => total + cell.avg_score * cell.measured, 0) / measured;
+  return measured === 0 ? null : cells.reduce((total, cell) => total + (cell.avg_score ?? 0) * cell.measured, 0) / measured;
 }

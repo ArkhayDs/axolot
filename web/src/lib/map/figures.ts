@@ -66,8 +66,8 @@ export function nodeFigure(node: GraphNode, cells: CellIndex, content: MapConten
   // Models compete on a machine; a machine alone among one would always read first, whatever its model is worth.
   const placeOf = (machine: string, model: string): string => {
     const scores = content.models.flatMap((other) => cellOf(cells, machine, other, filter.category)?.avg_score ?? []);
-    const own = cellOf(cells, machine, model, filter.category)?.avg_score;
-    if (own === undefined) return '';
+    const own = cellOf(cells, machine, model, filter.category)?.avg_score ?? null;
+    if (own === null) return '';
     return `n°${1 + scores.filter((other) => other > own && !sameScore(other, own)).length} sur ${scores.length} · `;
   };
   if (node.kind === 'model') return figures(filter.machine, node.key, filter.category, placeOf(filter.machine, node.key));
@@ -79,8 +79,8 @@ export function nodeFigure(node: GraphNode, cells: CellIndex, content: MapConten
   const counter = `${node.count} question${node.count > 1 ? 's' : ''}`;
   if (filter.model) return `${counter} · ${figures(filter.machine, filter.model, node.key)}`;
   const scored = content.models.flatMap((model) => {
-    const cell = cellOf(cells, filter.machine, model, node.key);
-    return cell ? [{ model, value: cell.avg_score }] : [];
+    const value = cellOf(cells, filter.machine, model, node.key)?.avg_score ?? null;
+    return value === null ? [] : [{ model, value }];
   });
   if (scored.length === 0) return counter;
   const best = Math.max(...scored.map((entry) => entry.value));

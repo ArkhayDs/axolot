@@ -49,7 +49,7 @@
         <li>
           <span class="who"><ResultMark {state} /><ModelName name={model} /></span>
           <span class="figures">
-            <strong>{item ? `${score(item.avg_score)}/100` : '-'}</strong>
+            <strong>{item && item.avg_score !== null ? `${score(item.avg_score)}/100` : '-'}</strong>
             <span>{RESULT_LABELS[state]}</span>
             {#if item}<span>{duration(item.p50_total_ms)} médian, {item.runs} réponse{item.runs > 1 ? 's' : ''}</span>{/if}
             {#if item && item.errors > 0}<span title={UNMEASURED_HINT}>{unmeasuredLabel(item.errors)}</span>{/if}

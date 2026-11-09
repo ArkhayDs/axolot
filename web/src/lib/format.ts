@@ -174,11 +174,11 @@ export function number(value: number | null | undefined): string {
 
 /**
  * Keeps a decimal when rounding would make two different scores look tied
- * @param {number} score - score in 0-100
+ * @param {number | null} score - score in 0-100, null when nothing was measured
  * @returns {string} - display score
  */
-export function score(score: number): string {
-  return decimal.format(score);
+export function score(score: number | null): string {
+  return score === null ? '-' : decimal.format(score);
 }
 
 /**

@@ -56,7 +56,8 @@ export function stateOfScore(score: number, unmeasured: boolean): ResultState {
  * @returns {ResultState} - state of the question for that model
  */
 export function stateOfItem(item: MapItem | undefined): ResultState {
-  return item ? stateOfScore(item.avg_score, item.errors === item.runs) : 'none';
+  const score = item?.avg_score ?? null;
+  return score === null ? 'none' : stateOfScore(score, false);
 }
 
 /**

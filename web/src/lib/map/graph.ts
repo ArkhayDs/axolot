@@ -205,7 +205,7 @@ export function buildGraph(content: MapContent, cells: CellIndex, items: ItemInd
     const modelNode = byId.get(nodeId('model', model)) as GraphNode;
     for (const theme of content.themes) {
       const cell = cellOf(cells, '', model, theme);
-      if (cell) link('score', modelNode, themeNodes.get(theme) as GraphNode, 170 + (100 - cell.avg_score) * 1.4, 0.008);
+      if (cell) link('score', modelNode, themeNodes.get(theme) as GraphNode, 170 + (100 - (cell.avg_score ?? 0)) * 1.4, 0.008);
     }
     for (const machine of content.machines) {
       if (cellOf(cells, machine, model, '')) link('machine', modelNode, byId.get(nodeId('machine', machine)) as GraphNode, 0, 0);

@@ -65,7 +65,7 @@
           <td class="num muted">{first?.questions ?? first?.runs ?? '-'}</td>
           {#each models as model, index (model)}
             {@const stat = byKey.get(`${category}|${model}`)}
-            <td class="num heat" class:group-start={index === 0} class:best={stat?.avg_score === bestScore} style:background={stat ? lossFill(stat.avg_score) : undefined}>
+            <td class="num heat" class:group-start={index === 0} class:best={bestScore !== null && stat?.avg_score === bestScore} style:background={stat && stat.avg_score !== null ? lossFill(stat.avg_score) : undefined}>
               {stat ? score(stat.avg_score) : '-'}
             </td>
           {/each}
