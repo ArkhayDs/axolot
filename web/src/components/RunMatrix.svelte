@@ -15,10 +15,11 @@
 
   /**
    * @param {Run | undefined} run - answer, absent when not played yet
-   * @returns {string} - cell state: the shape carries it as well as the color; an execution error reads as no answer
+   * @returns {string} - cell state: the shape carries it as well as the color
    */
   function cellState(run: Run | undefined): string {
-    if (!run || run.error) return 'pending';
+    if (!run) return 'pending';
+    if (run.error) return 'unmeasured';
     if (run.score === 0) return 'failed';
     return run.score >= 100 ? 'passed' : 'partial';
   }
@@ -42,6 +43,7 @@
       <li><span class="cell passed"></span> Réussie</li>
       <li><span class="cell partial"></span> Partielle</li>
       <li><span class="cell failed"></span> Échouée</li>
+      <li><span class="cell unmeasured"></span> Non mesurée</li>
       <li><span class="cell pending"></span> Pas de réponse</li>
     </ul>
   </figcaption>
@@ -168,6 +170,12 @@
 
   .pending {
     border-color: var(--axis);
+  }
+
+  /* Struck through: the question was played, but nothing about the model came out of it. */
+  .unmeasured {
+    border-color: var(--axis);
+    background: linear-gradient(to top right, transparent 44%, var(--ink-2) 44% 56%, transparent 56%);
   }
 
   .active {
