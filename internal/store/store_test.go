@@ -134,7 +134,7 @@ func TestCampaignRunsAndStats(t *testing.T) {
 			run.Retrieved = json.RawMessage(`[{"file":"a.md"}]`)
 		}
 		if i == 2 {
-			run.Error, run.Score = "out of memory", 0
+			run.Error, run.Score, run.TotalMs = "out of memory", 0, 1
 		}
 		if err := s.CreateRun(ctx, run); err != nil {
 			t.Fatal(err)
@@ -152,7 +152,7 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	if len(stats) != 3 || stats[0].Category != "" || stats[0].Runs != 3 || stats[0].Errors != 1 {
 		t.Fatalf("stats=%+v", stats)
 	}
-	if *stats[0].P50TotalMs != 200 || stats[0].RetrievalHits != 2 || stats[0].RetrievalTotal != 2 {
+	if *stats[0].P50TotalMs != 150 || stats[0].RetrievalHits != 2 || stats[0].RetrievalTotal != 2 {
 		t.Fatalf("overall=%+v", stats[0])
 	}
 	if scoreOf(stats[0].AvgScore) != 50 || stats[1].Category != "code" || stats[1].AvgScore != nil {
@@ -197,7 +197,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	cancelled := play(mac, StatusCancelled, "i1", "code", 100, 200, "")
 	play(mac, StatusInterrupted, "i1", "code", 100, 300, "")
 	play(mac, StatusDone, "i2", "rag", 100, 400, "")
-	unmeasured := play(mac, StatusDone, "i2", "rag", 0, 400, "quota exceeded")
+	unmeasured := play(mac, StatusDone, "i2", "rag", 0, 1, "quota exceeded")
 	play(pc, StatusDone, "i1", "code", 20, 500, "")
 	play(pc, StatusDone, "i2", "rag", 0, 500, "quota exceeded")
 	play(mac, StatusRunning, "i2", "rag", 0, 600, "")
@@ -218,15 +218,15 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if cell := found["mac|code"]; cell.Runs != 3 || cell.Questions != 1 || *cell.P50TotalMs != 200 {
 		t.Fatalf("every answer counts, cancelled ones included: %+v", cell)
 	}
-	if cell := found["mac|rag"]; cell.Runs != 2 || cell.Errors != 1 || scoreOf(cell.AvgScore) != 100 {
-		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score: %+v", cell)
+	if cell := found["mac|rag"]; cell.Runs != 2 || cell.Errors != 1 || scoreOf(cell.AvgScore) != 100 || *cell.P50TotalMs != 400 {
+		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score or times: %+v", cell)
 	}
 	// Questions weigh the same however often they were played: (66.67 + 100) / 2, not the 75 of the raw answers.
 	if cell := found["mac|"]; cell.Runs != 5 || cell.Questions != 2 || scoreOf(cell.AvgScore) < 83.3 || scoreOf(cell.AvgScore) > 83.4 {
 		t.Fatalf("machine rollup: %+v", cell)
 	}
-	if cell := found["pc|rag"]; cell.Runs != 1 || cell.AvgScore != nil {
-		t.Fatalf("a theme without measure has no score: %+v", cell)
+	if cell := found["pc|rag"]; cell.Runs != 1 || cell.AvgScore != nil || cell.P50TotalMs != nil {
+		t.Fatalf("a theme without measure has no score nor time: %+v", cell)
 	}
 	if cell := found["|"]; cell.Runs != 7 || cell.Questions != 2 || cell.P95TotalMs == nil {
 		t.Fatalf("model rollup: %+v", cell)
@@ -259,8 +259,8 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if item := perItem["|c|i1"]; item.Runs != 4 || scoreOf(item.AvgScore) < 43.3 || scoreOf(item.AvgScore) > 43.4 {
 		t.Fatalf("question over machines, machines weighing the same: %+v", item)
 	}
-	if item := perItem["mac|c|i2"]; item.Runs != 2 || item.Errors != 1 || scoreOf(item.AvgScore) != 100 {
-		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score: %+v", item)
+	if item := perItem["mac|c|i2"]; item.Runs != 2 || item.Errors != 1 || scoreOf(item.AvgScore) != 100 || *item.P50TotalMs != 400 {
+		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score or time: %+v", item)
 	}
 	if item := perItem["pc|c|i2"]; item.Runs != 1 || item.AvgScore != nil {
 		t.Fatalf("a question without measure has no score: %+v", item)
