@@ -114,4 +114,16 @@ make lint       # gofmt + go vet
 make web-check  # svelte-check
 ```
 
-Conventions et pièges : `CLAUDE.md`. État du POC : `docs/poc.md`.
+État du POC : `docs/poc.md`.
+
+## Contributions
+
+- Une branche courte par sujet, créée depuis `main`, par exemple `AXO-frontier-claude-bridge` : préfixe du projet, n° de l'issue si un outil de suivi est utilisé (Linear, Jira), puis un slug court.
+- Une PR de 400 à 500 lignes de code au plus, tests compris.
+- `make lint`, `make test` et `make web-check` (si le front change) au vert avant chaque commit et chaque PR.
+- `main` reste utilisable (`make up` fonctionne) : pas de push direct ni de force-push, tout passe par une PR.
+- Fusion par un humain uniquement ; à plusieurs, le relecteur n'est pas l'auteur.
+
+## Usage de l'IA
+
+Les agents IA (Claude Code) sont autorisés, avec les règles de `CLAUDE.md` (conventions et pièges, utiles aussi sans agent). Leurs PR s'ouvrent en brouillon ; passer en « prête » et fusionner restent des actions humaines.
