@@ -121,8 +121,9 @@ func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	schema := body.ResponseFormat.JSONSchema.Schema
 	result, err := b.run(ctx, body.Model, system, schema, prompt, out.text)
-	if structured := string(result.StructuredOutput); err == nil && len(schema) > 0 && (structured == "" || structured == "null") {
-		err = errors.New("claude returned no structured output")
+	if err == nil && len(schema) > 0 && !out.started {
+		// Prose instead of the StructuredOutput tool is still an answer: grading fails it like any invalid JSON.
+		out.text(result.Result)
 	}
 	switch {
 	case r.Context().Err() != nil:
@@ -201,10 +202,9 @@ type cliEvent struct {
 			PartialJSON string `json:"partial_json"`
 		} `json:"delta"`
 	} `json:"event"`
-	IsError          bool            `json:"is_error"`
-	Result           string          `json:"result"`
-	StructuredOutput json.RawMessage `json:"structured_output"`
-	Usage            cliUsage        `json:"usage"`
+	IsError bool     `json:"is_error"`
+	Result  string   `json:"result"`
+	Usage   cliUsage `json:"usage"`
 }
 
 // run executes one generation and passes each piece of text to onText.
@@ -255,7 +255,7 @@ func (b *bridge) run(ctx context.Context, model, system string, schema json.RawM
 
 // readResult follows the stream up to its end and returns the result line, nil when none came.
 // With a schema the answer is the StructuredOutput tool's input, streamed like text so that TTFT and
-// tok/s stay measured; free text around it is dropped, and a second attempt fails since both would concatenate.
+// tok/s stay measured; free text around it is dropped, and only the first attempt passes, as a local model gets one.
 // @param structured - a schema was requested
 func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEvent, error) {
 	var result *cliEvent
@@ -272,12 +272,10 @@ func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEve
 			result = &event
 		case !structured && event.Event.Delta.Type == "text_delta":
 			onText(event.Event.Delta.Text)
-		case structured && event.Event.Delta.Type == "input_json_delta":
+		case structured && event.Event.Delta.Type == "input_json_delta" && attempts == 1:
 			onText(event.Event.Delta.PartialJSON)
 		case structured && event.Event.ContentBlock.Type == "tool_use":
-			if attempts++; attempts > 1 {
-				return nil, errors.New("claude retried its structured output")
-			}
+			attempts++
 		}
 	}
 	if err := scanner.Err(); err != nil {
