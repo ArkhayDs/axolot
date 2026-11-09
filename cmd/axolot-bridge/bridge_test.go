@@ -184,7 +184,8 @@ func TestChatStreamsStructuredOutputForASchema(t *testing.T) {
 	if result.OutputTokens == nil || *result.OutputTokens != 9 {
 		t.Errorf("usage = %+v", result)
 	}
-	if args := readRecorded(t, dir, "args"); !strings.Contains(args, "--json-schema\n"+schema+"\n") {
+	sent := `{"additionalProperties":false,"properties":{"ville":{"type":"string"}},"type":"object"}`
+	if args := readRecorded(t, dir, "args"); !strings.Contains(args, "--json-schema\n"+sent+"\n") {
 		t.Errorf("args = %s", args)
 	}
 }

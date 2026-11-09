@@ -101,6 +101,54 @@ func TestOpenAIChatSendsKeySchemaAndReadsUsage(t *testing.T) {
 	}
 }
 
+func TestOpenAIChatSendsStrictSchemaLeavingTheCaseOne(t *testing.T) {
+	var got struct {
+		ResponseFormat struct {
+			JSONSchema struct {
+				Strict bool `json:"strict"`
+				Schema struct {
+					AdditionalProperties *bool `json:"additionalProperties"`
+					Properties           struct {
+						Lines struct {
+							Items struct {
+								AdditionalProperties *bool `json:"additionalProperties"`
+							} `json:"items"`
+						} `json:"lines"`
+					} `json:"properties"`
+				} `json:"schema"`
+			} `json:"json_schema"`
+		} `json:"response_format"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	schema := `{"type":"object","properties":{"lines":{"type":"array","items":{"type":"object","properties":{"n":{"type":"number"}}}}}}`
+	req := newChat()
+	req.Schema = json.RawMessage(schema)
+	if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), req, func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	sent := got.ResponseFormat.JSONSchema
+	if !sent.Strict || sent.Schema.AdditionalProperties == nil || *sent.Schema.AdditionalProperties ||
+		sent.Schema.Properties.Lines.Items.AdditionalProperties == nil || *sent.Schema.Properties.Lines.Items.AdditionalProperties {
+		t.Fatalf("schema not strict: %+v", sent)
+	}
+	if string(req.Schema) != schema {
+		t.Fatalf("case schema changed: %s", req.Schema)
+	}
+}
+
+func TestOpenAIChatRejectsInvalidSchema(t *testing.T) {
+	req := newChat()
+	req.Schema = json.RawMessage(`[`)
+	if _, err := (&OpenAI{BaseURL: "http://unused"}).Chat(context.Background(), req, func(string) {}); err == nil {
+		t.Fatal("invalid schema sent")
+	}
+}
+
 func TestEmbedRejectsCountMismatch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"embeddings":[[0.1,0.2]]}`)

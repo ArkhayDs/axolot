@@ -41,9 +41,13 @@ func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		"max_tokens":     req.MaxTokens,
 	}
 	if len(req.Schema) > 0 {
+		schema, err := strictSchema(req.Schema)
+		if err != nil {
+			return ChatResult{}, err
+		}
 		body["response_format"] = map[string]any{
 			"type":        "json_schema",
-			"json_schema": map[string]any{"name": "answer", "schema": json.RawMessage(req.Schema)},
+			"json_schema": map[string]any{"name": "answer", "strict": true, "schema": schema},
 		}
 	}
 
@@ -84,6 +88,34 @@ func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	result.TotalMs = msSince(start)
 	setOpenAIRate(&result)
 	return result, err
+}
+
+// strictSchema returns a copy of schema closed to extra keys, which cloud APIs require in strict mode.
+// The case keeps its own schema: grading still checks the answer against it.
+func strictSchema(schema json.RawMessage) (map[string]any, error) {
+	var root map[string]any
+	if err := json.Unmarshal(schema, &root); err != nil {
+		return nil, fmt.Errorf("decode schema: %w", err)
+	}
+	closeObjects(root)
+	return root, nil
+}
+
+// closeObjects sets additionalProperties to false on every object of the schema tree.
+func closeObjects(node map[string]any) {
+	if node["type"] == "object" {
+		node["additionalProperties"] = false
+	}
+	if properties, ok := node["properties"].(map[string]any); ok {
+		for _, property := range properties {
+			if child, ok := property.(map[string]any); ok {
+				closeObjects(child)
+			}
+		}
+	}
+	if items, ok := node["items"].(map[string]any); ok {
+		closeObjects(items)
+	}
 }
 
 // openAIMessages turns a message with images into content parts, the only form this API accepts for them.
