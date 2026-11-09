@@ -13,6 +13,14 @@ import (
 	"github.com/arkhayds/axolot/internal/rag"
 )
 
+// scoreOf reads a nullable average, -1 standing for none.
+func scoreOf(score *float64) float64 {
+	if score == nil {
+		return -1
+	}
+	return *score
+}
+
 // openTestStore runs against a throwaway schema; skipped without TEST_DATABASE_URL.
 func openTestStore(t *testing.T) *Store {
 	t.Helper()
@@ -147,8 +155,8 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	if *stats[0].P50TotalMs != 200 || stats[0].RetrievalHits != 2 || stats[0].RetrievalTotal != 2 {
 		t.Fatalf("overall=%+v", stats[0])
 	}
-	if stats[0].AvgScore != 50 || stats[1].Category != "code" || stats[1].AvgScore != 0 {
-		t.Fatalf("an unmeasured answer must stay out of the average: overall=%+v code=%+v", stats[0], stats[1])
+	if scoreOf(stats[0].AvgScore) != 50 || stats[1].Category != "code" || stats[1].AvgScore != nil {
+		t.Fatalf("an unmeasured answer must stay out of the average, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
 	}
 	runs, err := s.Runs(ctx, id)
 	if err != nil || len(runs) != 3 {
@@ -191,6 +199,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	play(mac, StatusDone, "i2", "rag", 100, 400, "")
 	unmeasured := play(mac, StatusDone, "i2", "rag", 0, 400, "quota exceeded")
 	play(pc, StatusDone, "i1", "code", 20, 500, "")
+	play(pc, StatusDone, "i2", "rag", 0, 500, "quota exceeded")
 	play(mac, StatusRunning, "i2", "rag", 0, 600, "")
 	play(mac, StatusDone, "old", "rag", 0, 700, "")
 
@@ -203,20 +212,23 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	for _, cell := range cells {
 		found[cell.Machine+"|"+cell.Category] = cell
 	}
-	if len(cells) != 8 {
+	if len(cells) != 9 {
 		t.Fatalf("cells=%+v", cells)
 	}
 	if cell := found["mac|code"]; cell.Runs != 3 || cell.Questions != 1 || *cell.P50TotalMs != 200 {
 		t.Fatalf("every answer counts, cancelled ones included: %+v", cell)
 	}
-	if cell := found["mac|rag"]; cell.Runs != 2 || cell.Errors != 1 || cell.AvgScore != 100 {
+	if cell := found["mac|rag"]; cell.Runs != 2 || cell.Errors != 1 || scoreOf(cell.AvgScore) != 100 {
 		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score: %+v", cell)
 	}
 	// Questions weigh the same however often they were played: (66.67 + 100) / 2, not the 75 of the raw answers.
-	if cell := found["mac|"]; cell.Runs != 5 || cell.Questions != 2 || cell.AvgScore < 83.3 || cell.AvgScore > 83.4 {
+	if cell := found["mac|"]; cell.Runs != 5 || cell.Questions != 2 || scoreOf(cell.AvgScore) < 83.3 || scoreOf(cell.AvgScore) > 83.4 {
 		t.Fatalf("machine rollup: %+v", cell)
 	}
-	if cell := found["|"]; cell.Runs != 6 || cell.Questions != 2 || cell.P95TotalMs == nil {
+	if cell := found["pc|rag"]; cell.Runs != 1 || cell.AvgScore != nil {
+		t.Fatalf("a theme without measure has no score: %+v", cell)
+	}
+	if cell := found["|"]; cell.Runs != 7 || cell.Questions != 2 || cell.P95TotalMs == nil {
 		t.Fatalf("model rollup: %+v", cell)
 	}
 	estimates, err := s.EstimateRows(ctx, "mac", hashes)
@@ -238,30 +250,36 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	for _, item := range items {
 		perItem[item.Machine+"|"+item.CaseID+"|"+item.ItemID] = item
 	}
-	if len(items) != 5 {
+	if len(items) != 6 {
 		t.Fatalf("items=%+v", items)
 	}
-	if item := perItem["mac|c|i1"]; item.Runs != 3 || item.AvgScore < 66.6 || item.AvgScore > 66.7 || *item.P50TotalMs != 200 || item.Errors != 0 {
+	if item := perItem["mac|c|i1"]; item.Runs != 3 || scoreOf(item.AvgScore) < 66.6 || scoreOf(item.AvgScore) > 66.7 || *item.P50TotalMs != 200 || item.Errors != 0 {
 		t.Fatalf("question on one machine: %+v", item)
 	}
-	if item := perItem["|c|i1"]; item.Runs != 4 || item.AvgScore < 43.3 || item.AvgScore > 43.4 {
+	if item := perItem["|c|i1"]; item.Runs != 4 || scoreOf(item.AvgScore) < 43.3 || scoreOf(item.AvgScore) > 43.4 {
 		t.Fatalf("question over machines, machines weighing the same: %+v", item)
 	}
-	if item := perItem["mac|c|i2"]; item.Runs != 2 || item.Errors != 1 || item.AvgScore != 100 {
+	if item := perItem["mac|c|i2"]; item.Runs != 2 || item.Errors != 1 || scoreOf(item.AvgScore) != 100 {
+		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score: %+v", item)
+	}
+	if item := perItem["pc|c|i2"]; item.Runs != 1 || item.AvgScore != nil {
+		t.Fatalf("a question without measure has no score: %+v", item)
+	}
+	if item := perItem["|c|i2"]; scoreOf(item.AvgScore) != 100 {
 		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score: %+v", item)
 	}
 	answers, err := s.MapAnswers(ctx, hashes)
-	if err != nil || len(answers) != 6 {
+	if err != nil || len(answers) != 7 {
 		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
 
 	benchmarks, err := s.MapBenchmarks(ctx)
-	if err != nil || len(benchmarks) != 8 {
+	if err != nil || len(benchmarks) != 9 {
 		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
 	}
 	type benchmarkCell struct {
-		Measured int     `json:"measured"`
-		AvgScore float64 `json:"avg_score"`
+		Measured int      `json:"measured"`
+		AvgScore *float64 `json:"avg_score"`
 	}
 	cellsOf := func(benchmark MapBenchmark) []benchmarkCell {
 		t.Helper()
@@ -277,11 +295,11 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 			if benchmark.Machine != "mac" || benchmark.DoneItems != 1 || benchmark.Models[0] != "m" || benchmark.Categories[0] != "code" {
 				t.Fatalf("benchmark=%+v", benchmark)
 			}
-			if cell := cellsOf(benchmark)[0]; cell.Measured != 1 || cell.AvgScore != 100 {
+			if cell := cellsOf(benchmark)[0]; cell.Measured != 1 || scoreOf(cell.AvgScore) != 100 {
 				t.Fatalf("cell=%+v", cell)
 			}
 		case unmeasured:
-			if cell := cellsOf(benchmark)[0]; cell.Measured != 0 || cell.AvgScore != 0 {
+			if cell := cellsOf(benchmark)[0]; cell.Measured != 0 || cell.AvgScore != nil {
 				t.Fatalf("an unmeasured answer must weigh nothing in the benchmark score: %+v", cell)
 			}
 		}

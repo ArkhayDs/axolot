@@ -5,7 +5,7 @@ import "testing"
 func ms(v float64) *float64 { return &v }
 
 func stat(model, category string, score, total float64) ModelStats {
-	return ModelStats{Provider: "p", Model: model, Category: category, Runs: 4, AvgScore: score, P50TotalMs: ms(total)}
+	return ModelStats{Provider: "p", Model: model, Category: category, Runs: 4, AvgScore: ms(score), P50TotalMs: ms(total)}
 }
 
 func TestVerdictsPickQualitySpeedAndCompromise(t *testing.T) {
@@ -31,7 +31,7 @@ func TestVerdictsSeparateCategories(t *testing.T) {
 }
 
 func TestVerdictsExcludeFullyFailedModels(t *testing.T) {
-	failed := ModelStats{Provider: "p", Model: "oom", Runs: 4, Errors: 4, AvgScore: 0, P50TotalMs: ms(1)}
+	failed := ModelStats{Provider: "p", Model: "oom", Runs: 4, Errors: 4, P50TotalMs: ms(1)}
 	verdicts := Verdicts([]ModelStats{failed, stat("ok", "", 50, 900)})
 	if verdicts[0].Speed.Model != "ok" {
 		t.Fatalf("failed model won speed: %+v", verdicts[0].Speed)
@@ -49,7 +49,7 @@ func TestVerdictsHandleEmptyAndMissingTimings(t *testing.T) {
 	if got := Verdicts(nil); len(got) != 0 {
 		t.Fatalf("got %+v", got)
 	}
-	noTiming := ModelStats{Provider: "p", Model: "x", Runs: 1, AvgScore: 50}
+	noTiming := ModelStats{Provider: "p", Model: "x", Runs: 1, AvgScore: ms(50)}
 	v := Verdicts([]ModelStats{noTiming})[0]
 	if v.Quality.Model != "x" || v.Speed != nil {
 		t.Fatalf("verdict: %+v", v)
