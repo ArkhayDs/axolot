@@ -170,10 +170,15 @@ func runItem(ctx context.Context, campaignID string, c cases.Case, item cases.It
 		}
 		run.Retrieved = raw
 	}
-	if err != nil {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		timedOut(&run)
+	case err != nil:
 		run.Error = err.Error()
-	} else if err := grade(&run, item, hits); err != nil {
-		return err
+	default:
+		if err := grade(&run, item, hits); err != nil {
+			return err
+		}
 	}
 	if err := deps.Results.CreateRun(ctx, run); err != nil {
 		return err
@@ -218,10 +223,14 @@ func generate(ctx context.Context, c cases.Case, item cases.Item, target Target,
 		delta.Text = text
 		deps.Emit(delta)
 	})
-	if errors.Is(err, context.DeadlineExceeded) {
-		err = fmt.Errorf("no answer within %s", itemTimeout)
-	}
 	return result, hits, err
+}
+
+// timedOut fails a run the model did not finish in time: a slow model answers wrong, unlike an execution error
+// that leaves the answer unmeasured. Its total is the timeout so that medians do not read the cut as a fast answer.
+func timedOut(run *store.Run) {
+	run.TotalMs = itemTimeout.Milliseconds()
+	run.Checks = json.RawMessage(`[{"name":"timeout","passed":false}]`)
 }
 
 // grade fills the score fields of a successful run.

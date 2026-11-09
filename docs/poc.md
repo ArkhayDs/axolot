@@ -54,7 +54,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 
 - Quota : toujours 2 % après les deux Benchmarks (~270 000 tokens). Compteur affiché et délai de mise à jour non vérifiés, à recontrôler au prochain.
 - Erreur Opus : « retried its structured output » sur `routage-perimetres`, la CLI a rejeté son premier appel `StructuredOutput`. Le pont note désormais la première tentative, comme pour un modèle local ; une réponse en texte libre est notée aussi.
-- Une réponse en erreur (pont, quota, délai) est « non mesurée » : hors moyenne, sans note 0.
+- Une réponse en erreur (pont, quota, connexion) est « non mesurée » : hors moyenne, sans note 0. Un modèle qui dépasse 5 min est noté 0.
 - Comparabilité :
   - Notes comparables aux modèles locaux.
   - Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement.

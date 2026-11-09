@@ -41,6 +41,7 @@ const CHECKS: Record<string, string> = {
   max_words: 'Longueur respectée',
   retrieval: 'Bon passage retrouvé',
   citation: 'Source citée',
+  timeout: 'Réponse en moins de 5 min',
 };
 
 const FIELDS: Record<string, string> = {
