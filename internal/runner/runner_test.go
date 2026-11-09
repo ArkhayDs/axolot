@@ -31,6 +31,7 @@ func (f *fakeResults) FinishCampaign(_ context.Context, _, status string) error 
 type fakeModel struct {
 	provider.Provider
 	failModel string
+	slowModel string
 	onChat    func(provider.ChatRequest)
 }
 
@@ -40,6 +41,9 @@ func (f fakeModel) Chat(_ context.Context, req provider.ChatRequest, onDelta fun
 	}
 	if req.Model == f.failModel {
 		return provider.ChatResult{TotalMs: 1}, errors.New("out of memory")
+	}
+	if req.Model == f.slowModel {
+		return provider.ChatResult{TotalMs: 1}, context.DeadlineExceeded
 	}
 	onDelta("bonjour")
 	return provider.ChatResult{Output: "bonjour", TotalMs: 5}, nil
@@ -118,6 +122,17 @@ func TestRunRecordsModelFailureAndContinues(t *testing.T) {
 	}
 	if results.runs[0].Error == "" || results.runs[0].Score != 0 {
 		t.Fatalf("failed run: %+v", results.runs[0])
+	}
+}
+
+func TestRunGradesTimeoutAsAFailedAnswer(t *testing.T) {
+	results := &fakeResults{}
+	if err := Run(context.Background(), "c1", []Plan{textPlan("a", "slow")}, newDeps(results, fakeModel{slowModel: "slow"}, nil)); err != nil {
+		t.Fatal(err)
+	}
+	run := results.runs[0]
+	if run.Error != "" || run.Score != 0 || run.TotalMs != itemTimeout.Milliseconds() || !strings.Contains(string(run.Checks), `"name":"timeout","passed":false`) {
+		t.Fatalf("timed out run: %+v, checks %s", run, run.Checks)
 	}
 }
 
