@@ -1,4 +1,4 @@
-// Results per question: the same four states as the answer matrix, from the cumulated figures or a live answer.
+// Results per question: the answer matrix's states, an unmeasured answer reading as none, from the cumulated figures or a live answer.
 
 import type { MapItem, Run } from '../api';
 
