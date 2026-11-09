@@ -58,8 +58,8 @@ type MapItem struct {
 
 // cumulatedAnswers selects what the cumulated figures count: finished answers to the current version of each
 // question. Scores average per (machine, model, question) first, so a question repeated ten times weighs as much
-// as one played once; the weight does that in a single pass while times stay medians of all answers. An unmeasured
-// answer (error) gets no weight; a group without any has no score.
+// as one played once; the weight does that in a single pass while times stay medians of the answers. An unmeasured
+// answer (error) gets no weight and no time, a quick failure passing for a fast answer; a group without any has neither.
 const cumulatedAnswers = `WITH answers AS (
 		SELECT c.hardware->>'label' AS machine, r.*,
 			CASE WHEN r.error = '' THEN 1.0::float8 / count(*) FILTER (WHERE r.error = '')
@@ -76,14 +76,14 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
 			sum(score * weight) / sum(weight),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTER (WHERE error = ''),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec) FILTER (WHERE error = ''),
 			max(load_ms),
 			count(*) FILTER (WHERE retrieval_hit)::int,
 			count(retrieval_hit)::int,
 			count(DISTINCT case_id || '/' || item_id)::int,
-			percentile_cont(0.95) WITHIN GROUP (ORDER BY total_ms)
+			percentile_cont(0.95) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = '')
 		FROM answers
 		GROUP BY GROUPING SETS ((machine, model, category), (machine, model), (model, category), (model))
 		ORDER BY 1, 3, 4`, StatusRunning, hashes)
@@ -99,7 +99,7 @@ func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error
 		SELECT COALESCE(machine, ''), model, case_id, item_id,
 			count(*)::int,
 			sum(score * weight) / sum(weight),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
+			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
 			count(*) FILTER (WHERE error <> '')::int
 		FROM answers
 		GROUP BY GROUPING SETS ((machine, model, case_id, item_id), (model, case_id, item_id))`, StatusRunning, hashes)
@@ -132,7 +132,7 @@ type EstimateRow struct {
 	LoadMs   *float64 `json:"load_ms"`
 }
 
-// EstimateRows reads what duration estimates are built from. Means rather than medians,
+// EstimateRows reads what duration estimates are built from, measured answers only. Means rather than medians,
 // because a sum of medians underestimates a total that has long answers.
 func (s *Store) EstimateRows(ctx context.Context, machine string, hashes []string) ([]EstimateRow, error) {
 	rows, err := s.pool.Query(ctx, `SELECT r.model, COALESCE(r.category, ''), COALESCE(r.case_id, ''), COALESCE(r.item_id, ''),
@@ -140,7 +140,7 @@ func (s *Store) EstimateRows(ctx context.Context, machine string, hashes []strin
 			percentile_cont(0.9) WITHIN GROUP (ORDER BY r.total_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY r.load_ms) FILTER (WHERE r.load_ms > 0)
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
-		WHERE c.status <> $1 AND c.hardware->>'label' = $2 AND r.item_hash = ANY($3)
+		WHERE c.status <> $1 AND c.hardware->>'label' = $2 AND r.item_hash = ANY($3) AND r.error = ''
 		GROUP BY GROUPING SETS ((r.model, r.category, r.case_id, r.item_id), (r.model, r.category), (r.model))`, StatusRunning, machine, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("read estimate rows: %w", err)
