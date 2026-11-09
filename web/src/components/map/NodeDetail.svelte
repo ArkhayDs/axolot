@@ -3,7 +3,7 @@
   import ModelName from '../ModelName.svelte';
   import ResultMark from './ResultMark.svelte';
   import type { MapBenchmark } from '../../lib/api';
-  import { benchmarkName, categoryLabel, duration, score, statusLabel, trapLabel, when } from '../../lib/format';
+  import { UNMEASURED_HINT, benchmarkName, categoryLabel, duration, score, statusLabel, trapLabel, unmeasuredLabel, when } from '../../lib/format';
   import type { MapContent } from '../../lib/map/content';
   import type { NodeKind } from '../../lib/map/graph';
   import { benchmarkScore } from '../../lib/map/ranking';
@@ -52,7 +52,7 @@
             <strong>{item ? `${score(item.avg_score)}/100` : '-'}</strong>
             <span>{RESULT_LABELS[state]}</span>
             {#if item}<span>{duration(item.p50_total_ms)} médian, {item.runs} réponse{item.runs > 1 ? 's' : ''}</span>{/if}
-            {#if item && item.errors > 0}<span class="state-critical">{item.errors} échec{item.errors > 1 ? 's' : ''}</span>{/if}
+            {#if item && item.errors > 0}<span title={UNMEASURED_HINT}>{unmeasuredLabel(item.errors)}</span>{/if}
           </span>
         </li>
       {/each}

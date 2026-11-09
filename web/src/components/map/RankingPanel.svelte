@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
   import ModelName from '../ModelName.svelte';
-  import { duration, number, score, seriesColor } from '../../lib/format';
+  import { UNMEASURED_HINT, duration, number, score, seriesColor, unmeasuredLabel } from '../../lib/format';
   import type { RankKind, RankRow, RankSection } from '../../lib/map/ranking';
 
   let {
@@ -54,7 +54,7 @@
                 <span class="state state-warning"><Icon name="alert" size={14} /> {row.questions}/{row.coverage} questions couvertes</span>
               {/if}
               {#if row.errors > 0}
-                <span class="state state-critical"><Icon name="alert" size={14} /> {row.errors} échec{row.errors > 1 ? 's' : ''}</span>
+                <span class="state muted" title={UNMEASURED_HINT}>{unmeasuredLabel(row.errors)}</span>
               {/if}
             </button>
           </li>

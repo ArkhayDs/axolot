@@ -53,6 +53,8 @@ const FIELDS: Record<string, string> = {
 
 const VALUES: Record<string, string> = { executer: 'exécuter', demander_precision: 'demander une précision' };
 
+export const UNMEASURED_HINT = "La question n'a pas pu être mesurée (connexion, quota, délai) : elle ne compte pas dans la moyenne.";
+
 const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -62,6 +64,14 @@ const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeSty
  */
 export function categoryLabel(category: string): string {
   return CATEGORIES[category] ?? category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+/**
+ * @param {number} errors - answers lost to an execution error
+ * @returns {string} - count with its label, e.g. "2 non mesurées"
+ */
+export function unmeasuredLabel(errors: number): string {
+  return `${errors} non mesurée${errors > 1 ? 's' : ''}`;
 }
 
 /**

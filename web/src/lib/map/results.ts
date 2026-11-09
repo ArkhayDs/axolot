@@ -42,11 +42,12 @@ export function itemOf(index: ItemIndex, machine: string, model: string, caseId:
 /**
  * Same thresholds as the matrix; 99.95 reads 100 once displayed and absorbs the rounding of the weighted mean
  * @param {number} score - score out of 100
- * @param {boolean} failed - whether nothing usable came back
+ * @param {boolean} unmeasured - execution error (connection, quota, timeout): no answer to grade
  * @returns {ResultState} - state of the answer
  */
-export function stateOfScore(score: number, failed: boolean): ResultState {
-  if (failed || score <= 0) return 'failed';
+export function stateOfScore(score: number, unmeasured: boolean): ResultState {
+  if (unmeasured) return 'none';
+  if (score <= 0) return 'failed';
   return score >= 99.95 ? 'passed' : 'partial';
 }
 
