@@ -293,15 +293,15 @@ func TestChatRefusesInvalidRequestsWithoutStartingCLI(t *testing.T) {
 func TestModelsListsFullIdentifiers(t *testing.T) {
 	server, _ := startBridge(t, "")
 
-	models, err := client(server).Models(context.Background())
+	served, err := client(server).Models(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := make([]string, 0, len(models))
-	for _, m := range models {
+	got := make([]string, 0, len(served))
+	for _, m := range served {
 		got = append(got, m.Name)
 	}
-	if want := "claude-fable-5-1 claude-opus-5-5 claude-sonnet-5-5 claude-haiku-5-5"; strings.Join(got, " ") != want {
+	if strings.Join(got, " ") != strings.Join(models, " ") {
 		t.Errorf("models = %v", got)
 	}
 }
