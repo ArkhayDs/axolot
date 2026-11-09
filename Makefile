@@ -1,4 +1,4 @@
-.PHONY: help setup up down logs hardware test lint web-check dev
+.PHONY: help setup up down logs hardware bridge test lint web-check dev
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /: /'
@@ -17,6 +17,9 @@ down: ## Stop the stack, data kept
 
 logs: ## Follow app logs
 	docker compose logs -f app
+
+bridge: ## Build and run the Claude subscription bridge on the host
+	@sh scripts/bridge.sh
 
 dev: ## Start the Vite dev server with hot reload
 	docker compose --profile dev up web
