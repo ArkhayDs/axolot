@@ -216,7 +216,11 @@ func (b *bridge) run(ctx context.Context, model, system string, schema json.RawM
 	defer cancel()
 	cmd := exec.CommandContext(ctx, b.cli, cliArgs(model, system, schema)...)
 	cmd.Dir = b.dir
-	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
+	// An API credential would take precedence over the subscription login and bill the API.
+	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		return strings.HasPrefix(kv, "ANTHROPIC_API_KEY=") || strings.HasPrefix(kv, "ANTHROPIC_AUTH_TOKEN=")
+	})
+	cmd.Env = append(env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
 	cmd.Stdin = strings.NewReader(prompt)
 	cmd.WaitDelay = cliWaitDelay
 	var stderr bytes.Buffer
