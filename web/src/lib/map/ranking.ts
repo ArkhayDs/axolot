@@ -111,9 +111,10 @@ export function sameScore(a: number | null, b: number | null): boolean {
 /**
  * @param {RankRow} row - ranked row
  * @param {RankRow} leader - first row
- * @returns {string} - gap to the leader, in points and speed
+ * @returns {string} - gap to the leader, in points and speed; none without score, whose timings are errors
  */
 function gapLabel(row: RankRow, leader: RankRow): string {
+  if (row.score === null) return '';
   if (row === leader) return row.tied ? '' : 'En tête';
   const parts: string[] = [];
   if (row.score !== null && leader.score !== null && !sameScore(row.score, leader.score)) {

@@ -36,7 +36,7 @@
                 </span>
                 <strong class="value">{score(row.score)}{#if row.score !== null}<small>/100</small>{/if}</strong>
               </span>
-              <span class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={row.score} aria-label="Score">
+              <span class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={row.score ?? 0} aria-label="Score">
                 <span style:width="{row.score ?? 0}%" style:background={gaugeColor(row)}></span>
               </span>
               <span class="gap">
