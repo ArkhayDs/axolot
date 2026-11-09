@@ -201,13 +201,13 @@ export function rankSections(index: CellIndex, lists: MapLists, filter: MapFilte
 /**
  * @param {MapBenchmark} benchmark - past benchmark
  * @param {MapFilter} filter - current selection
- * @returns {number | null} - score over what the selection covers, null when it covers nothing
+ * @returns {number | null} - score over the measured answers the selection covers, null when there are none
  */
 export function benchmarkScore(benchmark: MapBenchmark, filter: MapFilter): number | null {
   if (filter.machine && benchmark.machine !== filter.machine) return null;
   const cells = benchmark.cells.filter(
     (cell) => (!filter.model || cell.model === filter.model) && (!filter.category || cell.category === filter.category),
   );
-  const runs = cells.reduce((total, cell) => total + cell.runs, 0);
-  return runs === 0 ? null : cells.reduce((total, cell) => total + cell.avg_score * cell.runs, 0) / runs;
+  const measured = cells.reduce((total, cell) => total + cell.measured, 0);
+  return measured === 0 ? null : cells.reduce((total, cell) => total + cell.avg_score * cell.measured, 0) / measured;
 }

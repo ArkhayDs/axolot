@@ -144,11 +144,12 @@ func (s *Store) Runs(ctx context.Context, campaignID string) ([]Run, error) {
 
 // Stats aggregates a campaign per model, overall (empty category) and per category.
 // Medians, because a model's first run carries its load time and would skew an average.
+// Scores average measured answers only: an error (connection, quota, timeout) says nothing about the model.
 func (s *Store) Stats(ctx context.Context, campaignID string) ([]analytics.ModelStats, error) {
 	rows, err := s.pool.Query(ctx, `SELECT provider_name, model, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
-			avg(score),
+			COALESCE(avg(score) FILTER (WHERE error = ''), 0),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec),
