@@ -45,9 +45,24 @@ Axolot est un outil réel de comparaison, la démo n'était qu'un point d'étape
 Point de comparaison principal : Claude sur abonnement, seul accès disponible (aucune clé API). Plan validé le 2026-11-05.
 - PR 1 : pont local exposant `claude -p` comme une API compatible OpenAI, ajouté comme simple connexion. Loopback uniquement : faire passer d'autres utilisateurs par l'abonnement est interdit, le futur login d'Axolot devra passer par des clés API.
 - PR 2 : correctifs de la connexion par clé API, qui échoue aujourd'hui avec Claude (`temperature`, schéma sans `strict`). Testés sur serveur simulé, faute de clé.
-- À mesurer : quota consommé par un Benchmark complet.
-- Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement. Les temps incluent le réseau et la CLI. Note dans Résultats à décider sur un vrai Benchmark.
-- Corpus réels envoyés hors machine : à signaler dans le panneau Connexions, seul le corpus fictif part sans réserve.
+- PR 1 mesurée le 2026-11-09 (Max 20x), un Benchmark complet par modèle :
+
+| Modèle | Score (réponses mesurées) | Erreurs | Durée | 1er token p50 | Total p50 | Débit p50 | Tokens entrée / sortie |
+|---|---|---|---|---|---|---|---|
+| `claude-haiku-5-5` | 97,4 | 0 / 66 | 4 min 57 | 2,9 s | 3,9 s | 298 t/s | 113 504 / 28 385 |
+| `claude-opus-5-5` | 99,2 | 1 / 66 | 19 min 29 | 1,8 s | 3,4 s | 116 t/s | 110 441 / 19 631 |
+
+- Quota : toujours 2 % après les deux Benchmarks (~270 000 tokens). Compteur affiché et délai de mise à jour non vérifiés, à recontrôler au prochain.
+- Erreur Opus : « retried its structured output » sur `routage-perimetres`, la CLI a rejeté son premier appel `StructuredOutput`. Fréquence à suivre.
+- Une réponse en erreur (pont, quota, délai) est « non mesurée » : hors moyenne, sans note 0.
+- Comparabilité :
+  - Notes comparables aux modèles locaux.
+  - Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement.
+  - Temps = attente réelle : ~1 s de lancement de Claude Code, 1er token retardé par la réflexion du modèle (cas à schéma).
+  - ~600 tokens d'entrée cachés par question (consigne de Claude Code, même avec `--system-prompt ""`), absents d'un appel par clé API.
+  - Débit possiblement surestimé si les tokens de réflexion sont comptés en sortie (non vérifié) : Haiku jusqu'à 877 t/s.
+  - Note sous le tableau de Résultats dès qu'un modèle `claude-*` apparaît : les runs ne stockent que le nom de la connexion, pas son type (PR 4).
+- Corpus réels envoyés hors machine : signalé dans le panneau Connexions, seul le corpus fictif part sans réserve.
 - Plus tard : pont Codex sur la machine du PDG, avec son compte (GPT Astra, abonnement uniquement). Mesure « Astra via Codex », éligibilité à un usage scripté à vérifier.
 
 ### 2. Modèles locaux spécialisés
