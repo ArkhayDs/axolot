@@ -111,6 +111,26 @@
   backdrop-filter: var(--glass-blur);
 }
 
+.sheet {
+  width: min(720px, calc(100vw - 2 * var(--s4)));
+  max-height: calc(100dvh - 2 * var(--s5));
+  margin: auto var(--s4) auto auto;
+  padding: var(--s4);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+}
+
+.sheet::backdrop {
+  background: color-mix(in srgb, var(--ground) 60%, transparent);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--hairline);

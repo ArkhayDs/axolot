@@ -55,29 +55,9 @@
 </dialog>
 
 <style>
-  .sheet {
-    width: min(720px, calc(100vw - 2 * var(--s4)));
-    max-height: calc(100dvh - 2 * var(--s5));
-    margin: auto var(--s4) auto auto;
-    padding: var(--s4);
-    border-radius: var(--radius-lg);
-    color: var(--ink);
-  }
-
   .sheet[open] {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
-    gap: var(--s3);
-  }
-
-  .sheet::backdrop {
-    background: color-mix(in srgb, var(--ground) 60%, transparent);
-  }
-
-  .sheet-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
     gap: var(--s3);
   }
 
