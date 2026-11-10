@@ -36,6 +36,7 @@ type ChatRequest struct {
 }
 
 // ChatResult carries the output and metrics; nil pointers mean the server did not report the metric.
+// CLIStartupMs and CLIExitMs are the Claude CLI's own time, in TTFT and TotalMs, reported by the bridge only.
 type ChatResult struct {
 	Output       string
 	TTFTMs       *int64
@@ -44,6 +45,8 @@ type ChatResult struct {
 	PromptTokens *int
 	OutputTokens *int
 	TokPerSec    *float64
+	CLIStartupMs *int64
+	CLIExitMs    *int64
 }
 
 // Model is an installed or served model; a nil Vision means the server cannot tell whether it reads images.

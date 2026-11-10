@@ -99,6 +99,35 @@ func TestOpenAIChatSendsKeySchemaAndReadsUsage(t *testing.T) {
 	if result.Output != "Oui" || *result.PromptTokens != 3 || *result.OutputTokens != 7 {
 		t.Fatalf("result: %+v", result)
 	}
+	if result.CLIStartupMs != nil || result.CLIExitMs != nil {
+		t.Fatalf("CLI times outside the bridge: %+v", result)
+	}
+}
+
+func TestOpenAIChatReadsCLITimesFromUsage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\n")
+		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7,\"cli_startup_ms\":430,\"cli_exit_ms\":650}}\n\n")
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CLIStartupMs == nil || *result.CLIStartupMs != 430 || result.CLIExitMs == nil || *result.CLIExitMs != 650 {
+		t.Fatalf("result: %+v", result)
+	}
+}
+
+func TestOpenAIRateLeavesOutTheCLIExit(t *testing.T) {
+	ttft, exit, tokens := int64(1000), int64(1000), 100
+	result := ChatResult{TTFTMs: &ttft, TotalMs: 3000, OutputTokens: &tokens, CLIExitMs: &exit}
+	setOpenAIRate(&result)
+	if result.TokPerSec == nil || *result.TokPerSec != 100 {
+		t.Fatalf("rate: %v", result.TokPerSec)
+	}
 }
 
 func TestOpenAIChatRetriesRejectedSamplingParams(t *testing.T) {
