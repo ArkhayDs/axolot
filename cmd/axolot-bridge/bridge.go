@@ -181,18 +181,23 @@ func cliArgs(model, system string, schema json.RawMessage) []string {
 	return args
 }
 
-// cliUsage is the token count of the result line; the input splits over the prompt cache.
+// cliUsage is the token count of the result line, the input split over the prompt cache, plus the CLI's
+// own time measured by the bridge: startup before the API call (nil without an init line) and exit after the result.
 type cliUsage struct {
-	Input         int `json:"input_tokens"`
-	CacheCreation int `json:"cache_creation_input_tokens"`
-	CacheRead     int `json:"cache_read_input_tokens"`
-	Output        int `json:"output_tokens"`
+	Input         int    `json:"input_tokens"`
+	CacheCreation int    `json:"cache_creation_input_tokens"`
+	CacheRead     int    `json:"cache_read_input_tokens"`
+	Output        int    `json:"output_tokens"`
+	StartupMs     *int64 `json:"-"`
+	ExitMs        int64  `json:"-"`
 }
 
 // cliEvent holds the fields read from a stream-json line; other line types only leave them empty.
+// initAt and resultAt are when the bridge read the init line and the result line.
 type cliEvent struct {
-	Type  string `json:"type"`
-	Event struct {
+	Type    string `json:"type"`
+	Subtype string `json:"subtype"`
+	Event   struct {
 		ContentBlock struct {
 			Type string `json:"type"`
 		} `json:"content_block"`
@@ -202,9 +207,11 @@ type cliEvent struct {
 			PartialJSON string `json:"partial_json"`
 		} `json:"delta"`
 	} `json:"event"`
-	IsError bool     `json:"is_error"`
-	Result  string   `json:"result"`
-	Usage   cliUsage `json:"usage"`
+	IsError  bool     `json:"is_error"`
+	Result   string   `json:"result"`
+	Usage    cliUsage `json:"usage"`
+	initAt   time.Time
+	resultAt time.Time
 }
 
 // run executes one generation and passes each piece of text to onText.
@@ -229,6 +236,7 @@ func (b *bridge) run(ctx context.Context, model, system string, schema json.RawM
 	if err != nil {
 		return cliEvent{}, fmt.Errorf("open claude output: %w", err)
 	}
+	start := time.Now()
 	if err := cmd.Start(); err != nil {
 		return cliEvent{}, fmt.Errorf("start claude: %w", err)
 	}
@@ -250,6 +258,11 @@ func (b *bridge) run(ctx context.Context, model, system string, schema json.RawM
 		}
 		return cliEvent{}, err
 	}
+	result.Usage.ExitMs = time.Since(result.resultAt).Milliseconds()
+	if !result.initAt.IsZero() {
+		startup := result.initAt.Sub(start).Milliseconds()
+		result.Usage.StartupMs = &startup
+	}
 	return *result, nil
 }
 
@@ -259,6 +272,7 @@ func (b *bridge) run(ctx context.Context, model, system string, schema json.RawM
 // @param structured - a schema was requested
 func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEvent, error) {
 	var result *cliEvent
+	var initAt time.Time
 	attempts := 0
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 64*1024), maxLine)
@@ -268,7 +282,10 @@ func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEve
 			return nil, fmt.Errorf("read claude output: %w", err)
 		}
 		switch {
+		case event.Type == "system" && event.Subtype == "init":
+			initAt = time.Now()
 		case event.Type == "result":
+			event.initAt, event.resultAt = initAt, time.Now()
 			result = &event
 		case !structured && event.Event.Delta.Type == "text_delta":
 			onText(event.Event.Delta.Text)
@@ -329,12 +346,17 @@ func (s *eventStream) text(content string) {
 }
 
 // finish sends the usage and closes the stream. The cache parts count as input: they are read by the model
-// and weigh on the quota, like a local model's whole prompt.
+// and weigh on the quota, like a local model's whole prompt. The CLI times ride along, ignored by other clients.
 func (s *eventStream) finish(usage cliUsage) {
-	s.send(map[string]any{"choices": []any{}, "usage": map[string]int{
+	sent := map[string]any{
 		"prompt_tokens":     usage.Input + usage.CacheCreation + usage.CacheRead,
 		"completion_tokens": usage.Output,
-	}})
+		"cli_exit_ms":       usage.ExitMs,
+	}
+	if usage.StartupMs != nil {
+		sent["cli_startup_ms"] = *usage.StartupMs
+	}
+	s.send(map[string]any{"choices": []any{}, "usage": sent})
 	_, _ = fmt.Fprint(s.w, "data: [DONE]\n\n")
 	s.flusher.Flush()
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -99,6 +100,59 @@ func TestChatStreamsTextAndReportsUsage(t *testing.T) {
 	}
 	if result.PromptTokens == nil || *result.PromptTokens != 631 || result.OutputTokens == nil || *result.OutputTokens != 4 {
 		t.Errorf("usage = %+v", result)
+	}
+}
+
+// rawUsage returns the usage chunk of one answer as the bridge wrote it, CLI times included.
+func rawUsage(t *testing.T, server *httptest.Server) map[string]int64 {
+	t.Helper()
+	body := `{"model":"` + testModel + `","messages":[{"role":"user","content":"x"}]}`
+	req, err := http.NewRequest(http.MethodPost, server.URL+"/v1/chat/completions", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var chunk struct {
+			Usage map[string]int64 `json:"usage"`
+		}
+		payload, ok := strings.CutPrefix(scanner.Text(), "data: ")
+		if ok && json.Unmarshal([]byte(payload), &chunk) == nil && chunk.Usage != nil {
+			return chunk.Usage
+		}
+	}
+	t.Fatal("no usage chunk")
+	return nil
+}
+
+func TestChatReportsCLIStartupAndExitTimes(t *testing.T) {
+	initLine := `{"type":"system","subtype":"init","tools":[]}`
+	server, _ := startBridge(t, "sleep 0.3\n"+printLines(initLine, okResult)+"\nsleep 0.1")
+
+	usage := rawUsage(t, server)
+	if startup, ok := usage["cli_startup_ms"]; !ok || startup < 300 {
+		t.Errorf("startup = %d, sent = %t", startup, ok)
+	}
+	if exit := usage["cli_exit_ms"]; exit < 100 || exit >= 300 {
+		t.Errorf("exit = %d", exit)
+	}
+}
+
+func TestChatLeavesStartupUnmeasuredWithoutInitLine(t *testing.T) {
+	server, _ := startBridge(t, printLines(okResult))
+
+	usage := rawUsage(t, server)
+	if _, ok := usage["cli_startup_ms"]; ok {
+		t.Errorf("usage = %v", usage)
+	}
+	if _, ok := usage["cli_exit_ms"]; !ok {
+		t.Errorf("usage = %v", usage)
 	}
 }
 
