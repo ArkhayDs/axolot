@@ -147,13 +147,13 @@ func (s *Store) Runs(ctx context.Context, campaignID string) ([]Run, error) {
 }
 
 // statsFigures must stay in the order of the analytics.ModelStats fields from P50TTFTMs.
-// Net times count an answer without CLI measure as 0, and stay NULL when no answer of the group has one.
+// Net times count only the answers whose CLI times were all measured: an older or partial answer would pass a gross time
+// for a net one. NULL when no answer of the group has them.
 const statsFigures = `percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTER (WHERE error = ''),
 	percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
-	CASE WHEN count(cli_startup_ms) FILTER (WHERE error = '') > 0 THEN percentile_cont(0.5)
-		WITHIN GROUP (ORDER BY ttft_ms - COALESCE(cli_startup_ms, 0)) FILTER (WHERE error = '') END,
-	CASE WHEN count(cli_exit_ms) FILTER (WHERE error = '') > 0 THEN percentile_cont(0.5)
-		WITHIN GROUP (ORDER BY total_ms - COALESCE(cli_startup_ms, 0) - COALESCE(cli_exit_ms, 0)) FILTER (WHERE error = '') END,
+	percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms - cli_startup_ms) FILTER (WHERE error = '' AND cli_startup_ms IS NOT NULL),
+	percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms - cli_startup_ms - cli_exit_ms)
+		FILTER (WHERE error = '' AND cli_startup_ms IS NOT NULL AND cli_exit_ms IS NOT NULL),
 	percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec) FILTER (WHERE error = ''),
 	max(load_ms),
 	count(*) FILTER (WHERE retrieval_hit)::int,
