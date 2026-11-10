@@ -166,6 +166,9 @@ export interface ModelStats {
   avg_score: number | null;
   p50_ttft_ms: number | null;
   p50_total_ms: number | null;
+  // Without the Claude CLI's own time, null when no answer went through the bridge.
+  p50_net_ttft_ms: number | null;
+  p50_net_total_ms: number | null;
   p50_tok_per_sec: number | null;
   max_load_ms: number | null;
   retrieval_hits: number;

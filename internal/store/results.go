@@ -146,6 +146,19 @@ func (s *Store) Runs(ctx context.Context, campaignID string) ([]Run, error) {
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[Run])
 }
 
+// statsFigures must stay in the order of the analytics.ModelStats fields from P50TTFTMs.
+// Net times count an answer without CLI measure as 0, and stay NULL when no answer of the group has one.
+const statsFigures = `percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTER (WHERE error = ''),
+	percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
+	CASE WHEN count(cli_startup_ms) FILTER (WHERE error = '') > 0 THEN percentile_cont(0.5)
+		WITHIN GROUP (ORDER BY ttft_ms - COALESCE(cli_startup_ms, 0)) FILTER (WHERE error = '') END,
+	CASE WHEN count(cli_exit_ms) FILTER (WHERE error = '') > 0 THEN percentile_cont(0.5)
+		WITHIN GROUP (ORDER BY total_ms - COALESCE(cli_startup_ms, 0) - COALESCE(cli_exit_ms, 0)) FILTER (WHERE error = '') END,
+	percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec) FILTER (WHERE error = ''),
+	max(load_ms),
+	count(*) FILTER (WHERE retrieval_hit)::int,
+	count(retrieval_hit)::int`
+
 // Stats aggregates a campaign per model, overall (empty category) and per category.
 // Medians, because a model's first run carries its load time and would skew an average.
 // Scores and times count measured answers only: an error (bridge, quota, connection) says nothing about the model,
@@ -155,12 +168,7 @@ func (s *Store) Stats(ctx context.Context, campaignID string) ([]analytics.Model
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
 			avg(score) FILTER (WHERE error = ''),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTER (WHERE error = ''),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec) FILTER (WHERE error = ''),
-			max(load_ms),
-			count(*) FILTER (WHERE retrieval_hit)::int,
-			count(retrieval_hit)::int
+			`+statsFigures+`
 		FROM runs WHERE campaign_id = $1::uuid
 		GROUP BY GROUPING SETS ((provider_name, model), (provider_name, model, category))
 		ORDER BY 1, 2, 3`, campaignID)
