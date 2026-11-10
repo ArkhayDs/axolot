@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+
+  import ClaudeBridgeDialog from './ClaudeBridgeDialog.svelte';
+  import type { BridgeConnection } from './ClaudeBridgeDialog.svelte';
   import Icon from './Icon.svelte';
   import Notice from './Notice.svelte';
   import { api, errorMessage } from '../lib/api';
@@ -11,6 +15,22 @@
   let baseUrl = $state('');
   let apiKey = $state('');
   let error = $state('');
+  let guideOpen = $state(false);
+  let keyInput: HTMLInputElement;
+
+  /**
+   * Fills the form with the bridge connection, the key is left to the user
+   * @param {BridgeConnection} connection - bridge name, kind and URL
+   */
+  async function prefill(connection: BridgeConnection): Promise<void> {
+    name = connection.name;
+    kind = connection.kind;
+    baseUrl = connection.base_url;
+    guideOpen = false;
+    // Closing the dialog gives focus back to its opener, the key field takes it after.
+    await tick();
+    keyInput.focus();
+  }
 
   /** Saves the connection and clears the form, the key never stays in the page */
   async function add(event: SubmitEvent): Promise<void> {
@@ -44,6 +64,8 @@
 <section class="section" aria-labelledby="connections">
   <h2 id="connections">Connexions</h2>
   <p class="muted">Une connexion vers un service en ligne, pont Claude compris, reçoit les questions, les fichiers joints et les extraits du corpus. Seul le corpus fictif part sans réserve.</p>
+  <button class="btn guide" type="button" onclick={() => (guideOpen = true)}><Icon name="plug" /> Connecter un compte Claude Pro ou Max</button>
+  <ClaudeBridgeDialog open={guideOpen} onclose={() => (guideOpen = false)} onprefill={prefill} />
   <Notice message={error} />
   <div class="table-wrap">
     <table>
@@ -78,12 +100,16 @@
       </select>
     </label>
     <label class="field">URL<input class="input" type="url" bind:value={baseUrl} required placeholder="http://host.docker.internal:11434" /></label>
-    <label class="field">Clé API<input class="input" type="password" bind:value={apiKey} autocomplete="off" /></label>
+    <label class="field">Clé API<input class="input" type="password" bind:value={apiKey} bind:this={keyInput} autocomplete="off" /></label>
     <button class="btn" type="submit"><Icon name="plug" /> Ajouter</button>
   </form>
 </section>
 
 <style>
+  .guide {
+    justify-self: start;
+  }
+
   .add {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
