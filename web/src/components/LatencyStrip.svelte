@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Answer } from '../lib/api';
-  import { categoryLabel, duration, seriesColor } from '../lib/format';
+  import { answerMs, categoryLabel, duration, seriesColor } from '../lib/format';
 
   let { runs, models }: { runs: Answer[]; models: string[] } = $props();
 
@@ -13,10 +13,10 @@
 
   let width = $state(0);
 
-  const answered = $derived(runs.filter((run) => !run.error && run.total_ms > 0));
+  const answered = $derived(runs.filter((run) => !run.error && answerMs(run) > 0));
   const categories = $derived([...new Set(answered.map((run) => run.category))].sort());
-  const minTime = $derived(Math.min(...answered.map((run) => run.total_ms), 1000));
-  const maxTime = $derived(Math.max(...answered.map((run) => run.total_ms), 1000));
+  const minTime = $derived(Math.min(...answered.map((run) => answerMs(run)), 1000));
+  const maxTime = $derived(Math.max(...answered.map((run) => answerMs(run)), 1000));
   const ticks = $derived(TICKS_MS.filter((tick) => tick >= minTime * 0.5 && tick <= maxTime * 2));
   const logMin = $derived(Math.log10(ticks[0] ?? minTime));
   const logMax = $derived(Math.log10(ticks.at(-1) ?? maxTime));
@@ -71,11 +71,11 @@
         <text class="label" x="0" y={row.top + (models.length * LANE_HEIGHT) / 2 + 4}>{categoryLabel(row.category)}</text>
         {#each row.lanes as lane (lane.model)}
           {#each lane.laneRuns as run (run.id)}
-            <circle class="run" cx={x(run.total_ms)} cy={lane.y} r="3.5" fill={seriesColor(lane.model, models)}>
-              <title>{run.item_id}, {lane.model} : {duration(run.total_ms)}</title>
+            <circle class="run" cx={x(answerMs(run))} cy={lane.y} r="3.5" fill={seriesColor(lane.model, models)}>
+              <title>{run.item_id}, {lane.model} : {duration(answerMs(run))}</title>
             </circle>
           {/each}
-          {@const center = x(median(lane.laneRuns.map((run) => run.total_ms)))}
+          {@const center = x(median(lane.laneRuns.map((run) => answerMs(run))))}
           <line class="median" x1={center} x2={center} y1={lane.y - 6} y2={lane.y + 6} />
         {/each}
       {/each}

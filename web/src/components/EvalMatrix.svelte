@@ -1,7 +1,7 @@
 <script lang="ts">
   import ModelName from './ModelName.svelte';
   import type { ModelStats, Verdict } from '../lib/api';
-  import { categoryLabel, duration, score, seriesColor } from '../lib/format';
+  import { NET_HINT, categoryLabel, duration, modelMs, score, seriesColor } from '../lib/format';
 
   let { stats, verdicts, models }: { stats: ModelStats[]; verdicts: Verdict[]; models: string[] } = $props();
 
@@ -41,7 +41,7 @@
         <th scope="col" rowspan="2">Thème</th>
         <th scope="col" class="num" rowspan="2">Questions</th>
         <th scope="colgroup" colspan={models.length} class="group">Score sur 100</th>
-        <th scope="colgroup" colspan={models.length} class="group">Temps médian</th>
+        <th scope="colgroup" colspan={models.length} class="group" title={stats.some((stat) => stat.p50_net_total_ms !== null) ? NET_HINT : undefined}>Temps médian</th>
         <th scope="col" rowspan="2" class="group-start">Recommandé</th>
       </tr>
       <tr>
@@ -58,7 +58,7 @@
       {#each verdicts as verdict (verdict.category)}
         {@const category = verdict.category}
         {@const bestScore = bestOf(category, (stat) => stat.avg_score, 'max')}
-        {@const bestTime = bestOf(category, (stat) => stat.p50_total_ms, 'min')}
+        {@const bestTime = bestOf(category, modelMs, 'min')}
         {@const first = byKey.get(`${category}|${models[0]}`)}
         <tr class:overall={category === ''}>
           <th scope="row">{categoryLabel(category)}</th>
@@ -71,7 +71,7 @@
           {/each}
           {#each models as model, index (model)}
             {@const stat = byKey.get(`${category}|${model}`)}
-            <td class="num" class:group-start={index === 0} class:best={stat?.p50_total_ms === bestTime}>{stat ? duration(stat.p50_total_ms) : '-'}</td>
+            <td class="num" class:group-start={index === 0} class:best={stat !== undefined && modelMs(stat) === bestTime}>{stat ? duration(modelMs(stat)) : '-'}</td>
           {/each}
           <td class="group-start">
             {#if verdict.compromise}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ModelStats } from '../lib/api';
-  import { categoryLabel, duration, score, seriesColor } from '../lib/format';
+  import { categoryLabel, duration, modelMs, score, seriesColor } from '../lib/format';
 
   let { stats, models }: { stats: ModelStats[]; models: string[] } = $props();
 
@@ -17,9 +17,9 @@
 
   let width = $state(0);
 
-  const points = $derived(stats.filter((stat): stat is ModelStats & { avg_score: number } => stat.avg_score !== null && stat.p50_total_ms !== null && stat.p50_total_ms > 0));
+  const points = $derived(stats.filter((stat): stat is ModelStats & { avg_score: number } => stat.avg_score !== null && (modelMs(stat) ?? 0) > 0));
   const categories = $derived([...new Set(points.map((stat) => stat.category))].sort());
-  const times = $derived(points.map((stat) => stat.p50_total_ms as number));
+  const times = $derived(points.map((stat) => modelMs(stat) as number));
   const minTime = $derived(Math.min(...times, 1000));
   const maxTime = $derived(Math.max(...times, 1000));
   const ticks = $derived(TICKS_MS.filter((tick) => tick >= minTime * 0.5 && tick <= maxTime * 2));
@@ -40,7 +40,7 @@
     categories.map((category, index) => {
       const marks = points
         .filter((stat) => stat.category === category)
-        .map((stat) => ({ stat, cx: x(stat.p50_total_ms as number) }))
+        .map((stat) => ({ stat, cx: x(modelMs(stat) as number) }))
         .sort((a, b) => a.cx - b.cx);
       return {
         category,
@@ -75,7 +75,7 @@
         {/if}
         {#each row.marks as mark (mark.stat.model)}
           <circle class="mark" cx={mark.cx} cy={row.y} r={row.category === '' ? 7.5 : 6} fill={seriesColor(mark.stat.model, models)}>
-            <title>{categoryLabel(row.category)}, {mark.stat.model} : {score(mark.stat.avg_score)}/100, {duration(mark.stat.p50_total_ms)}</title>
+            <title>{categoryLabel(row.category)}, {mark.stat.model} : {score(mark.stat.avg_score)}/100, {duration(modelMs(mark.stat))}</title>
           </circle>
           <text class="value" class:weak={mark.stat.avg_score < WEAK_SCORE} x={mark.cx} y={mark.below ? row.y + 21 : row.y - 11} text-anchor="middle">{score(mark.stat.avg_score)}</text>
         {/each}

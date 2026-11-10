@@ -140,6 +140,8 @@ export interface Run {
   ttft_ms: number | null;
   total_ms: number;
   load_ms: number | null;
+  cli_startup_ms: number | null;
+  cli_exit_ms: number | null;
   prompt_tokens: number | null;
   output_tokens: number | null;
   tok_per_sec: number | null;
@@ -179,7 +181,6 @@ export interface Pick {
   model: string;
   provider: string;
   score: number;
-  p50_total_ms: number | null;
 }
 
 export interface Verdict {
@@ -239,6 +240,8 @@ export interface Answer {
   model: string;
   category: string;
   total_ms: number;
+  cli_startup_ms: number | null;
+  cli_exit_ms: number | null;
   error: string;
 }
 

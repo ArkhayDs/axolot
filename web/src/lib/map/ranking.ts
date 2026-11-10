@@ -1,7 +1,7 @@
 // Pure figures of the map: cell lookups, rankings with explicit ties, and gaps to the leader.
 
 import type { MapBenchmark, MapCell, MapData } from '../api';
-import { categoryLabel, number, score as formatScore } from '../format';
+import { categoryLabel, modelMs, number, score as formatScore } from '../format';
 
 export interface MapFilter {
   machine: string;
@@ -11,7 +11,7 @@ export interface MapFilter {
 
 export type RankKind = 'model' | 'theme' | 'machine';
 
-export type RankFigures = Pick<MapCell, 'avg_score' | 'runs' | 'questions' | 'errors' | 'p50_total_ms' | 'p95_total_ms' | 'p50_tok_per_sec'>;
+export type RankFigures = Pick<MapCell, 'avg_score' | 'runs' | 'questions' | 'errors' | 'p50_total_ms' | 'p50_net_total_ms' | 'p95_total_ms' | 'p50_tok_per_sec'>;
 
 export interface RankRow {
   kind: RankKind;
@@ -150,7 +150,7 @@ export function rankRows(kind: RankKind, entries: { key: string; label: string; 
           questions: cell.questions,
           coverage: 0,
           errors: cell.errors,
-          ms: cell.p50_total_ms,
+          ms: modelMs(cell),
           p95: cell.p95_total_ms,
           tokPerSec: cell.p50_tok_per_sec,
           gap: '',

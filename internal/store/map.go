@@ -36,12 +36,14 @@ type MapBenchmark struct {
 
 // Answer is the part of a run the cumulated time distribution draws.
 type Answer struct {
-	ID       string `json:"id"`
-	ItemID   string `json:"item_id"`
-	Model    string `json:"model"`
-	Category string `json:"category"`
-	TotalMs  int64  `json:"total_ms"`
-	Error    string `json:"error"`
+	ID           string `json:"id"`
+	ItemID       string `json:"item_id"`
+	Model        string `json:"model"`
+	Category     string `json:"category"`
+	TotalMs      int64  `json:"total_ms"`
+	CLIStartupMs *int64 `json:"cli_startup_ms"`
+	CLIExitMs    *int64 `json:"cli_exit_ms"`
+	Error        string `json:"error"`
 }
 
 // MapItem cumulates a model's answers to one question; an empty Machine is the rollup over machines.
@@ -106,7 +108,7 @@ func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error
 
 // MapAnswers lists what MapCells counted, without the heavy columns.
 func (s *Store) MapAnswers(ctx context.Context, hashes []string) ([]Answer, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, r.model, r.category, r.total_ms, r.error
+	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, r.model, r.category, r.total_ms, r.cli_startup_ms, r.cli_exit_ms, r.error
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE c.status <> $1 AND r.item_hash = ANY($2)`, StatusRunning, hashes)
 	if err != nil {

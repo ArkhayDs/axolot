@@ -23,12 +23,11 @@ type ModelStats struct {
 	RetrievalTotal int      `json:"retrieval_total"`
 }
 
-// Pick names a winning model with its figures.
+// Pick names a winning model with its score.
 type Pick struct {
-	Model      string   `json:"model"`
-	Provider   string   `json:"provider"`
-	Score      float64  `json:"score"`
-	P50TotalMs *float64 `json:"p50_total_ms"`
+	Model    string  `json:"model"`
+	Provider string  `json:"provider"`
+	Score    float64 `json:"score"`
 }
 
 // Verdict gives the winners of one category (empty = overall).
@@ -113,5 +112,5 @@ func toPick(s *ModelStats) *Pick {
 	if s == nil {
 		return nil
 	}
-	return &Pick{Model: s.Model, Provider: s.Provider, Score: *s.AvgScore, P50TotalMs: s.P50TotalMs}
+	return &Pick{Model: s.Model, Provider: s.Provider, Score: *s.AvgScore}
 }
