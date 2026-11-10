@@ -28,8 +28,10 @@ type openAIChunk struct {
 		} `json:"delta"`
 	} `json:"choices"`
 	Usage *struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
+		PromptTokens     int    `json:"prompt_tokens"`
+		CompletionTokens int    `json:"completion_tokens"`
+		CLIStartupMs     *int64 `json:"cli_startup_ms"`
+		CLIExitMs        *int64 `json:"cli_exit_ms"`
 	} `json:"usage"`
 }
 
@@ -106,6 +108,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		if chunk.Usage != nil {
 			result.PromptTokens = &chunk.Usage.PromptTokens
 			result.OutputTokens = &chunk.Usage.CompletionTokens
+			result.CLIStartupMs, result.CLIExitMs = chunk.Usage.CLIStartupMs, chunk.Usage.CLIExitMs
 		}
 		return nil
 	})
@@ -170,11 +173,16 @@ func imageDataURL(image string) string {
 }
 
 // setOpenAIRate computes tokens/s over the generation phase, once TTFT and usage are both known.
+// The CLI exit comes after the last token, so it is left out of that phase.
 func setOpenAIRate(result *ChatResult) {
 	if result.OutputTokens == nil || result.TTFTMs == nil {
 		return
 	}
-	if generationMs := result.TotalMs - *result.TTFTMs; generationMs > 0 {
+	generationMs := result.TotalMs - *result.TTFTMs
+	if result.CLIExitMs != nil {
+		generationMs -= *result.CLIExitMs
+	}
+	if generationMs > 0 {
 		rate := float64(*result.OutputTokens) / (float64(generationMs) / 1000)
 		result.TokPerSec = &rate
 	}
