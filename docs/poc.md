@@ -46,8 +46,9 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 - PR 1 : pont local exposant `claude -p` comme une API compatible OpenAI, ajouté comme simple connexion. Loopback uniquement : faire passer d'autres utilisateurs par l'abonnement est interdit, le futur login d'Axolot devra passer par des clés API.
 - PR 2 : correctifs de la connexion par clé API, testés sur serveur simulé faute de clé.
   - Schéma envoyé en `strict`, objets fermés (`additionalProperties: false`) ; la notation garde le schéma du cas.
-  - `temperature` rejetée : nouvelle tentative à la température par défaut du modèle, non tracée dans le run.
-  - URL `https` : budget de sortie relevé à 16 384 tokens (local et pont : 1 024 en campagne). Un modèle plafonné plus bas refuse l'appel.
+  - `temperature` ou `max_tokens` rejeté (o-series, gpt-5, Claude récents) : nouvelle tentative sans température, avec `max_completion_tokens` relevé à 16 384 pour laisser place au raisonnement. Température par défaut du modèle, non tracée dans le run.
+  - Les autres modèles gardent le budget de l'appelant (1 024 en campagne), local comme cloud.
+  - Schémas des cas : toute propriété est requise, vérifié par les tests (exigence du mode `strict`).
 - PR 1 mesurée le 2026-11-09 (Max 20x), un Benchmark complet par modèle :
 
 | Modèle | Score (réponses mesurées) | Erreurs | Durée | 1er token p50 | Total p50 | Débit p50 | Tokens entrée / sortie |
