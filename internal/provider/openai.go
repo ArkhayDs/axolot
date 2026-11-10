@@ -11,9 +11,8 @@ import (
 	"time"
 )
 
-// cloudMaxTokens leaves a cloud model room for the reasoning it spends before answering;
-// local servers keep the caller's budget, sized for ContextWindow.
-const cloudMaxTokens = 16384
+// reasoningMaxTokens leaves a reasoning model room for the thinking it spends before answering.
+const reasoningMaxTokens = 16384
 
 // OpenAI calls any OpenAI-compatible server (vLLM, llama.cpp, cloud APIs).
 type OpenAI struct {
@@ -34,26 +33,36 @@ type openAIChunk struct {
 	} `json:"usage"`
 }
 
-// Chat streams a generation; models rejecting the temperature are retried with their default one.
+// Chat streams a generation; a model rejecting the sampling parameters is retried the way reasoning models want them.
 func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)) (ChatResult, error) {
-	result, err := o.chat(ctx, req, onDelta, true)
-	if err != nil && strings.Contains(err.Error(), "temperature") {
-		return o.chat(ctx, req, onDelta, false)
+	result, err := o.chat(ctx, req, onDelta, false)
+	if err != nil && result.Output == "" && rejectsSampling(err) {
+		return o.chat(ctx, req, onDelta, true)
 	}
 	return result, err
 }
 
+// rejectsSampling tells a refused temperature or max_tokens, as o-series, gpt-5 and recent Claude models answer.
+// @param err - chat error, retried only when nothing was streamed yet
+// @returns bool - true when a reasoning-style retry may succeed
+func rejectsSampling(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "temperature") || strings.Contains(msg, "max_tokens")
+}
+
 // chat runs one /chat/completions call; token rate is derived client-side from reported usage.
-// @param withTemperature - send Temperature, rejected by some cloud reasoning models
-func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string), withTemperature bool) (ChatResult, error) {
+// @param reasoning - drop Temperature and send a widened max_completion_tokens instead of max_tokens
+func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string), reasoning bool) (ChatResult, error) {
 	body := map[string]any{
 		"model":          req.Model,
 		"messages":       openAIMessages(req.Messages),
 		"stream":         true,
 		"stream_options": map[string]any{"include_usage": true},
-		"max_tokens":     o.maxTokens(req.MaxTokens),
 	}
-	if withTemperature {
+	if reasoning {
+		body["max_completion_tokens"] = max(req.MaxTokens, reasoningMaxTokens)
+	} else {
+		body["max_tokens"] = req.MaxTokens
 		body["temperature"] = Temperature
 	}
 	if len(req.Schema) > 0 {
@@ -106,16 +115,10 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	return result, err
 }
 
-// maxTokens widens the budget for an https server, the mark of a cloud API: local servers and the bridge use http.
-func (o *OpenAI) maxTokens(requested int) int {
-	if strings.HasPrefix(o.BaseURL, "https://") {
-		return max(requested, cloudMaxTokens)
-	}
-	return requested
-}
-
 // strictSchema returns a copy of schema closed to extra keys, which cloud APIs require in strict mode.
 // The case keeps its own schema: grading still checks the answer against it.
+// @param schema - case schema, every property required (enforced by the case tests)
+// @returns map[string]any - closed copy for response_format
 func strictSchema(schema json.RawMessage) (map[string]any, error) {
 	var root map[string]any
 	if err := json.Unmarshal(schema, &root); err != nil {
@@ -126,6 +129,7 @@ func strictSchema(schema json.RawMessage) (map[string]any, error) {
 }
 
 // closeObjects sets additionalProperties to false on every object of the schema tree.
+// @param node - schema node, modified in place
 func closeObjects(node map[string]any) {
 	if node["type"] == "object" {
 		node["additionalProperties"] = false

@@ -101,22 +101,32 @@ func TestOpenAIChatSendsKeySchemaAndReadsUsage(t *testing.T) {
 	}
 }
 
-func TestOpenAIChatRetriesWithoutTemperature(t *testing.T) {
-	calls := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		body, _ := io.ReadAll(r.Body)
-		if strings.Contains(string(body), `"temperature"`) {
-			http.Error(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`, http.StatusBadRequest)
-			return
-		}
-		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\ndata: [DONE]\n\n")
-	}))
-	defer srv.Close()
+func TestOpenAIChatRetriesRejectedSamplingParams(t *testing.T) {
+	for _, rejected := range []string{"temperature", "max_tokens"} {
+		var bodies []map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			bodies = append(bodies, body)
+			if _, ok := body[rejected]; ok {
+				http.Error(w, `{"error":{"message":"Unsupported parameter: '`+rejected+`' is not supported with this model."}}`, http.StatusBadRequest)
+				return
+			}
+			fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\ndata: [DONE]\n\n")
+		}))
 
-	result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
-	if err != nil || result.Output != "Oui" || calls != 2 {
-		t.Fatalf("calls=%d output=%q err=%v", calls, result.Output, err)
+		result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
+		srv.Close()
+		if err != nil || result.Output != "Oui" || len(bodies) != 2 {
+			t.Fatalf("%s: calls=%d output=%q err=%v", rejected, len(bodies), result.Output, err)
+		}
+		if bodies[0]["max_tokens"] != 10.0 {
+			t.Errorf("%s: first attempt budget %v", rejected, bodies[0]["max_tokens"])
+		}
+		retry := bodies[1]
+		if retry["temperature"] != nil || retry["max_tokens"] != nil || retry["max_completion_tokens"] != float64(reasoningMaxTokens) {
+			t.Errorf("%s: retry body %v", rejected, retry)
+		}
 	}
 }
 
@@ -130,23 +140,6 @@ func TestOpenAIChatDoesNotRetryOtherErrors(t *testing.T) {
 
 	if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil || calls != 1 {
 		t.Fatalf("calls=%d err=%v", calls, err)
-	}
-}
-
-func TestOpenAIWidensTokenBudgetForHTTPSOnly(t *testing.T) {
-	for _, tc := range []struct {
-		baseURL   string
-		requested int
-		want      int
-	}{
-		{"http://localhost:8000/v1", 1024, 1024},
-		{"http://host.docker.internal:5099/v1", 2048, 2048},
-		{"https://api.anthropic.com/v1", 1024, cloudMaxTokens},
-		{"https://api.example.com/v1", cloudMaxTokens + 1, cloudMaxTokens + 1},
-	} {
-		if got := (&OpenAI{BaseURL: tc.baseURL}).maxTokens(tc.requested); got != tc.want {
-			t.Errorf("%s with %d: got %d, want %d", tc.baseURL, tc.requested, got, tc.want)
-		}
 	}
 }
 
