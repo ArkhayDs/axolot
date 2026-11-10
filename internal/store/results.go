@@ -50,6 +50,8 @@ type Run struct {
 	TTFTMs       *int64          `json:"ttft_ms"`
 	TotalMs      int64           `json:"total_ms"`
 	LoadMs       *int64          `json:"load_ms"`
+	CLIStartupMs *int64          `json:"cli_startup_ms"`
+	CLIExitMs    *int64          `json:"cli_exit_ms"`
 	PromptTokens *int            `json:"prompt_tokens"`
 	OutputTokens *int            `json:"output_tokens"`
 	TokPerSec    *float64        `json:"tok_per_sec"`
@@ -91,7 +93,8 @@ func (s *Store) MarkInterrupted(ctx context.Context) error {
 
 // runColumns must stay in the order of the Run fields.
 const runColumns = `r.id::text, r.campaign_id::text, r.case_id, r.item_id, r.category, r.provider_name, r.model, r.output, r.error,
-	r.ttft_ms, r.total_ms, r.load_ms, r.prompt_tokens, r.output_tokens, r.tok_per_sec, r.score, r.checks, r.retrieved, r.retrieval_hit, COALESCE(r.item_hash, '')`
+	r.ttft_ms, r.total_ms, r.load_ms, r.cli_startup_ms, r.cli_exit_ms, r.prompt_tokens, r.output_tokens, r.tok_per_sec, r.score, r.checks, r.retrieved,
+	r.retrieval_hit, COALESCE(r.item_hash, '')`
 
 const campaignColumns = `c.id::text, c.name, c.status, c.hardware, c.rag_config, c.total_items,
 	(SELECT count(*)::int FROM runs r WHERE r.campaign_id = c.id), c.created_at, c.finished_at`
@@ -121,10 +124,11 @@ func (s *Store) CampaignByID(ctx context.Context, id string) (Campaign, error) {
 // CreateRun stores one result.
 func (s *Store) CreateRun(ctx context.Context, run Run) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO runs (campaign_id, case_id, item_id, category, provider_name, model, output, error,
-		ttft_ms, total_ms, load_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit, item_hash)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+		ttft_ms, total_ms, load_ms, cli_startup_ms, cli_exit_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit,
+		item_hash)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
 		run.CampaignID, run.CaseID, run.ItemID, run.Category, run.ProviderName, run.Model, run.Output, run.Error,
-		run.TTFTMs, run.TotalMs, run.LoadMs, run.PromptTokens, run.OutputTokens, run.TokPerSec, run.Score,
+		run.TTFTMs, run.TotalMs, run.LoadMs, run.CLIStartupMs, run.CLIExitMs, run.PromptTokens, run.OutputTokens, run.TokPerSec, run.Score,
 		run.Checks, run.Retrieved, run.RetrievalHit, run.ItemHash)
 	if err != nil {
 		return fmt.Errorf("create run: %w", err)
