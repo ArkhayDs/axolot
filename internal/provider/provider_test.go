@@ -133,6 +133,23 @@ func TestOpenAIChatDoesNotRetryOtherErrors(t *testing.T) {
 	}
 }
 
+func TestOpenAIWidensTokenBudgetForHTTPSOnly(t *testing.T) {
+	for _, tc := range []struct {
+		baseURL   string
+		requested int
+		want      int
+	}{
+		{"http://localhost:8000/v1", 1024, 1024},
+		{"http://host.docker.internal:5099/v1", 2048, 2048},
+		{"https://api.anthropic.com/v1", 1024, cloudMaxTokens},
+		{"https://api.example.com/v1", cloudMaxTokens + 1, cloudMaxTokens + 1},
+	} {
+		if got := (&OpenAI{BaseURL: tc.baseURL}).maxTokens(tc.requested); got != tc.want {
+			t.Errorf("%s with %d: got %d, want %d", tc.baseURL, tc.requested, got, tc.want)
+		}
+	}
+}
+
 func TestOpenAIChatSendsStrictSchemaLeavingTheCaseOne(t *testing.T) {
 	var got struct {
 		ResponseFormat struct {
