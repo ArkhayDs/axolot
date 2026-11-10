@@ -124,8 +124,9 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ttft, rate, hit := int64(100), 40.0, true
-	base := Run{CampaignID: id, CaseID: "c", ProviderName: "p", Model: "m", Checks: json.RawMessage(`[]`), TTFTMs: &ttft, TokPerSec: &rate}
+	ttft, rate, hit, startup, exit := int64(100), 40.0, true, int64(30), int64(20)
+	base := Run{CampaignID: id, CaseID: "c", ProviderName: "p", Model: "m", Checks: json.RawMessage(`[]`), TTFTMs: &ttft, TokPerSec: &rate,
+		CLIStartupMs: &startup, CLIExitMs: &exit}
 	for i, category := range []string{"rag", "rag", "code"} {
 		run := base
 		run.ItemID, run.Category, run.TotalMs, run.Score = fmt.Sprintf("i%d", i), category, int64(100*(i+1)), 50
@@ -161,6 +162,9 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	runs, err := s.Runs(ctx, id)
 	if err != nil || len(runs) != 3 {
 		t.Fatalf("runs=%d err=%v", len(runs), err)
+	}
+	if *runs[0].CLIStartupMs != 30 || *runs[0].CLIExitMs != 20 {
+		t.Fatalf("cli startup=%v exit=%v", runs[0].CLIStartupMs, runs[0].CLIExitMs)
 	}
 
 	if err := s.MarkInterrupted(ctx); err != nil {
