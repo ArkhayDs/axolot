@@ -44,7 +44,10 @@ Axolot est un outil réel de comparaison, la démo n'était qu'un point d'étape
 ### 1. Modèles frontier et cloud
 Point de comparaison principal : Claude sur abonnement, seul accès disponible (aucune clé API). Plan validé le 2026-11-05.
 - PR 1 : pont local exposant `claude -p` comme une API compatible OpenAI, ajouté comme simple connexion. Loopback uniquement : faire passer d'autres utilisateurs par l'abonnement est interdit, le futur login d'Axolot devra passer par des clés API.
-- PR 2 : correctifs de la connexion par clé API, qui échoue aujourd'hui avec Claude (`temperature`, schéma sans `strict`). Testés sur serveur simulé, faute de clé.
+- PR 2 : correctifs de la connexion par clé API, testés sur serveur simulé faute de clé.
+  - Schéma envoyé en `strict`, objets fermés (`additionalProperties: false`) ; la notation garde le schéma du cas.
+  - `temperature` rejetée : nouvelle tentative à la température par défaut du modèle, non tracée dans le run.
+  - URL `https` : budget de sortie relevé à 16 384 tokens (local et pont : 1 024 en campagne). Un modèle plafonné plus bas refuse l'appel.
 - PR 1 mesurée le 2026-11-09 (Max 20x), un Benchmark complet par modèle :
 
 | Modèle | Score (réponses mesurées) | Erreurs | Durée | 1er token p50 | Total p50 | Débit p50 | Tokens entrée / sortie |
