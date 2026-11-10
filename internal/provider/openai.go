@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+// cloudMaxTokens leaves a cloud model room for the reasoning it spends before answering;
+// local servers keep the caller's budget, sized for ContextWindow.
+const cloudMaxTokens = 16384
+
 // OpenAI calls any OpenAI-compatible server (vLLM, llama.cpp, cloud APIs).
 type OpenAI struct {
 	BaseURL string
@@ -47,7 +51,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		"messages":       openAIMessages(req.Messages),
 		"stream":         true,
 		"stream_options": map[string]any{"include_usage": true},
-		"max_tokens":     req.MaxTokens,
+		"max_tokens":     o.maxTokens(req.MaxTokens),
 	}
 	if withTemperature {
 		body["temperature"] = Temperature
@@ -100,6 +104,14 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	result.TotalMs = msSince(start)
 	setOpenAIRate(&result)
 	return result, err
+}
+
+// maxTokens widens the budget for an https server, the mark of a cloud API: local servers and the bridge use http.
+func (o *OpenAI) maxTokens(requested int) int {
+	if strings.HasPrefix(o.BaseURL, "https://") {
+		return max(requested, cloudMaxTokens)
+	}
+	return requested
 }
 
 // strictSchema returns a copy of schema closed to extra keys, which cloud APIs require in strict mode.
