@@ -62,10 +62,10 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 - Comparabilité :
   - Notes comparables aux modèles locaux.
   - Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement.
-  - Temps = attente réelle : ~1 s de lancement de Claude Code, 1er token retardé par la réflexion du modèle (cas à schéma).
+  - Temps = attente réelle, Claude Code compris : ~430 ms de lancement avant l'appel API, ~650 ms de fermeture après la réponse. Le pont mesure les deux à chaque appel : colonnes « Net » dans les Résultats, verdict Vitesse et t/s calculés sans eux. 1er token encore retardé par la réflexion du modèle (cas à schéma).
   - ~600 tokens d'entrée cachés par question (consigne de Claude Code, même avec `--system-prompt ""`), absents d'un appel par clé API.
   - Débit possiblement surestimé si les tokens de réflexion sont comptés en sortie (non vérifié) : Haiku jusqu'à 877 t/s.
-  - Note sous le tableau de Résultats dès qu'un modèle `claude-*` apparaît : les runs ne stockent que le nom de la connexion, pas son type (PR 4).
+  - Note sous le tableau de Résultats dès qu'une réponse porte la mesure du pont ; les anciennes réponses Claude sans mesure ne l'affichent pas.
 - Corpus réels envoyés hors machine : signalé dans le panneau Connexions, seul le corpus fictif part sans réserve.
 - Plus tard : pont Codex sur la machine du PDG, avec son compte (GPT Astra, abonnement uniquement). Mesure « Astra via Codex », éligibilité à un usage scripté à vérifier.
 
