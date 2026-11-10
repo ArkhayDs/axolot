@@ -134,6 +134,9 @@ func TestCampaignRunsAndStats(t *testing.T) {
 			run.RetrievalHit = &hit
 			run.Retrieved = json.RawMessage(`[{"file":"a.md"}]`)
 		}
+		if i == 1 {
+			run.CLIStartupMs = nil
+		}
 		if i == 2 {
 			run.Error, run.Score, run.TotalMs = "out of memory", 0, 1
 		}
@@ -156,8 +159,8 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	if *stats[0].P50TotalMs != 150 || stats[0].RetrievalHits != 2 || stats[0].RetrievalTotal != 2 {
 		t.Fatalf("overall=%+v", stats[0])
 	}
-	if *stats[0].P50NetTTFTMs != 70 || *stats[0].P50NetTotalMs != 100 || stats[1].P50NetTotalMs != nil {
-		t.Fatalf("net medians take the CLI out, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
+	if *stats[0].P50NetTTFTMs != 70 || *stats[0].P50NetTotalMs != 50 || stats[1].P50NetTotalMs != nil {
+		t.Fatalf("net medians take the CLI out of fully measured answers only, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
 	}
 	if scoreOf(stats[0].AvgScore) != 50 || stats[1].Category != "code" || stats[1].AvgScore != nil {
 		t.Fatalf("an unmeasured answer must stay out of the average, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
