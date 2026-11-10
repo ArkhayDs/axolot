@@ -1,7 +1,7 @@
 // What each node and link says under the current selection: kept or dimmed, score, label, result.
 
 import type { MapBenchmark } from '../api';
-import { duration, score as formatScore } from '../format';
+import { duration, modelMs, score as formatScore } from '../format';
 import type { Selection } from './arrange';
 import { questionKept } from './content';
 import type { MapContent } from './content';
@@ -62,7 +62,7 @@ export function nodeFigure(node: GraphNode, cells: CellIndex, content: MapConten
   const figures = (machine: string, model: string, category: string, prefix = rank ? `n°${rank} · ` : ''): string => {
     const cell = cellOf(cells, machine, model, category);
     if (!cell) return 'Sans donnée';
-    return `${prefix}${cell.avg_score === null ? 'Non mesuré' : `${formatScore(cell.avg_score)} · ${duration(cell.p50_total_ms)}`}`;
+    return `${prefix}${cell.avg_score === null ? 'Non mesuré' : `${formatScore(cell.avg_score)} · ${duration(modelMs(cell))}`}`;
   };
   // Models compete on a machine; a machine alone among one would always read first, whatever its model is worth.
   const placeOf = (machine: string, model: string): string => {

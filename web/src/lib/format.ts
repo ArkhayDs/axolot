@@ -1,6 +1,6 @@
 // French display helpers for figures, statuses and scoring labels.
 
-import type { Campaign, Check, Estimate, Fit, Item } from './api';
+import type { Answer, Campaign, Check, Estimate, Fit, Item, ModelStats } from './api';
 
 const CATEGORIES: Record<string, string> = {
   '': 'Tous les thèmes',
@@ -56,7 +56,9 @@ const VALUES: Record<string, string> = { executer: 'exécuter', demander_precisi
 
 export const UNMEASURED_HINT = "La question n'a pas pu être mesurée (pont, quota, connexion) : elle ne compte pas dans la moyenne.";
 
-export const NET_HINT = 'Sans le lancement ni la fermeture de Claude Code, mesurés à chaque appel du pont.';
+export const NET_HINT = 'Modèles Claude : sans le lancement ni la fermeture de Claude Code, mesurés à chaque appel du pont.';
+
+export const GROSS_HINT = 'Attente réelle, lancement et fermeture de Claude Code compris.';
 
 const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
@@ -165,6 +167,24 @@ export function duration(ms: number | null | undefined): string {
   if (ms < 60_000) return `${decimal.format(ms / 1000)} s`;
   const seconds = Math.round(ms / 1000);
   return `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Model's own median time, the one verdicts judge speed on
+ * @param {Pick<ModelStats, 'p50_total_ms' | 'p50_net_total_ms'>} stat - model figures
+ * @returns {number | null} - median net of the Claude CLI when the bridge measured it, else gross
+ */
+export function modelMs(stat: Pick<ModelStats, 'p50_total_ms' | 'p50_net_total_ms'>): number | null {
+  return stat.p50_net_total_ms ?? stat.p50_total_ms;
+}
+
+/**
+ * @param {Pick<Answer, 'total_ms' | 'cli_startup_ms' | 'cli_exit_ms'>} answer - one answer
+ * @returns {number} - its time net of the Claude CLI when both CLI times were measured, as the medians count it
+ */
+export function answerMs(answer: Pick<Answer, 'total_ms' | 'cli_startup_ms' | 'cli_exit_ms'>): number {
+  if (answer.cli_startup_ms === null || answer.cli_exit_ms === null) return answer.total_ms;
+  return answer.total_ms - answer.cli_startup_ms - answer.cli_exit_ms;
 }
 
 /**
