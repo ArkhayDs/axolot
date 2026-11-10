@@ -1,9 +1,11 @@
 package cases
 
 import (
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -27,6 +29,50 @@ func TestLoadValidatesEmbeddedCases(t *testing.T) {
 			t.Errorf("missing case %s", want)
 		}
 	}
+}
+
+// Cloud APIs reject a strict schema whose objects leave a property optional.
+func TestSchemasRequireEveryProperty(t *testing.T) {
+	loaded, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range loaded {
+		for _, item := range c.Items {
+			if len(item.Schema) == 0 {
+				continue
+			}
+			var schema map[string]any
+			if err := json.Unmarshal(item.Schema, &schema); err != nil {
+				t.Fatalf("%s: %v", item.ID, err)
+			}
+			if missing := optionalProperty(schema); missing != "" {
+				t.Errorf("%s: property %s not required", item.ID, missing)
+			}
+		}
+	}
+}
+
+// optionalProperty returns the first property of the schema tree missing from its object's required list.
+// @param node - schema node
+// @returns string - property name, "" when all are required
+func optionalProperty(node map[string]any) string {
+	properties, _ := node["properties"].(map[string]any)
+	required, _ := node["required"].([]any)
+	for name, property := range properties {
+		if !slices.Contains(required, any(name)) {
+			return name
+		}
+		if child, ok := property.(map[string]any); ok {
+			if missing := optionalProperty(child); missing != "" {
+				return missing
+			}
+		}
+	}
+	if items, ok := node["items"].(map[string]any); ok {
+		return optionalProperty(items)
+	}
+	return ""
 }
 
 // The presenter opens these passages by hand during the demo, so each quote must exist verbatim
