@@ -5,6 +5,7 @@ package analytics
 const compromiseMargin = 10.0
 
 // ModelStats aggregates one model's runs; an empty Category means all categories.
+// Net times leave out the Claude CLI's own time, nil when no answer went through the bridge.
 type ModelStats struct {
 	Provider       string   `json:"provider"`
 	Model          string   `json:"model"`
@@ -14,6 +15,8 @@ type ModelStats struct {
 	AvgScore       *float64 `json:"avg_score"`
 	P50TTFTMs      *float64 `json:"p50_ttft_ms"`
 	P50TotalMs     *float64 `json:"p50_total_ms"`
+	P50NetTTFTMs   *float64 `json:"p50_net_ttft_ms"`
+	P50NetTotalMs  *float64 `json:"p50_net_total_ms"`
 	P50TokPerSec   *float64 `json:"p50_tok_per_sec"`
 	MaxLoadMs      *int64   `json:"max_load_ms"`
 	RetrievalHits  int      `json:"retrieval_hits"`
@@ -89,12 +92,20 @@ func isBetterQuality(a, b *ModelStats) bool {
 	return isFaster(a, b)
 }
 
-// isFaster compares median total time; a model without timing never wins.
+// isFaster compares median total time, net of the CLI when measured; a model without timing never wins.
 func isFaster(a, b *ModelStats) bool {
-	if a.P50TotalMs == nil {
+	if modelMs(a) == nil {
 		return false
 	}
-	return b == nil || b.P50TotalMs == nil || *a.P50TotalMs < *b.P50TotalMs
+	return b == nil || modelMs(b) == nil || *modelMs(a) < *modelMs(b)
+}
+
+// modelMs is the model's own median time: the CLI startup comes from the tooling, not the model.
+func modelMs(s *ModelStats) *float64 {
+	if s.P50NetTotalMs != nil {
+		return s.P50NetTotalMs
+	}
+	return s.P50TotalMs
 }
 
 // toPick converts a winner, nil staying nil.

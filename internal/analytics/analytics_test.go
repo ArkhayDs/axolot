@@ -45,6 +45,15 @@ func TestVerdictsQualityTieGoesToFaster(t *testing.T) {
 	}
 }
 
+func TestVerdictsJudgeSpeedNetOfTheCLI(t *testing.T) {
+	bridged := stat("haiku", "", 90, 1500)
+	bridged.P50NetTotalMs = ms(400)
+	v := Verdicts([]ModelStats{stat("local", "", 90, 800), bridged})[0]
+	if v.Speed.Model != "haiku" || v.Quality.Model != "haiku" {
+		t.Fatalf("speed=%s quality=%s", v.Speed.Model, v.Quality.Model)
+	}
+}
+
 func TestVerdictsHandleEmptyAndMissingTimings(t *testing.T) {
 	if got := Verdicts(nil); len(got) != 0 {
 		t.Fatalf("got %+v", got)

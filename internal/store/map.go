@@ -76,12 +76,7 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
 			sum(score * weight) / sum(weight),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTER (WHERE error = ''),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
-			percentile_cont(0.5) WITHIN GROUP (ORDER BY tok_per_sec) FILTER (WHERE error = ''),
-			max(load_ms),
-			count(*) FILTER (WHERE retrieval_hit)::int,
-			count(retrieval_hit)::int,
+			`+statsFigures+`,
 			count(DISTINCT case_id || '/' || item_id)::int,
 			percentile_cont(0.95) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = '')
 		FROM answers

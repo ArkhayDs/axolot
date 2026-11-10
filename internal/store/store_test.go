@@ -156,6 +156,9 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	if *stats[0].P50TotalMs != 150 || stats[0].RetrievalHits != 2 || stats[0].RetrievalTotal != 2 {
 		t.Fatalf("overall=%+v", stats[0])
 	}
+	if *stats[0].P50NetTTFTMs != 70 || *stats[0].P50NetTotalMs != 100 || stats[1].P50NetTotalMs != nil {
+		t.Fatalf("net medians take the CLI out, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
+	}
 	if scoreOf(stats[0].AvgScore) != 50 || stats[1].Category != "code" || stats[1].AvgScore != nil {
 		t.Fatalf("an unmeasured answer must stay out of the average, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
 	}
@@ -219,7 +222,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if len(cells) != 9 {
 		t.Fatalf("cells=%+v", cells)
 	}
-	if cell := found["mac|code"]; cell.Runs != 3 || cell.Questions != 1 || *cell.P50TotalMs != 200 {
+	if cell := found["mac|code"]; cell.Runs != 3 || cell.Questions != 1 || *cell.P50TotalMs != 200 || cell.P50NetTotalMs != nil {
 		t.Fatalf("every answer counts, cancelled ones included: %+v", cell)
 	}
 	if cell := found["mac|rag"]; cell.Runs != 2 || cell.Errors != 1 || scoreOf(cell.AvgScore) != 100 || *cell.P50TotalMs != 400 {
