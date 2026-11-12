@@ -20,6 +20,13 @@ const (
 	StatusInterrupted = "interrupted"
 )
 
+// Connection types stored on each run; empty for older answers whose type is unknown.
+const (
+	ConnectionLocal        = "local"
+	ConnectionAPI          = "api"
+	ConnectionSubscription = "subscription"
+)
+
 // ErrNotFound is returned when a requested row does not exist.
 var ErrNotFound = errors.New("not found")
 
@@ -38,28 +45,29 @@ type Campaign struct {
 
 // Run is one model answering one item.
 type Run struct {
-	ID           string          `json:"id"`
-	CampaignID   string          `json:"campaign_id"`
-	CaseID       string          `json:"case_id"`
-	ItemID       string          `json:"item_id"`
-	Category     string          `json:"category"`
-	ProviderName string          `json:"provider_name"`
-	Model        string          `json:"model"`
-	Output       string          `json:"output"`
-	Error        string          `json:"error"`
-	TTFTMs       *int64          `json:"ttft_ms"`
-	TotalMs      int64           `json:"total_ms"`
-	LoadMs       *int64          `json:"load_ms"`
-	CLIStartupMs *int64          `json:"cli_startup_ms"`
-	CLIExitMs    *int64          `json:"cli_exit_ms"`
-	PromptTokens *int            `json:"prompt_tokens"`
-	OutputTokens *int            `json:"output_tokens"`
-	TokPerSec    *float64        `json:"tok_per_sec"`
-	Score        float64         `json:"score"`
-	Checks       json.RawMessage `json:"checks"`
-	Retrieved    json.RawMessage `json:"retrieved"`
-	RetrievalHit *bool           `json:"retrieval_hit"`
-	ItemHash     string          `json:"item_hash"`
+	ID             string          `json:"id"`
+	CampaignID     string          `json:"campaign_id"`
+	CaseID         string          `json:"case_id"`
+	ItemID         string          `json:"item_id"`
+	Category       string          `json:"category"`
+	ProviderName   string          `json:"provider_name"`
+	ConnectionType string          `json:"connection_type"`
+	Model          string          `json:"model"`
+	Output         string          `json:"output"`
+	Error          string          `json:"error"`
+	TTFTMs         *int64          `json:"ttft_ms"`
+	TotalMs        int64           `json:"total_ms"`
+	LoadMs         *int64          `json:"load_ms"`
+	CLIStartupMs   *int64          `json:"cli_startup_ms"`
+	CLIExitMs      *int64          `json:"cli_exit_ms"`
+	PromptTokens   *int            `json:"prompt_tokens"`
+	OutputTokens   *int            `json:"output_tokens"`
+	TokPerSec      *float64        `json:"tok_per_sec"`
+	Score          float64         `json:"score"`
+	Checks         json.RawMessage `json:"checks"`
+	Retrieved      json.RawMessage `json:"retrieved"`
+	RetrievalHit   *bool           `json:"retrieval_hit"`
+	ItemHash       string          `json:"item_hash"`
 }
 
 // CreateCampaign opens a campaign and returns its id.
@@ -92,7 +100,8 @@ func (s *Store) MarkInterrupted(ctx context.Context) error {
 }
 
 // runColumns must stay in the order of the Run fields.
-const runColumns = `r.id::text, r.campaign_id::text, r.case_id, r.item_id, r.category, r.provider_name, r.model, r.output, r.error,
+const runColumns = `r.id::text, r.campaign_id::text, r.case_id, r.item_id, r.category, r.provider_name, COALESCE(r.connection_type, ''),
+	r.model, r.output, r.error,
 	r.ttft_ms, r.total_ms, r.load_ms, r.cli_startup_ms, r.cli_exit_ms, r.prompt_tokens, r.output_tokens, r.tok_per_sec, r.score, r.checks, r.retrieved,
 	r.retrieval_hit, COALESCE(r.item_hash, '')`
 
@@ -125,11 +134,11 @@ func (s *Store) CampaignByID(ctx context.Context, id string) (Campaign, error) {
 func (s *Store) CreateRun(ctx context.Context, run Run) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO runs (campaign_id, case_id, item_id, category, provider_name, model, output, error,
 		ttft_ms, total_ms, load_ms, cli_startup_ms, cli_exit_ms, prompt_tokens, output_tokens, tok_per_sec, score, checks, retrieved, retrieval_hit,
-		item_hash)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
+		item_hash, connection_type)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NULLIF($22, ''))`,
 		run.CampaignID, run.CaseID, run.ItemID, run.Category, run.ProviderName, run.Model, run.Output, run.Error,
 		run.TTFTMs, run.TotalMs, run.LoadMs, run.CLIStartupMs, run.CLIExitMs, run.PromptTokens, run.OutputTokens, run.TokPerSec, run.Score,
-		run.Checks, run.Retrieved, run.RetrievalHit, run.ItemHash)
+		run.Checks, run.Retrieved, run.RetrievalHit, run.ItemHash, run.ConnectionType)
 	if err != nil {
 		return fmt.Errorf("create run: %w", err)
 	}

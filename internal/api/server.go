@@ -267,6 +267,19 @@ func (s *Server) isBridge(p store.Provider) bool {
 	return p.BaseURL == s.cfg.BridgeURL
 }
 
+// connectionType classifies a connection for the runs it serves.
+// shortcut: an OpenAI-compatible server on the host (llama.cpp, LM Studio) counts as cloud API, add a kind when one is used.
+func (s *Server) connectionType(p store.Provider) string {
+	switch {
+	case s.isBridge(p):
+		return store.ConnectionSubscription
+	case p.Kind == "ollama":
+		return store.ConnectionLocal
+	default:
+		return store.ConnectionAPI
+	}
+}
+
 // pathID parses a numeric path parameter, answering 400 when malformed.
 func pathID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
