@@ -43,10 +43,10 @@ Modèles : à télécharger dans Réglages, qui indique lesquels conviennent à 
 Prérequis : la CLI `claude` connectée sur l'hôte.
 
 ```bash
-make bridge   # ajoute jeton et port à .env, compile et lance le pont au premier plan
+make bridge   # ajoute jeton et port à .env s'ils manquent, compile et lance le pont au premier plan
 ```
 
-Puis Réglages, Connexions : Compatible OpenAI, URL `http://host.docker.internal:5092/v1` (port `AXOLOT_BRIDGE_PORT`, 5092 par défaut), clé `AXOLOT_BRIDGE_TOKEN` de `.env`. Chaque question consomme le quota de l'abonnement. Pont en loopback uniquement : un abonnement ne se partage pas. Le pont mesure le lancement et la fermeture de Claude Code à chaque appel : les Résultats affichent des temps « Net » sans eux, et la vitesse est jugée sur ces temps nets.
+Puis Réglages, Connexions, « Connecter un compte Claude Pro ou Max » : la fenêtre explique le pont et ajoute la connexion avec le jeton (`AXOLOT_BRIDGE_TOKEN`, port `AXOLOT_BRIDGE_PORT`, 5092 par défaut). Jeton tout juste ajouté à `.env` : `make up` avant. Chaque question consomme le quota de l'abonnement. Pont en loopback uniquement : un abonnement ne se partage pas. Le pont mesure le lancement et la fermeture de Claude Code à chaque appel : les Résultats affichent des temps « Net » sans eux, et la vitesse est jugée sur ces temps nets.
 
 ## Parcours
 
