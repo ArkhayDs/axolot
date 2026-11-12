@@ -10,6 +10,7 @@
   let dialog: HTMLDialogElement;
   let copied = $state(false);
   let error = $state('');
+  let adding = $state(false);
 
   /** Copies the bridge command, the page is on loopback so the clipboard API is allowed */
   async function copy(): Promise<void> {
@@ -22,14 +23,17 @@
     }
   }
 
-  /** Saves the bridge connection, the server adds the token */
+  /** Saves the bridge connection, locked until the reloaded list hides the button */
   async function add(): Promise<void> {
+    adding = true;
     try {
       await api.createBridge();
       error = '';
       await onadded();
     } catch (saveError) {
       error = errorMessage(saveError);
+    } finally {
+      adding = false;
     }
   }
 
@@ -63,7 +67,7 @@
         Connexion ajoutée.
       {:else}
         Une fois :
-        <button class="btn btn-primary" type="button" onclick={add}><Icon name="plug" /> Ajouter la connexion</button>
+        <button class="btn btn-primary" type="button" onclick={add} disabled={adding}><Icon name="plug" /> Ajouter la connexion</button>
       {/if}
     </li>
     <li>
@@ -73,7 +77,7 @@
           <code><span class="prompt">$</span> {COMMAND}</code>
           <button class="btn" type="button" onclick={copy}><Icon name={copied ? 'check' : 'copy'} /> {copied ? 'Copié' : 'Copier'}</button>
         </div>
-        <pre>INFO axolot-bridge <mark>listening</mark> addr=127.0.0.1:5092</pre>
+        <pre>INFO axolot-bridge <mark>listening</mark> addr=127.0.0.1:…</pre>
         <figcaption>Prêt quand <code>listening</code> s'affiche.</figcaption>
       </figure>
     </li>

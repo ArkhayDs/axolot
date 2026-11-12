@@ -77,7 +77,7 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 // createBridge saves the Claude bridge connection without a key: client reads the token from the environment.
-// shortcut: a second click adds a duplicate, the page hides the button once the bridge is listed; check base_url in SQL if another client calls this.
+// shortcut: no uniqueness check, the page locks the button until the reloaded list hides it; check base_url in SQL if another client calls this.
 func (s *Server) createBridge(w http.ResponseWriter, r *http.Request) {
 	id, err := s.cfg.Store.CreateProvider(r.Context(), "Claude (abonnement)", "openai", s.cfg.BridgeURL, nil)
 	if err != nil {
