@@ -67,6 +67,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
   - Débit possiblement surestimé si les tokens de réflexion sont comptés en sortie (non vérifié) : Haiku jusqu'à 877 t/s.
   - Note sous le tableau de Résultats dès qu'une réponse porte la mesure du pont ; les anciennes réponses Claude sans mesure ne l'affichent pas.
 - Corpus réels envoyés hors machine : signalé dans le panneau Connexions, seul le corpus fictif part sans réserve.
+- Connexion Claude guidée depuis Réglages, Connexions : fenêtre d'explication, `make bridge` à copier, connexion ajoutée par le serveur avec le jeton. Pont arrêté signalé dans la liste. Pont lancé à la main tant qu'Axolot est une web app ; une app desktop appellerait `claude -p` sans pont.
 - Plus tard : pont Codex sur la machine du PDG, avec son compte (GPT Astra, abonnement uniquement). Mesure « Astra via Codex », éligibilité à un usage scripté à vérifier.
 
 ### 2. Modèles locaux spécialisés
