@@ -47,57 +47,146 @@
     <h2 id="bridge-title">Compte Claude Pro ou Max</h2>
     <button class="btn" type="button" onclick={onclose} aria-label="Fermer"><Icon name="cross" /></button>
   </div>
-  <p>
-    Un abonnement Claude n'a pas de clé API. La connexion passe par la commande <code>claude</code> du Mac, dont l'identification reste dans le trousseau, hors de portée du conteneur. Le pont lance cette
-    commande sur le Mac et la présente à l'app comme un service compatible OpenAI.
-  </p>
-  <ol>
+  <figure>
+    <ol class="path" aria-label="Chemin d'une question">
+      <li class="node"><strong>Axolot</strong></li>
+      <li class="arrow" aria-hidden="true"><Icon name="exchange" size={16} /></li>
+      <li class="node node-bridge"><strong>Pont</strong><small>lance <code>claude -p</code> sur le Mac</small></li>
+      <li class="arrow" aria-hidden="true"><Icon name="exchange" size={16} /></li>
+      <li class="node"><strong>Abonnement Claude</strong></li>
+    </ol>
+    <figcaption>Un abonnement n'a pas de clé API : le pont le présente à Axolot comme un service en ligne.</figcaption>
+  </figure>
+  <ol class="steps">
     <li>
-      Dans un terminal, à la racine du projet :
-      <span class="command">
-        <code>{COMMAND}</code>
-        <button class="btn" type="button" onclick={copy}><Icon name={copied ? 'check' : 'copy'} /> {copied ? 'Copié' : 'Copier'}</button>
-      </span>
-      Le pont reste au premier plan, fermer le terminal l'arrête.
+      {#if added}
+        Connexion ajoutée.
+      {:else}
+        Une fois :
+        <button class="btn btn-primary" type="button" onclick={add}><Icon name="plug" /> Ajouter la connexion</button>
+      {/if}
     </li>
-    <li>{added ? 'La connexion est déjà dans la liste.' : "Ajouter la connexion, l'app y met le jeton du pont."}</li>
+    <li>
+      À chaque session, à la racine du projet, terminal ouvert :
+      <figure class="terminal">
+        <div class="terminal-head">
+          <code><span class="prompt">$</span> {COMMAND}</code>
+          <button class="btn" type="button" onclick={copy}><Icon name={copied ? 'check' : 'copy'} /> {copied ? 'Copié' : 'Copier'}</button>
+        </div>
+        <pre>INFO axolot-bridge <mark>listening</mark> addr=127.0.0.1:5092</pre>
+        <figcaption>Prêt quand <code>listening</code> s'affiche.</figcaption>
+      </figure>
+    </li>
   </ol>
   <Notice message={error} />
-  <p class="warning">
-    Le pont utilise le compte personnel connecté à <code>claude</code> sur ce Mac. Chaque question consomme son quota et part chez Anthropic, avec les fichiers joints et les extraits du corpus. À
-    utiliser à la discrétion du titulaire du compte.
-  </p>
-  {#if !added}
-    <button class="btn btn-primary" type="button" onclick={add}><Icon name="plug" /> Ajouter la connexion</button>
-  {/if}
+  <p class="warning">Consomme le quota du compte connecté à <code>claude</code>. Questions, fichiers joints et extraits du corpus partent chez Anthropic.</p>
 </dialog>
 
 <style>
+  .sheet {
+    width: min(600px, calc(100vw - 2 * var(--s4)));
+    margin: auto;
+  }
+
+  figure {
+    margin: 0;
+  }
+
   .sheet[open] {
     display: grid;
-    justify-items: start;
-    gap: var(--s3);
+    gap: var(--s4);
     overflow: auto;
   }
 
-  .sheet-head {
-    justify-self: stretch;
+  .path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s2);
+    list-style: none;
+    padding: 0;
   }
 
-  ol {
+  .node {
+    display: grid;
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    background: var(--raised);
+  }
+
+  .node-bridge {
+    border-color: var(--accent);
+  }
+
+  .node small,
+  .arrow,
+  figcaption,
+  .warning {
+    color: var(--ink-3);
+  }
+
+  .node small {
+    font-size: var(--text-sm);
+  }
+
+  figcaption {
+    margin-top: var(--s2);
+    font-size: var(--text-sm);
+  }
+
+  .steps {
     display: grid;
     gap: var(--s3);
     padding-left: var(--s4);
   }
 
-  .command {
+  .terminal {
+    display: grid;
+    gap: var(--s2);
+    margin-top: var(--s2);
+    padding: var(--s3);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    background: var(--ground);
+  }
+
+  .terminal-head {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--s3);
-    margin-block: var(--s2);
+  }
+
+  .prompt,
+  pre {
+    color: var(--ink-3);
+  }
+
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  mark {
+    background: none;
+    color: var(--good);
   }
 
   .warning {
-    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+
+  @media (max-width: 760px) {
+    .path {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .arrow {
+      align-self: center;
+      rotate: 90deg;
+    }
   }
 </style>
