@@ -1,15 +1,9 @@
 #!/bin/sh
 # Builds the Claude bridge for this machine in the go container, then runs it on the host,
-# where the keychain holds the Claude login. Adds its token and port to an existing .env, nothing else.
+# where the keychain holds the Claude login.
 set -eu
 
-if [ ! -f .env ]; then
-	echo "no .env, run make setup first" >&2
-	exit 1
-fi
-[ -z "$(tail -c 1 .env)" ] || echo >> .env
-grep -q '^AXOLOT_BRIDGE_TOKEN=' .env || echo "AXOLOT_BRIDGE_TOKEN=$(openssl rand -hex 32)" >> .env
-grep -q '^AXOLOT_BRIDGE_PORT=' .env || echo "AXOLOT_BRIDGE_PORT=5092" >> .env
+sh scripts/setup-env.sh
 
 docker compose run --rm \
 	-e GOOS="$(uname -s | tr '[:upper:]' '[:lower:]')" \

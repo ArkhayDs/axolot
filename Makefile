@@ -3,13 +3,13 @@
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*## /: /'
 
-setup: ## Create .env with generated secrets, once
+setup: ## Create .env with generated secrets, or add the keys an older one lacks
 	@sh scripts/setup-env.sh
 
 hardware: ## Detect this machine (a container only sees its VM)
 	@sh scripts/detect-hardware.sh > data/hardware.json
 
-up: hardware ## Build and start the app
+up: setup hardware ## Build and start the app
 	docker compose up -d --build db app
 
 down: ## Stop the stack, data kept
