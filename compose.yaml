@@ -25,8 +25,8 @@ services:
       AXOLOT_CORPUS_ROOT: /corpus
       AXOLOT_HARDWARE_FILE: /data/hardware.json
       OLLAMA_URL: ${OLLAMA_URL:?set in .env}
-      AXOLOT_BRIDGE_URL: http://host.docker.internal:${AXOLOT_BRIDGE_PORT}/v1
-      AXOLOT_BRIDGE_TOKEN: ${AXOLOT_BRIDGE_TOKEN}
+      AXOLOT_BRIDGE_URL: http://host.docker.internal:${AXOLOT_BRIDGE_PORT:?set in .env, make bridge adds it}/v1
+      AXOLOT_BRIDGE_TOKEN: ${AXOLOT_BRIDGE_TOKEN:?set in .env, make bridge adds it}
     ports:
       - '127.0.0.1:${AXOLOT_PORT:?set in .env}:${AXOLOT_PORT:?set in .env}'
     volumes:
