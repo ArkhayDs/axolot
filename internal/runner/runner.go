@@ -32,9 +32,10 @@ const (
 
 // Target is a model on a connection.
 type Target struct {
-	ProviderID   int64
-	ProviderName string
-	Model        string
+	ProviderID     int64
+	ProviderName   string
+	ConnectionType string
+	Model          string
 }
 
 // Plan lists the models to run on one case.
@@ -154,7 +155,7 @@ func runItem(ctx context.Context, campaignID string, c cases.Case, item cases.It
 
 	run := store.Run{
 		CampaignID: campaignID, CaseID: c.ID, ItemID: item.ID, Category: c.Category,
-		ProviderName: target.ProviderName, Model: target.Model, Checks: json.RawMessage(`[]`), ItemHash: item.Hash,
+		ProviderName: target.ProviderName, ConnectionType: target.ConnectionType, Model: target.Model, Checks: json.RawMessage(`[]`), ItemHash: item.Hash,
 	}
 	result, hits, err := generate(ctx, c, item, target, retrieved, base, deps)
 	if ctx.Err() != nil {

@@ -154,9 +154,9 @@ func (s *Server) buildPlans(ctx context.Context, only []string) ([]runner.Plan, 
 	if err != nil {
 		return nil, err
 	}
-	names := make(map[int64]string, len(providers))
+	byID := make(map[int64]store.Provider, len(providers))
 	for _, p := range providers {
-		names[p.ID] = p.Name
+		byID[p.ID] = p
 	}
 	wanted := make(map[string]bool, len(only))
 	for _, id := range only {
@@ -170,7 +170,8 @@ func (s *Server) buildPlans(ctx context.Context, only []string) ([]runner.Plan, 
 		plan := runner.Plan{Case: c}
 		for _, sel := range selections {
 			if sel.CaseID == c.ID {
-				plan.Targets = append(plan.Targets, runner.Target{ProviderID: sel.ProviderID, ProviderName: names[sel.ProviderID], Model: sel.Model})
+				p := byID[sel.ProviderID]
+				plan.Targets = append(plan.Targets, runner.Target{ProviderID: sel.ProviderID, ProviderName: p.Name, ConnectionType: s.connectionType(p), Model: sel.Model})
 			}
 		}
 		if len(plan.Targets) > 0 {

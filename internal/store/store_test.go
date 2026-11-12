@@ -125,8 +125,8 @@ func TestCampaignRunsAndStats(t *testing.T) {
 		t.Fatal(err)
 	}
 	ttft, rate, hit, startup, exit := int64(100), 40.0, true, int64(30), int64(20)
-	base := Run{CampaignID: id, CaseID: "c", ProviderName: "p", Model: "m", Checks: json.RawMessage(`[]`), TTFTMs: &ttft, TokPerSec: &rate,
-		CLIStartupMs: &startup, CLIExitMs: &exit}
+	base := Run{CampaignID: id, CaseID: "c", ProviderName: "p", ConnectionType: ConnectionLocal, Model: "m", Checks: json.RawMessage(`[]`),
+		TTFTMs: &ttft, TokPerSec: &rate, CLIStartupMs: &startup, CLIExitMs: &exit}
 	for i, category := range []string{"rag", "rag", "code"} {
 		run := base
 		run.ItemID, run.Category, run.TotalMs, run.Score = fmt.Sprintf("i%d", i), category, int64(100*(i+1)), 50
@@ -138,7 +138,7 @@ func TestCampaignRunsAndStats(t *testing.T) {
 			run.CLIStartupMs = nil
 		}
 		if i == 2 {
-			run.Error, run.Score, run.TotalMs = "out of memory", 0, 1
+			run.Error, run.Score, run.TotalMs, run.ConnectionType = "out of memory", 0, 1, ""
 		}
 		if err := s.CreateRun(ctx, run); err != nil {
 			t.Fatal(err)
@@ -171,6 +171,9 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	}
 	if *runs[0].CLIStartupMs != 30 || *runs[0].CLIExitMs != 20 {
 		t.Fatalf("cli startup=%v exit=%v", runs[0].CLIStartupMs, runs[0].CLIExitMs)
+	}
+	if runs[0].ConnectionType != ConnectionLocal || runs[2].ConnectionType != "" {
+		t.Fatalf("an untyped answer reads back empty: connection types %q, %q", runs[0].ConnectionType, runs[2].ConnectionType)
 	}
 
 	if err := s.MarkInterrupted(ctx); err != nil {
