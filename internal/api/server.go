@@ -247,8 +247,11 @@ func (s *Server) connection(ctx context.Context, id int64) (provider.Provider, s
 	return nil, store.Provider{}, fmt.Errorf("connection %d not found", id)
 }
 
-// client decrypts the key of a connection and builds its client.
+// client decrypts the key of a connection and builds its client; the bridge takes the token from the environment.
 func (s *Server) client(p store.Provider) (provider.Provider, error) {
+	if s.isBridge(p) {
+		return provider.New(p.Kind, p.BaseURL, s.cfg.BridgeToken)
+	}
 	apiKey := ""
 	if p.HasAPIKey {
 		var err error
@@ -257,6 +260,11 @@ func (s *Server) client(p store.Provider) (provider.Provider, error) {
 		}
 	}
 	return provider.New(p.Kind, p.BaseURL, apiKey)
+}
+
+// isBridge tells whether a connection points to the Claude bridge.
+func (s *Server) isBridge(p store.Provider) bool {
+	return p.BaseURL == s.cfg.BridgeURL
 }
 
 // pathID parses a numeric path parameter, answering 400 when malformed.
