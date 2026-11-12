@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/arkhayds/axolot/internal/analytics"
 	"github.com/arkhayds/axolot/internal/runner"
@@ -11,12 +12,12 @@ import (
 // getMap returns what the landing map draws and ranks.
 func (s *Server) getMap(w http.ResponseWriter, r *http.Request) {
 	hashes := s.currentHashes()
-	cells, err := s.cfg.Store.MapCells(r.Context(), hashes)
+	cells, err := s.cfg.Store.MapCells(r.Context(), hashes, "")
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	items, err := s.cfg.Store.MapItems(r.Context(), hashes)
+	items, err := s.cfg.Store.MapItems(r.Context(), hashes, "")
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -29,28 +30,57 @@ func (s *Server) getMap(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"cells": cells, "items": items, "benchmarks": benchmarks, "current_machine": s.cfg.Hardware.Label})
 }
 
-// getBase returns the cumulated database in the shape of a campaign's results: all machines together.
+// baseView is the cumulated database in the shape of a campaign's results, plus every model the picking offers.
+type baseView struct {
+	Stats    []store.MapCell     `json:"stats"`
+	Verdicts []analytics.Verdict `json:"verdicts"`
+	Answers  []store.Answer      `json:"answers"`
+	Models   []string            `json:"models"`
+}
+
+// getBase returns the cumulated database, all machines together, of one connection type and some models when asked.
 func (s *Server) getBase(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	connection := query.Get("connection")
+	if !slices.Contains([]string{"", store.ConnectionLocal, store.ConnectionAPI, store.ConnectionSubscription}, connection) {
+		writeError(w, http.StatusBadRequest, "Type de connexion inconnu")
+		return
+	}
 	hashes := s.currentHashes()
-	cells, err := s.cfg.Store.MapCells(r.Context(), hashes)
+	cells, err := s.cfg.Store.MapCells(r.Context(), hashes, connection)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	answers, err := s.cfg.Store.MapAnswers(r.Context(), hashes)
+	answers, err := s.cfg.Store.MapAnswers(r.Context(), hashes, connection)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	rollups := make([]store.MapCell, 0, len(cells))
-	stats := make([]analytics.ModelStats, 0, len(cells))
+	writeJSON(w, http.StatusOK, baseOf(cells, answers, query["model"]))
+}
+
+// baseOf keeps the rollups over machines of the picked models, all when none is. Filtering after the query holds
+// because every figure is per model; the verdicts are drawn again among the models kept.
+func baseOf(cells []store.MapCell, answers []store.Answer, picked []string) baseView {
+	kept := func(model string) bool { return len(picked) == 0 || slices.Contains(picked, model) }
+	view := baseView{Stats: []store.MapCell{}, Models: []string{}}
+	var stats []analytics.ModelStats
 	for _, cell := range cells {
-		if cell.Machine == "" {
-			rollups = append(rollups, cell)
+		if cell.Machine != "" {
+			continue
+		}
+		if cell.Category == "" {
+			view.Models = append(view.Models, cell.Model)
+		}
+		if kept(cell.Model) {
+			view.Stats = append(view.Stats, cell)
 			stats = append(stats, cell.ModelStats)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"stats": rollups, "verdicts": analytics.Verdicts(stats), "answers": answers})
+	view.Verdicts = analytics.Verdicts(stats)
+	view.Answers = slices.DeleteFunc(answers, func(answer store.Answer) bool { return !kept(answer.Model) })
+	return view
 }
 
 // currentHashes lists the versions of the questions as loaded, the only answers the cumulated figures count.
