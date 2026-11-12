@@ -1,20 +1,11 @@
-<script lang="ts" module>
-  export interface BridgeConnection {
-    name: string;
-    kind: 'openai';
-    base_url: string;
-  }
-</script>
-
 <script lang="ts">
   import Icon from './Icon.svelte';
   import Notice from './Notice.svelte';
+  import { api, errorMessage } from '../lib/api';
 
-  let { open, onclose, onprefill }: { open: boolean; onclose: () => void; onprefill: (connection: BridgeConnection) => void } = $props();
+  let { open, added, onclose, onadded }: { open: boolean; added: boolean; onclose: () => void; onadded: () => Promise<void> } = $props();
 
   const COMMAND = 'make bridge';
-  // Default AXOLOT_BRIDGE_PORT: the app does not see the host .env.
-  const CONNECTION: BridgeConnection = { name: 'Claude (abonnement)', kind: 'openai', base_url: 'http://host.docker.internal:5092/v1' };
 
   let dialog: HTMLDialogElement;
   let copied = $state(false);
@@ -28,6 +19,17 @@
       error = '';
     } catch {
       error = 'Copie refusée par le navigateur, sélectionner la commande à la main.';
+    }
+  }
+
+  /** Saves the bridge connection, the server adds the token */
+  async function add(): Promise<void> {
+    try {
+      await api.createBridge();
+      error = '';
+      await onadded();
+    } catch (saveError) {
+      error = errorMessage(saveError);
     }
   }
 
@@ -58,14 +60,16 @@
       </span>
       Le pont reste au premier plan, fermer le terminal l'arrête.
     </li>
-    <li>Préremplir la connexion, puis coller dans Clé API la valeur de <code>AXOLOT_BRIDGE_TOKEN</code> du fichier <code>.env</code>.</li>
+    <li>{added ? 'La connexion est déjà dans la liste.' : "Ajouter la connexion, l'app y met le jeton du pont."}</li>
   </ol>
   <Notice message={error} />
   <p class="warning">
     Le pont utilise le compte personnel connecté à <code>claude</code> sur ce Mac. Chaque question consomme son quota et part chez Anthropic, avec les fichiers joints et les extraits du corpus. À
     utiliser à la discrétion du titulaire du compte.
   </p>
-  <button class="btn btn-primary" type="button" onclick={() => onprefill(CONNECTION)}><Icon name="plug" /> Préremplir la connexion</button>
+  {#if !added}
+    <button class="btn btn-primary" type="button" onclick={add}><Icon name="plug" /> Ajouter la connexion</button>
+  {/if}
 </dialog>
 
 <style>

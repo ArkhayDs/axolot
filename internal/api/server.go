@@ -33,6 +33,9 @@ type Config struct {
 	Static     fs.FS
 	// BaseContext outlives requests: campaigns and downloads continue after the HTTP call returns.
 	BaseContext context.Context
+	// The Claude bridge as the container reaches it, and its token, which never goes through the page.
+	BridgeURL   string
+	BridgeToken string
 }
 
 // Server holds handlers and the single in-flight campaign, ingest and downloads.
@@ -59,6 +62,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("PUT /api/settings", s.putSettings)
 	mux.HandleFunc("GET /api/providers", s.listProviders)
 	mux.HandleFunc("POST /api/providers", s.createProvider)
+	mux.HandleFunc("POST /api/providers/bridge", s.createBridge)
 	mux.HandleFunc("DELETE /api/providers/{id}", s.deleteProvider)
 	mux.HandleFunc("GET /api/models", s.listModels)
 	mux.HandleFunc("POST /api/models/pull", s.pullModel)

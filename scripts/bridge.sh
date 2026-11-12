@@ -19,5 +19,5 @@ docker compose run --rm \
 # Only the bridge's own variables: it hands its environment to the CLI, which has no use for the app secrets.
 token=$(sed -n 's/^AXOLOT_BRIDGE_TOKEN=//p' .env)
 port=$(sed -n 's/^AXOLOT_BRIDGE_PORT=//p' .env)
-echo "Connection: Compatible OpenAI, URL http://host.docker.internal:$port/v1, key AXOLOT_BRIDGE_TOKEN in .env"
+echo "Connection: Réglages, Connexions, Connecter un compte Claude (after make up if the token was just added)"
 AXOLOT_BRIDGE_TOKEN=$token AXOLOT_BRIDGE_PORT=$port exec bin/axolot-bridge

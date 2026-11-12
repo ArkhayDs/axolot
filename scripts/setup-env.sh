@@ -10,6 +10,7 @@ fi
 sed \
 	-e "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 24)/" \
 	-e "s/^AXOLOT_SECRET=.*/AXOLOT_SECRET=$(openssl rand -hex 32)/" \
+	-e "s/^AXOLOT_BRIDGE_TOKEN=.*/AXOLOT_BRIDGE_TOKEN=$(openssl rand -hex 32)/" \
 	.env.example > .env
 chmod 600 .env
 echo ".env created"
