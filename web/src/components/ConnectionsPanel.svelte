@@ -14,12 +14,6 @@
   let error = $state('');
   let guideOpen = $state(false);
 
-  /** Closes the guide and reloads the list with the new bridge connection */
-  async function bridgeAdded(): Promise<void> {
-    guideOpen = false;
-    await onchange();
-  }
-
   /** Saves the connection and clears the form, the key never stays in the page */
   async function add(event: SubmitEvent): Promise<void> {
     event.preventDefault();
@@ -53,7 +47,7 @@
   <h2 id="connections">Connexions</h2>
   <p class="muted">Une connexion vers un service en ligne, pont Claude compris, reçoit les questions, les fichiers joints et les extraits du corpus. Seul le corpus fictif part sans réserve.</p>
   <button class="btn guide" type="button" onclick={() => (guideOpen = true)}><Icon name="plug" /> Connecter un compte Claude Pro ou Max</button>
-  <ClaudeBridgeDialog open={guideOpen} added={connections.some((connection) => connection.bridge)} onclose={() => (guideOpen = false)} onadded={bridgeAdded} />
+  <ClaudeBridgeDialog open={guideOpen} added={connections.some((connection) => connection.bridge)} onclose={() => (guideOpen = false)} onadded={onchange} />
   <Notice message={error} />
   <div class="table-wrap">
     <table>
