@@ -217,7 +217,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	play(mac, StatusDone, "old", "rag", 0, 700, "")
 
 	hashes := []string{"h-i1", "h-i2"}
-	cells, err := s.MapCells(ctx, hashes)
+	cells, err := s.MapCells(ctx, hashes, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if means["code|i1"] != 200 || means["code|"] != 200 || means["rag|i2"] != 400 || len(estimates) != 5 {
 		t.Fatalf("estimates=%+v", estimates)
 	}
-	items, err := s.MapItems(ctx, hashes)
+	items, err := s.MapItems(ctx, hashes, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +281,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 	if item := perItem["|c|i2"]; scoreOf(item.AvgScore) != 100 {
 		t.Fatalf("running campaign, stale version or unmeasured answer counted in the score: %+v", item)
 	}
-	answers, err := s.MapAnswers(ctx, hashes)
+	answers, err := s.MapAnswers(ctx, hashes, "")
 	if err != nil || len(answers) != 7 {
 		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
@@ -316,5 +316,46 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 				t.Fatalf("an unmeasured answer must weigh nothing in the benchmark score: %+v", cell)
 			}
 		}
+	}
+}
+
+func TestMapKeepsOneConnectionType(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	id, err := s.CreateCampaign(ctx, "demo", json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{}`), 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range []Run{
+		{Model: "qwen", ConnectionType: ConnectionLocal},
+		{Model: "claude", ConnectionType: ConnectionSubscription},
+		{Model: "claude"},
+	} {
+		run.CampaignID, run.CaseID, run.ItemID, run.Category, run.ProviderName, run.Score = id, "c", "i", "code", "p", 100
+		run.Checks, run.ItemHash = json.RawMessage(`[]`), "h"
+		if err := s.CreateRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.FinishCampaign(ctx, id, StatusDone); err != nil {
+		t.Fatal(err)
+	}
+
+	cells, err := s.MapCells(ctx, []string{"h"}, ConnectionLocal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cell := range cells {
+		if cell.Model != "qwen" {
+			t.Fatalf("an answer of another type or of an unknown one counted as local: %+v", cell)
+		}
+	}
+	items, err := s.MapItems(ctx, []string{"h"}, ConnectionSubscription)
+	if err != nil || len(items) != 2 || items[0].Runs != 1 {
+		t.Fatalf("items=%+v err=%v", items, err)
+	}
+	answers, err := s.MapAnswers(ctx, []string{"h"}, ConnectionLocal)
+	if err != nil || len(answers) != 1 || answers[0].Model != "qwen" {
+		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
 }

@@ -67,12 +67,16 @@ const cumulatedAnswers = `WITH answers AS (
 			CASE WHEN r.error = '' THEN 1.0::float8 / count(*) FILTER (WHERE r.error = '')
 				OVER (PARTITION BY c.hardware->>'label', r.model, r.case_id, r.item_id) END AS weight
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
-		WHERE c.status <> $1 AND r.item_hash = ANY($2)
+		WHERE ` + countedAnswer + `
 	)`
+
+// countedAnswer filters the cumulated figures and their answer list alike. A connection type ($3) keeps its own
+// answers only, those of unknown type in none; empty keeps them all.
+const countedAnswer = `c.status <> $1 AND r.item_hash = ANY($2) AND ($3 = '' OR r.connection_type = $3)`
 
 // MapCells cumulates answers per machine, model and theme, with their rollups.
 // shortcut: a tag served by two connections counts as one model, split on provider if that ever happens.
-func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error) {
+func (s *Store) MapCells(ctx context.Context, hashes []string, connection string) ([]MapCell, error) {
 	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
 		SELECT COALESCE(machine, ''), min(provider_name), model, COALESCE(category, ''),
 			count(*)::int,
@@ -83,7 +87,7 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 			percentile_cont(0.95) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = '')
 		FROM answers
 		GROUP BY GROUPING SETS ((machine, model, category), (machine, model), (model, category), (model))
-		ORDER BY 1, 3, 4`, StatusRunning, hashes)
+		ORDER BY 1, 3, 4`, StatusRunning, hashes, connection)
 	if err != nil {
 		return nil, fmt.Errorf("compute map cells: %w", err)
 	}
@@ -91,7 +95,7 @@ func (s *Store) MapCells(ctx context.Context, hashes []string) ([]MapCell, error
 }
 
 // MapItems cumulates answers per machine, model and question, with the rollup over machines.
-func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error) {
+func (s *Store) MapItems(ctx context.Context, hashes []string, connection string) ([]MapItem, error) {
 	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
 		SELECT COALESCE(machine, ''), model, case_id, item_id,
 			count(*)::int,
@@ -99,7 +103,7 @@ func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
 			count(*) FILTER (WHERE error <> '')::int
 		FROM answers
-		GROUP BY GROUPING SETS ((machine, model, case_id, item_id), (model, case_id, item_id))`, StatusRunning, hashes)
+		GROUP BY GROUPING SETS ((machine, model, case_id, item_id), (model, case_id, item_id))`, StatusRunning, hashes, connection)
 	if err != nil {
 		return nil, fmt.Errorf("compute map items: %w", err)
 	}
@@ -107,10 +111,10 @@ func (s *Store) MapItems(ctx context.Context, hashes []string) ([]MapItem, error
 }
 
 // MapAnswers lists what MapCells counted, without the heavy columns.
-func (s *Store) MapAnswers(ctx context.Context, hashes []string) ([]Answer, error) {
+func (s *Store) MapAnswers(ctx context.Context, hashes []string, connection string) ([]Answer, error) {
 	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, r.model, r.category, r.total_ms, r.cli_startup_ms, r.cli_exit_ms, r.error
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
-		WHERE c.status <> $1 AND r.item_hash = ANY($2)`, StatusRunning, hashes)
+		WHERE `+countedAnswer, StatusRunning, hashes, connection)
 	if err != nil {
 		return nil, fmt.Errorf("list map answers: %w", err)
 	}
