@@ -34,7 +34,8 @@ func main() {
 
 // run wires dependencies and serves until a termination signal.
 func run() error {
-	env, err := requireEnv("DATABASE_URL", "AXOLOT_PORT", "AXOLOT_SECRET", "AXOLOT_CORPUS_ROOT", "AXOLOT_HARDWARE_FILE", "OLLAMA_URL")
+	env, err := requireEnv("DATABASE_URL", "AXOLOT_PORT", "AXOLOT_SECRET", "AXOLOT_CORPUS_ROOT", "AXOLOT_HARDWARE_FILE", "OLLAMA_URL",
+		"AXOLOT_BRIDGE_URL", "AXOLOT_BRIDGE_TOKEN")
 	if err != nil {
 		return err
 	}
@@ -72,6 +73,7 @@ func run() error {
 	handler := api.New(api.Config{
 		Store: db, Box: box, Cases: loaded, Hardware: machine,
 		CorpusRoot: env["AXOLOT_CORPUS_ROOT"], Static: static, BaseContext: ctx,
+		BridgeURL: env["AXOLOT_BRIDGE_URL"], BridgeToken: env["AXOLOT_BRIDGE_TOKEN"],
 	})
 	// No write timeout: the event stream and model downloads stay open for minutes.
 	server := &http.Server{

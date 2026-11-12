@@ -40,6 +40,7 @@ export type Fit = 'ok' | 'tight' | 'too_big' | 'unknown';
 export interface Connection {
   provider: Provider;
   online: boolean;
+  bridge: boolean;
   error?: string;
   // vision is absent when the server cannot tell whether the model reads images.
   models: { name: string; size_bytes: number; family?: string; quantization?: string; vision?: boolean; fit: Fit }[];
@@ -407,6 +408,7 @@ export const api = {
   providers: (): Promise<Provider[]> => get('/providers'),
   createProvider: (body: { name: string; kind: string; base_url: string; api_key: string }): Promise<{ id: number }> =>
     write('POST', '/providers', body),
+  createBridge: (): Promise<{ id: number }> => write('POST', '/providers/bridge'),
   deleteProvider: (id: number): Promise<void> => write('DELETE', `/providers/${id}`),
   models: (): Promise<Models> => get('/models'),
   pullModel: (provider_id: number, name: string): Promise<void> => write('POST', '/models/pull', { provider_id, name }),
