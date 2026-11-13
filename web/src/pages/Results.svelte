@@ -71,7 +71,7 @@
   <div class="page-head">
     <div>
       <h1>Résultats</h1>
-      <p>Toute la base : {answers.length} réponses aux questions actuelles, tous Benchmarks et machines confondus</p>
+      <p>{filtered ? 'Sélection filtrée' : 'Toute la base'} : {answers.length} réponses aux questions actuelles, tous Benchmarks et machines confondus</p>
     </div>
     {#if choices.length > 0 || filtered}
       <div class="filters" role="group" aria-label="Filtres">
@@ -90,8 +90,9 @@
             <button
               type="button"
               class="input"
+              id="models-button"
               data-counter="models"
-              aria-labelledby="models-filter"
+              aria-labelledby="models-filter models-button"
               aria-expanded={menuOpen}
               onclick={() => (menuOpen = !menuOpen)}
             >
