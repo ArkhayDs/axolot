@@ -57,6 +57,9 @@ func TestOllamaChatRetriesWithoutThinkOption(t *testing.T) {
 	if err != nil || result.Output != "Bonjour" || calls != 2 {
 		t.Fatalf("calls=%d output=%q err=%v", calls, result.Output, err)
 	}
+	if result.DefaultTemperature {
+		t.Fatal("thinking retry keeps the temperature, marked as default")
+	}
 }
 
 func TestOllamaChatSurfacesStreamError(t *testing.T) {
@@ -99,15 +102,15 @@ func TestOpenAIChatSendsKeySchemaAndReadsUsage(t *testing.T) {
 	if result.Output != "Oui" || *result.PromptTokens != 3 || *result.OutputTokens != 7 {
 		t.Fatalf("result: %+v", result)
 	}
-	if result.CLIStartupMs != nil || result.CLIExitMs != nil {
-		t.Fatalf("CLI times outside the bridge: %+v", result)
+	if result.CLIStartupMs != nil || result.CLIExitMs != nil || result.DefaultTemperature {
+		t.Fatalf("bridge-only fields outside the bridge: %+v", result)
 	}
 }
 
-func TestOpenAIChatReadsCLITimesFromUsage(t *testing.T) {
+func TestOpenAIChatReadsBridgeFieldsFromUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\n")
-		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7,\"cli_startup_ms\":430,\"cli_exit_ms\":650}}\n\n")
+		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7,\"cli_startup_ms\":430,\"cli_exit_ms\":650,\"default_temperature\":true}}\n\n")
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}))
 	defer srv.Close()
@@ -116,7 +119,7 @@ func TestOpenAIChatReadsCLITimesFromUsage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.CLIStartupMs == nil || *result.CLIStartupMs != 430 || result.CLIExitMs == nil || *result.CLIExitMs != 650 {
+	if result.CLIStartupMs == nil || *result.CLIStartupMs != 430 || result.CLIExitMs == nil || *result.CLIExitMs != 650 || !result.DefaultTemperature {
 		t.Fatalf("result: %+v", result)
 	}
 }
@@ -146,8 +149,8 @@ func TestOpenAIChatRetriesRejectedSamplingParams(t *testing.T) {
 
 		result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
 		srv.Close()
-		if err != nil || result.Output != "Oui" || len(bodies) != 2 {
-			t.Fatalf("%s: calls=%d output=%q err=%v", rejected, len(bodies), result.Output, err)
+		if err != nil || result.Output != "Oui" || len(bodies) != 2 || !result.DefaultTemperature {
+			t.Fatalf("%s: calls=%d output=%q default=%v err=%v", rejected, len(bodies), result.Output, result.DefaultTemperature, err)
 		}
 		if bodies[0]["max_tokens"] != 10.0 {
 			t.Errorf("%s: first attempt budget %v", rejected, bodies[0]["max_tokens"])
