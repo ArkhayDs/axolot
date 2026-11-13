@@ -30,7 +30,7 @@ export interface Settings {
 export interface Provider {
   id: number;
   name: string;
-  kind: 'ollama' | 'openai';
+  kind: 'ollama' | 'openai' | 'bridge';
   base_url: string;
   has_api_key: boolean;
 }

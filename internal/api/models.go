@@ -77,9 +77,9 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 // createBridge saves the Claude bridge connection without a key: client reads the token from the environment.
-// shortcut: no uniqueness check, the page locks the button until the reloaded list hides it; check base_url in SQL if another client calls this.
+// shortcut: no uniqueness check, the page locks the button until the reloaded list hides it; check kind in SQL if another client calls this.
 func (s *Server) createBridge(w http.ResponseWriter, r *http.Request) {
-	id, err := s.cfg.Store.CreateProvider(r.Context(), "Claude (abonnement)", "openai", s.cfg.BridgeURL, nil)
+	id, err := s.cfg.Store.CreateProvider(r.Context(), "Claude (abonnement)", "bridge", s.cfg.BridgeURL, nil)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -153,7 +153,7 @@ func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
 
 // probe asks one server for its models; a failure is data for the UI, not an error.
 func (s *Server) probe(ctx context.Context, p store.Provider, reservedGB int) connectionModels {
-	view := connectionModels{Provider: p, Bridge: s.isBridge(p), Models: []modelView{}}
+	view := connectionModels{Provider: p, Bridge: p.Kind == "bridge", Models: []modelView{}}
 	client, err := s.client(p)
 	if err != nil {
 		view.Error = err.Error()

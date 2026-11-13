@@ -171,7 +171,7 @@ func (s *Server) buildPlans(ctx context.Context, only []string) ([]runner.Plan, 
 		for _, sel := range selections {
 			if sel.CaseID == c.ID {
 				p := byID[sel.ProviderID]
-				plan.Targets = append(plan.Targets, runner.Target{ProviderID: sel.ProviderID, ProviderName: p.Name, ConnectionType: s.connectionType(p), Model: sel.Model})
+				plan.Targets = append(plan.Targets, runner.Target{ProviderID: sel.ProviderID, ProviderName: p.Name, ConnectionType: connectionType(p), Model: sel.Model})
 			}
 		}
 		if len(plan.Targets) > 0 {
