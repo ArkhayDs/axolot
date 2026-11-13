@@ -84,6 +84,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 - Nom de machine avec le type d'appareil (MacBook Pro ou Mac mini, via `system_profiler`). Le libellé est la clé de la base cumulée : prévoir la migration des snapshots existants, sinon la machine se scinde en deux dans l'Atlas.
 - Retester le hot reload sans `usePolling`, `mountInotify` étant actif dans Colima.
 - Atlas : molette de souris : elle déplace maintenant la vue, le zoom passe par le pincement ou Ctrl.
+- URLs sans `#` (`/resultats`) : routeur maison de `App.svelte` passé sur l'History API (`pushState`, `popstate`, clics internes interceptés), sans bibliothèque. Serveur prêt (`spa()` renvoie `index.html`). Anciens liens `#/...` redirigés vers leur chemin.
 - Énergie par modèle : script hôte relevant `ioreg` pendant les Benchmarks (sans `sudo`, sur batterie, toute la machine ; `powermetrics` pour CPU/GPU), croisé avec les réponses, en Wh par réponse.
 - Thème de Benchmark sur l'appel d'outils, avec date et heure comme premier outil.
 - Plusieurs machines : export/import des résultats, le filtre machine n'a tourné qu'avec une seule.
