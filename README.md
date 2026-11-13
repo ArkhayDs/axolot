@@ -70,7 +70,7 @@ Résultats côte à côte par question, vérifications, passages RAG, citation s
 
 ### Résultats
 
-Quel modèle pour quelle tâche, sur toute la base : score et temps médian par thème, modèle recommandé. Plus une case est rouge, plus le modèle a perdu de points.
+Quel modèle pour quelle tâche, sur toute la base : score et temps médian par thème, modèle recommandé. Plus une case est rouge, plus le modèle a perdu de points. Filtres en haut de page : type de connexion (locale, cloud par API, cloud par abonnement) et modèles ; les anciennes réponses de type inconnu ne comptent que sous « Toutes ».
 
 ![Résultats](docs/captures/resultats-desktop.png)
 

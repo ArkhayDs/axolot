@@ -25,7 +25,7 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - Gel d'onglet vu une fois sur l'Atlas : cause non trouvée, non reproduit, protections ajoutées. Garder un onglet de secours sur Résultats.
 
 ## UI (`/impeccable`, français, peu de texte, icônes animées)
-- **Résultats** : base cumulée, synthèse pour non-tech en tête, gagnants qualité / vitesse / compromis par thème.
+- **Résultats** : base cumulée, synthèse pour non-tech en tête, gagnants qualité / vitesse / compromis par thème. Filtres type de connexion et modèles, verdicts recalculés entre les modèles gardés.
 - **Atlas** : graphe dense (canvas) machine, modèles, thèmes, scénarios, questions, documents sources et Benchmarks sur `GET /api/map` et `GET /api/cases`, classements, et direct piloté par `GET /api/events` : impulsions sur le vrai chemin de la question, point qui change à la réponse notée. Sélection d'un modèle : chaque question prend son résultat. Sélection au clic sur les nœuds, barre d'état en bas de page avec recherche et Recentrer.
 - **Une page par cas** : choix des modèles, résultats côte à côte par item, vérifications, sortie, pour le RAG les passages retrouvés et la source attendue ouvrable (citation surlignée).
 - **Résultats** : tableaux et graphiques, charger le skill `dataviz`.
