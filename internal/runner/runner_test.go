@@ -46,7 +46,7 @@ func (f fakeModel) Chat(_ context.Context, req provider.ChatRequest, onDelta fun
 		return provider.ChatResult{TotalMs: 1}, context.DeadlineExceeded
 	}
 	onDelta("bonjour")
-	return provider.ChatResult{Output: "bonjour", TotalMs: 5}, nil
+	return provider.ChatResult{Output: "bonjour", TotalMs: 5, DefaultTemperature: req.Model == "m2"}, nil
 }
 
 func textPlan(id string, models ...string) Plan {
@@ -90,6 +90,11 @@ func TestRunGradesAndStoresEveryPair(t *testing.T) {
 	}
 	if results.runs[0].Score != 100 {
 		t.Fatalf("score=%v", results.runs[0].Score)
+	}
+	for _, run := range results.runs {
+		if run.DefaultTemperature != (run.Model == "m2") {
+			t.Fatalf("%s: default temperature %v", run.Model, run.DefaultTemperature)
+		}
 	}
 	if last := events[len(events)-1]; last.Type != EventFinished || last.Status != store.StatusDone {
 		t.Fatalf("last event: %+v", last)

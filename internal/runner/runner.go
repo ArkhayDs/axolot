@@ -164,6 +164,7 @@ func runItem(ctx context.Context, campaignID string, c cases.Case, item cases.It
 	run.Output, run.TotalMs = result.Output, result.TotalMs
 	run.TTFTMs, run.LoadMs = result.TTFTMs, result.LoadMs
 	run.CLIStartupMs, run.CLIExitMs = result.CLIStartupMs, result.CLIExitMs
+	run.DefaultTemperature = result.DefaultTemperature
 	run.PromptTokens, run.OutputTokens, run.TokPerSec = result.PromptTokens, result.OutputTokens, result.TokPerSec
 	if hits != nil {
 		raw, marshalErr := json.Marshal(hits)

@@ -6,21 +6,23 @@ const compromiseMargin = 10.0
 
 // ModelStats aggregates one model's runs; an empty Category means all categories.
 // Net times leave out the Claude CLI's own time, nil when no answer went through the bridge.
+// DefaultTemperature is set when at least one answer was sampled at the model's own default temperature.
 type ModelStats struct {
-	Provider       string   `json:"provider"`
-	Model          string   `json:"model"`
-	Category       string   `json:"category"`
-	Runs           int      `json:"runs"`
-	Errors         int      `json:"errors"`
-	AvgScore       *float64 `json:"avg_score"`
-	P50TTFTMs      *float64 `json:"p50_ttft_ms"`
-	P50TotalMs     *float64 `json:"p50_total_ms"`
-	P50NetTTFTMs   *float64 `json:"p50_net_ttft_ms"`
-	P50NetTotalMs  *float64 `json:"p50_net_total_ms"`
-	P50TokPerSec   *float64 `json:"p50_tok_per_sec"`
-	MaxLoadMs      *int64   `json:"max_load_ms"`
-	RetrievalHits  int      `json:"retrieval_hits"`
-	RetrievalTotal int      `json:"retrieval_total"`
+	Provider           string   `json:"provider"`
+	Model              string   `json:"model"`
+	Category           string   `json:"category"`
+	Runs               int      `json:"runs"`
+	Errors             int      `json:"errors"`
+	AvgScore           *float64 `json:"avg_score"`
+	P50TTFTMs          *float64 `json:"p50_ttft_ms"`
+	P50TotalMs         *float64 `json:"p50_total_ms"`
+	P50NetTTFTMs       *float64 `json:"p50_net_ttft_ms"`
+	P50NetTotalMs      *float64 `json:"p50_net_total_ms"`
+	P50TokPerSec       *float64 `json:"p50_tok_per_sec"`
+	MaxLoadMs          *int64   `json:"max_load_ms"`
+	RetrievalHits      int      `json:"retrieval_hits"`
+	RetrievalTotal     int      `json:"retrieval_total"`
+	DefaultTemperature bool     `json:"default_temperature"`
 }
 
 // Pick names a winning model with its score.

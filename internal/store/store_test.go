@@ -135,7 +135,7 @@ func TestCampaignRunsAndStats(t *testing.T) {
 			run.Retrieved = json.RawMessage(`[{"file":"a.md"}]`)
 		}
 		if i == 1 {
-			run.CLIStartupMs = nil
+			run.CLIStartupMs, run.DefaultTemperature = nil, true
 		}
 		if i == 2 {
 			run.Error, run.Score, run.TotalMs, run.ConnectionType = "out of memory", 0, 1, ""
@@ -165,12 +165,19 @@ func TestCampaignRunsAndStats(t *testing.T) {
 	if scoreOf(stats[0].AvgScore) != 50 || stats[1].Category != "code" || stats[1].AvgScore != nil {
 		t.Fatalf("an unmeasured answer must stay out of the average, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
 	}
+	if !stats[0].DefaultTemperature || stats[1].DefaultTemperature || !stats[2].DefaultTemperature {
+		t.Fatalf("one answer at the default temperature marks its group: overall=%v code=%v rag=%v",
+			stats[0].DefaultTemperature, stats[1].DefaultTemperature, stats[2].DefaultTemperature)
+	}
 	runs, err := s.Runs(ctx, id)
 	if err != nil || len(runs) != 3 {
 		t.Fatalf("runs=%d err=%v", len(runs), err)
 	}
 	if *runs[0].CLIStartupMs != 30 || *runs[0].CLIExitMs != 20 {
 		t.Fatalf("cli startup=%v exit=%v", runs[0].CLIStartupMs, runs[0].CLIExitMs)
+	}
+	if runs[0].DefaultTemperature || !runs[1].DefaultTemperature {
+		t.Fatalf("default temperature %v, %v", runs[0].DefaultTemperature, runs[1].DefaultTemperature)
 	}
 	if runs[0].ConnectionType != ConnectionLocal || runs[2].ConnectionType != "" {
 		t.Fatalf("an untyped answer reads back empty: connection types %q, %q", runs[0].ConnectionType, runs[2].ConnectionType)

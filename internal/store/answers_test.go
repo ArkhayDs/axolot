@@ -16,7 +16,8 @@ func TestCaseAnswersKeepLatestAndCumulate(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		run := Run{CampaignID: id, CaseID: "c", ItemID: "q", Category: "t", ProviderName: "p", Model: "m", Output: name, Score: score, Error: failure, Checks: json.RawMessage(`[]`), ItemHash: hash}
+		run := Run{CampaignID: id, CaseID: "c", ItemID: "q", Category: "t", ProviderName: "p", Model: "m", Output: name, Score: score, Error: failure, Checks: json.RawMessage(`[]`), ItemHash: hash,
+			DefaultTemperature: name == "second"}
 		if err := s.CreateRun(ctx, run); err != nil {
 			t.Fatal(err)
 		}
@@ -33,7 +34,7 @@ func TestCaseAnswersKeepLatestAndCumulate(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("got %d answers, want 1", len(got))
 	}
-	if got[0].Output != "second" || got[0].Answers != 3 || scoreOf(got[0].AvgScore) != 75 {
-		t.Fatalf("got output %q, %d answers, average %v", got[0].Output, got[0].Answers, scoreOf(got[0].AvgScore))
+	if got[0].Output != "second" || got[0].Answers != 3 || scoreOf(got[0].AvgScore) != 75 || !got[0].DefaultTemperature {
+		t.Fatalf("got output %q, %d answers, average %v, default temperature %v", got[0].Output, got[0].Answers, scoreOf(got[0].AvgScore), got[0].DefaultTemperature)
 	}
 }
