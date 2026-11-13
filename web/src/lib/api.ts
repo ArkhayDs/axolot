@@ -246,10 +246,15 @@ export interface Answer {
   error: string;
 }
 
+// Empty for every type, answers of unknown type included.
+export type ConnectionType = '' | 'local' | 'api' | 'subscription';
+
 export interface BaseDetail {
   stats: MapCell[];
   verdicts: Verdict[];
   answers: Answer[];
+  // Every model of the connection type, picked or not.
+  models: string[];
 }
 
 export interface Estimate {
@@ -431,7 +436,11 @@ export const api = {
   startCampaign: (name: string, cases: string[]): Promise<{ id: string }> => write('POST', '/campaigns', { name, cases }),
   cancelCampaign: (id: string): Promise<void> => write('POST', `/campaigns/${id}/cancel`),
   map: (): Promise<MapData> => get('/map'),
-  base: (): Promise<BaseDetail> => get('/base'),
+  base: (connection: ConnectionType, models: string[]): Promise<BaseDetail> => {
+    const query = new URLSearchParams({ connection });
+    for (const model of models) query.append('model', model);
+    return get(`/base?${query}`);
+  },
   estimate: (models: string[], cases: string[]): Promise<Estimate> => write('POST', '/estimate', { models, cases }),
   remaining: (): Promise<Estimate> => get('/estimate/remaining'),
   chatSearch: async (question: string, signal: AbortSignal): Promise<ChatSearch> =>

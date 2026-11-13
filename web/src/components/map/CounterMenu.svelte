@@ -9,7 +9,15 @@
     isSelected,
     onpick,
     onclose,
-  }: { title: string; entries: Findable[]; isSelected: (entry: Findable) => boolean; onpick: (entry: Findable) => void; onclose: (refocus: boolean) => void } = $props();
+    below = false,
+  }: {
+    title: string;
+    entries: Findable[];
+    isSelected: (entry: Findable) => boolean;
+    onpick: (entry: Findable) => void;
+    onclose: (refocus: boolean) => void;
+    below?: boolean;
+  } = $props();
 
   let menu: HTMLDivElement;
 
@@ -40,7 +48,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="menu" role="group" aria-label={title} bind:this={menu} onkeydown={onKeydown}>
+<div class="menu" class:below role="group" aria-label={title} bind:this={menu} onkeydown={onKeydown}>
   {#each entries as entry (`${entry.kind}:${entry.key}`)}
     <label>
       <input type="checkbox" checked={isSelected(entry)} onchange={() => onpick(entry)} />
@@ -66,6 +74,12 @@
     background: var(--panel);
     box-shadow: var(--shadow-float);
     scrollbar-color: var(--axis) transparent;
+  }
+
+  .below {
+    top: calc(100% + var(--s2));
+    bottom: auto;
+    width: min(22rem, calc(100vw - 2 * var(--s4)));
   }
 
   label {

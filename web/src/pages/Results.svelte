@@ -8,21 +8,36 @@
   import Notice from '../components/Notice.svelte';
   import ThemeTradeoff from '../components/ThemeTradeoff.svelte';
   import StatsTable from '../components/StatsTable.svelte';
+  import CounterMenu from '../components/map/CounterMenu.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { BaseDetail, Case, Hardware } from '../lib/api';
+  import type { BaseDetail, Case, ConnectionType, Hardware } from '../lib/api';
   import { seriesColor } from '../lib/format';
+  import type { Findable } from '../lib/map/findable';
   import { live } from '../lib/live.svelte';
 
   let cases = $state<Case[]>([]);
   let hardware = $state<Hardware | null>(null);
   let base = $state<BaseDetail | null>(null);
   let loadError = $state('');
+  let connection = $state<ConnectionType>('');
+  let picked = $state<string[]>([]);
+  let menuOpen = $state(false);
+  let asked = 0;
 
   const stats = $derived(base?.stats ?? []);
   const verdicts = $derived(base?.verdicts ?? []);
   const answers = $derived(base?.answers ?? []);
   const models = $derived([...new Set(stats.map((stat) => stat.model))].sort());
   const questions = $derived(cases.reduce((total, item) => total + item.items.length, 0));
+  const filtered = $derived(connection !== '' || picked.length > 0);
+  // A picked model absent from the connection type stays listed, so it can be unpicked.
+  const choices = $derived([...new Set([...(base?.models ?? []), ...picked])].sort());
+  const entries = $derived(choices.map((model): Findable => ({ kind: 'model', key: model, label: model, type: 'Modèle', note: '' })));
+
+  /** @param {Findable} entry - model line of the menu, picked or unpicked */
+  function toggle(entry: Findable): void {
+    picked = picked.includes(entry.key) ? picked.filter((model) => model !== entry.key) : [...picked, entry.key];
+  }
 
   onMount(async () => {
     try {
@@ -34,17 +49,20 @@
     }
   });
 
-  // The cumulated figures only move when a benchmark ends: running ones are not counted yet.
+  // The cumulated figures only move when a benchmark ends: running ones are not counted yet. Only the last request
+  // lands, an earlier one answering late would show a filter already left.
   $effect(() => {
     void live.finished;
+    const request = ++asked;
     api
-      .base()
+      .base(connection, [...picked])
       .then((loaded) => {
+        if (request !== asked) return;
         base = loaded;
         loadError = '';
       })
       .catch((error: unknown) => {
-        loadError = errorMessage(error);
+        if (request === asked) loadError = errorMessage(error);
       });
   });
 </script>
@@ -55,6 +73,47 @@
       <h1>Résultats</h1>
       <p>Toute la base : {answers.length} réponses aux questions actuelles, tous Benchmarks et machines confondus</p>
     </div>
+    {#if choices.length > 0 || filtered}
+      <div class="filters" role="group" aria-label="Filtres">
+        <label class="field">
+          Connexion
+          <select class="input" bind:value={connection}>
+            <option value="">Toutes</option>
+            <option value="local">Locale</option>
+            <option value="api">Cloud par API</option>
+            <option value="subscription">Cloud par abonnement</option>
+          </select>
+        </label>
+        <div class="field">
+          <span id="models-filter">Modèles</span>
+          <div class="picker">
+            <button
+              type="button"
+              class="input"
+              data-counter="models"
+              aria-labelledby="models-filter"
+              aria-expanded={menuOpen}
+              onclick={() => (menuOpen = !menuOpen)}
+            >
+              {picked.length > 0 ? `${picked.length} sur ${choices.length}` : `Tous (${choices.length})`}
+            </button>
+            {#if menuOpen}
+              <CounterMenu
+                title="Modèles"
+                {entries}
+                isSelected={(entry) => picked.includes(entry.key)}
+                onpick={toggle}
+                onclose={(refocus) => {
+                  menuOpen = false;
+                  if (refocus) document.querySelector<HTMLButtonElement>('[data-counter="models"]')?.focus();
+                }}
+                below
+              />
+            {/if}
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <Notice message={loadError} />
@@ -80,7 +139,20 @@
     <p class="muted caption">Les réponses une par une se consultent dans chaque <a href="#/benchmarks">Benchmark</a>.</p>
 
     <StatsTable {stats} {models} showQuestions />
-  {:else if !loadError}
+  {:else if filtered && !loadError}
+    <div class="empty">
+      <h2>Aucun résultat pour ces filtres</h2>
+      <p>Aucune réponse mesurée ne correspond à cette connexion et à ces modèles.</p>
+      <button
+        type="button"
+        class="btn"
+        onclick={() => {
+          connection = '';
+          picked = [];
+        }}>Retirer les filtres</button
+      >
+    </div>
+  {:else if base && !loadError}
     <div class="empty">
       <h2>Aucun résultat pour l'instant</h2>
       <p>Un premier Benchmark sur les questions actuelles remplit cette page.</p>
@@ -111,6 +183,22 @@
 </div>
 
 <style>
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s3);
+  }
+
+  .picker {
+    position: relative;
+  }
+
+  .picker button {
+    min-width: 9rem;
+    text-align: start;
+    cursor: pointer;
+  }
+
   .legend {
     display: flex;
     flex-wrap: wrap;
