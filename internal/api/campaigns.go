@@ -169,8 +169,8 @@ func (s *Server) buildPlans(ctx context.Context, only []string) ([]runner.Plan, 
 		}
 		plan := runner.Plan{Case: c}
 		for _, sel := range selections {
-			if sel.CaseID == c.ID {
-				p := byID[sel.ProviderID]
+			// A connection deleted since the selections were read is skipped, not run under a blank name.
+			if p, ok := byID[sel.ProviderID]; ok && sel.CaseID == c.ID {
 				plan.Targets = append(plan.Targets, runner.Target{ProviderID: sel.ProviderID, ProviderName: p.Name, ConnectionType: connectionType(p), Model: sel.Model})
 			}
 		}
