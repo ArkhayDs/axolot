@@ -346,12 +346,14 @@ func (s *eventStream) text(content string) {
 }
 
 // finish sends the usage and closes the stream. The cache parts count as input: they are read by the model
-// and weigh on the quota, like a local model's whole prompt. The CLI times ride along, ignored by other clients.
+// and weigh on the quota, like a local model's whole prompt. The CLI times ride along, ignored by other clients,
+// with default_temperature: the CLI has no temperature option, so every answer is sampled at the model's default.
 func (s *eventStream) finish(usage cliUsage) {
 	sent := map[string]any{
-		"prompt_tokens":     usage.Input + usage.CacheCreation + usage.CacheRead,
-		"completion_tokens": usage.Output,
-		"cli_exit_ms":       usage.ExitMs,
+		"prompt_tokens":       usage.Input + usage.CacheCreation + usage.CacheRead,
+		"completion_tokens":   usage.Output,
+		"cli_exit_ms":         usage.ExitMs,
+		"default_temperature": true,
 	}
 	if usage.StartupMs != nil {
 		sent["cli_startup_ms"] = *usage.StartupMs
