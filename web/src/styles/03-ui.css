@@ -91,6 +91,18 @@
   color: var(--ink-3);
 }
 
+/* The native arrow ignores padding: drawn chevron instead */
+select.input {
+  appearance: none;
+  padding-inline-end: calc(var(--s3) * 2 + 10px);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - var(--s3) - 5px) 55%,
+    calc(100% - var(--s3)) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
 /* -----------------------------------------------------------------------------
    Surfaces
    -------------------------------------------------------------------------- */
