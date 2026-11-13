@@ -247,10 +247,10 @@ func (s *Server) connection(ctx context.Context, id int64) (provider.Provider, s
 	return nil, store.Provider{}, fmt.Errorf("connection %d not found", id)
 }
 
-// client decrypts the key of a connection and builds its client; the bridge takes the token from the environment.
+// client decrypts the key of a connection and builds its client; the bridge takes its URL and token from the environment.
 func (s *Server) client(p store.Provider) (provider.Provider, error) {
-	if s.isBridge(p) {
-		return provider.New(p.Kind, p.BaseURL, s.cfg.BridgeToken)
+	if p.Kind == "bridge" {
+		return provider.New("openai", s.cfg.BridgeURL, s.cfg.BridgeToken)
 	}
 	apiKey := ""
 	if p.HasAPIKey {
@@ -262,18 +262,13 @@ func (s *Server) client(p store.Provider) (provider.Provider, error) {
 	return provider.New(p.Kind, p.BaseURL, apiKey)
 }
 
-// isBridge tells whether a connection points to the Claude bridge.
-func (s *Server) isBridge(p store.Provider) bool {
-	return p.BaseURL == s.cfg.BridgeURL
-}
-
 // connectionType classifies a connection for the runs it serves.
 // shortcut: an OpenAI-compatible server on the host (llama.cpp, LM Studio) counts as cloud API, add a kind when one is used.
-func (s *Server) connectionType(p store.Provider) string {
-	switch {
-	case s.isBridge(p):
+func connectionType(p store.Provider) string {
+	switch p.Kind {
+	case "bridge":
 		return store.ConnectionSubscription
-	case p.Kind == "ollama":
+	case "ollama":
 		return store.ConnectionLocal
 	default:
 		return store.ConnectionAPI
