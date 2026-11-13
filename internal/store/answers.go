@@ -31,7 +31,7 @@ func (s *Store) CaseAnswers(ctx context.Context, caseID string, hashes []string)
 		var answers int64
 		err := row.Scan(&a.ID, &a.CampaignID, &a.CaseID, &a.ItemID, &a.Category, &a.ProviderName, &a.ConnectionType, &a.Model, &a.Output, &a.Error,
 			&a.TTFTMs, &a.TotalMs, &a.LoadMs, &a.CLIStartupMs, &a.CLIExitMs, &a.PromptTokens, &a.OutputTokens, &a.TokPerSec, &a.Score, &a.Checks, &a.Retrieved,
-			&a.RetrievalHit, &a.ItemHash, &answers, &a.AvgScore)
+			&a.RetrievalHit, &a.ItemHash, &a.DefaultTemperature, &answers, &a.AvgScore)
 		a.Answers = int(answers)
 		return a, err
 	})
