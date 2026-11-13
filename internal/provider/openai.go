@@ -28,10 +28,11 @@ type openAIChunk struct {
 		} `json:"delta"`
 	} `json:"choices"`
 	Usage *struct {
-		PromptTokens     int    `json:"prompt_tokens"`
-		CompletionTokens int    `json:"completion_tokens"`
-		CLIStartupMs     *int64 `json:"cli_startup_ms"`
-		CLIExitMs        *int64 `json:"cli_exit_ms"`
+		PromptTokens       int    `json:"prompt_tokens"`
+		CompletionTokens   int    `json:"completion_tokens"`
+		CLIStartupMs       *int64 `json:"cli_startup_ms"`
+		CLIExitMs          *int64 `json:"cli_exit_ms"`
+		DefaultTemperature bool   `json:"default_temperature"`
 	} `json:"usage"`
 }
 
@@ -86,7 +87,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	defer resp.Body.Close()
 
 	var output strings.Builder
-	var result ChatResult
+	result := ChatResult{DefaultTemperature: reasoning}
 	err = lines(resp.Body, func(line []byte) error {
 		payload, ok := bytes.CutPrefix(line, []byte("data:"))
 		payload = bytes.TrimSpace(payload)
@@ -109,6 +110,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 			result.PromptTokens = &chunk.Usage.PromptTokens
 			result.OutputTokens = &chunk.Usage.CompletionTokens
 			result.CLIStartupMs, result.CLIExitMs = chunk.Usage.CLIStartupMs, chunk.Usage.CLIExitMs
+			result.DefaultTemperature = reasoning || chunk.Usage.DefaultTemperature
 		}
 		return nil
 	})
