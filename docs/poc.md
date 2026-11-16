@@ -46,7 +46,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 - PR 1 : pont local exposant `claude -p` comme une API compatible OpenAI, ajouté comme simple connexion. Loopback uniquement : faire passer d'autres utilisateurs par l'abonnement est interdit, le futur login d'Axolot devra passer par des clés API.
 - PR 2 : correctifs de la connexion par clé API, testés sur serveur simulé faute de clé.
   - Schéma envoyé en `strict`, objets fermés (`additionalProperties: false`) ; la notation garde le schéma du cas.
-  - `temperature` ou `max_tokens` rejeté (o-series, gpt-5, Claude récents) : nouvelle tentative sans température, avec `max_completion_tokens` relevé à 16 384 pour laisser place au raisonnement. Température par défaut du modèle, non tracée dans le run.
+  - `temperature` ou `max_tokens` rejeté (o-series, gpt-5, Claude récents) : nouvelle tentative sans température, avec `max_completion_tokens` relevé à 16 384 pour laisser place au raisonnement. Température par défaut du modèle, tracée dans le run (repère « T° » dans les Résultats, le détail d'une réponse et le classement de la carte).
   - Les autres modèles gardent le budget de l'appelant (1 024 en campagne), local comme cloud.
   - Schémas des cas : toute propriété est requise, vérifié par les tests (exigence du mode `strict`).
 - PR 1 mesurée le 2026-11-09 (Max 20x), un Benchmark complet par modèle :
@@ -61,7 +61,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 - Une réponse en erreur (pont, quota, connexion) est « non mesurée » : hors moyenne, sans note 0. Un modèle qui dépasse 5 min est noté 0.
 - Comparabilité :
   - Notes comparables aux modèles locaux.
-  - Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement.
+  - Le cloud tourne à sa température par défaut et avec raisonnement, le local à 0,3 sans raisonnement. Le run le note (pont Claude, nouvelle tentative par clé API) ; les anciens runs Claude sont marqués d'office.
   - Temps = attente réelle, Claude Code compris : ~430 ms de lancement avant l'appel API, ~650 ms de fermeture après la réponse. Le pont mesure les deux à chaque appel : colonnes « Net » dans les Résultats, verdict Vitesse et t/s calculés sans eux. 1er token encore retardé par la réflexion du modèle (cas à schéma).
   - ~600 tokens d'entrée cachés par question (consigne de Claude Code, même avec `--system-prompt ""`), absents d'un appel par clé API.
   - Débit possiblement surestimé si les tokens de réflexion sont comptés en sortie (non vérifié) : Haiku jusqu'à 877 t/s.
