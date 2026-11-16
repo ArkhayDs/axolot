@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../Icon.svelte';
   import ModelName from '../ModelName.svelte';
-  import { UNMEASURED_HINT, duration, number, score, seriesColor, unmeasuredLabel } from '../../lib/format';
+  import { DEFAULT_TEMPERATURE_HINT, UNMEASURED_HINT, duration, number, score, seriesColor, unmeasuredLabel } from '../../lib/format';
   import type { RankKind, RankRow, RankSection } from '../../lib/map/ranking';
 
   let {
@@ -33,6 +33,7 @@
                 <span class="rank">{row.rank || '-'}</span>
                 <span class="name">
                   {#if row.kind === 'model'}<ModelName name={row.key} />{:else}{row.label}{/if}
+                  {#if row.defaultTemperature}<span class="default-temp" role="img" title={DEFAULT_TEMPERATURE_HINT} aria-label={DEFAULT_TEMPERATURE_HINT}>T°</span>{/if}
                 </span>
                 <strong class="value">{score(row.score)}{#if row.score !== null}<small>/100</small>{/if}</strong>
               </span>

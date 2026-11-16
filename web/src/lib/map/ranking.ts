@@ -11,7 +11,7 @@ export interface MapFilter {
 
 export type RankKind = 'model' | 'theme' | 'machine';
 
-export type RankFigures = Pick<MapCell, 'avg_score' | 'runs' | 'questions' | 'errors' | 'p50_total_ms' | 'p50_net_total_ms' | 'p95_total_ms' | 'p50_tok_per_sec'>;
+export type RankFigures = Pick<MapCell, 'avg_score' | 'runs' | 'questions' | 'errors' | 'p50_total_ms' | 'p50_net_total_ms' | 'p95_total_ms' | 'p50_tok_per_sec' | 'default_temperature'>;
 
 export interface RankRow {
   kind: RankKind;
@@ -28,6 +28,7 @@ export interface RankRow {
   ms: number | null;
   p95: number | null;
   tokPerSec: number | null;
+  defaultTemperature: boolean;
   gap: string;
   picked: boolean;
 }
@@ -153,6 +154,7 @@ export function rankRows(kind: RankKind, entries: { key: string; label: string; 
           ms: modelMs(cell),
           p95: cell.p95_total_ms,
           tokPerSec: cell.p50_tok_per_sec,
+          defaultTemperature: cell.default_temperature,
           gap: '',
           picked: key === picked,
         }]

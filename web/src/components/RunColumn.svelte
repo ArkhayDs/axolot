@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte';
   import ModelName from './ModelName.svelte';
   import type { Run } from '../lib/api';
-  import { UNMEASURED_HINT, checkDetail, checkLabel, duration, number, score } from '../lib/format';
+  import { DEFAULT_TEMPERATURE_HINT, UNMEASURED_HINT, checkDetail, checkLabel, duration, number, score } from '../lib/format';
 
   let { run, color, answers, average }: { run: Run; color: string; answers: number; average: number | null } = $props();
 </script>
@@ -18,6 +18,9 @@
       <strong class:zero={run.score === 0}>{score(run.score)}/100</strong>
       <span class="muted">{duration(run.total_ms)}, {number(run.tok_per_sec)} t/s</span>
     </p>
+    {#if run.default_temperature}
+      <p class="state state-warning" title={DEFAULT_TEMPERATURE_HINT}><span class="default-temp" aria-hidden="true">T°</span> Température par défaut du modèle</p>
+    {/if}
     <ul>
       {#each run.checks ?? [] as check, index (index)}
         <li class="state" class:state-good={check.passed} class:state-critical={!check.passed}>

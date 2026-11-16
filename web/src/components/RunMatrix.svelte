@@ -1,7 +1,7 @@
 <script lang="ts">
   import ModelName from './ModelName.svelte';
   import type { Case, Run } from '../lib/api';
-  import { score } from '../lib/format';
+  import { DEFAULT_TEMPERATURE_HINT, score } from '../lib/format';
 
   let {
     cases,
@@ -12,6 +12,7 @@
   }: { cases: Case[]; models: string[]; runs: Run[]; activeItem?: string; activeModel?: string } = $props();
 
   const byCell = $derived(new Map(runs.map((run) => [`${run.model}|${run.case_id}|${run.item_id}`, run])));
+  const atDefault = $derived(new Set(runs.filter((run) => run.default_temperature).map((run) => run.model)));
 
   /**
    * @param {Run | undefined} run - answer, absent when not played yet
@@ -32,7 +33,8 @@
    */
   function cellTitle(itemId: string, model: string, run: Run | undefined): string {
     if (!run) return `${itemId}, ${model} : pas de réponse`;
-    return `${itemId}, ${model} : ${run.error ? 'non mesurée' :`${score(run.score)}/100`}`;
+    const result = `${itemId}, ${model} : ${run.error ? 'non mesurée' :`${score(run.score)}/100`}`;
+    return run.default_temperature ? `${result}, température par défaut du modèle` : result;
   }
 </script>
 
@@ -53,7 +55,10 @@
         <tr>
           <th scope="col">Scénario</th>
           {#each models as model (model)}
-            <th scope="col"><ModelName name={model} /></th>
+            <th scope="col">
+              <ModelName name={model} />
+              {#if atDefault.has(model)}<span class="default-temp" role="img" title={DEFAULT_TEMPERATURE_HINT} aria-label={DEFAULT_TEMPERATURE_HINT}>T°</span>{/if}
+            </th>
           {/each}
         </tr>
       </thead>
