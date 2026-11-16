@@ -82,6 +82,7 @@ Point de comparaison principal : Claude sur abonnement, seul accès disponible (
 
 ## Ensuite
 - Nom de machine avec le type d'appareil (MacBook Pro ou Mac mini, via `system_profiler`). Le libellé est la clé de la base cumulée : prévoir la migration des snapshots existants, sinon la machine se scinde en deux dans l'Atlas.
+- Noms de Benchmarks enregistrés « Campagne ... » : migration vers « Benchmark », puis suppression de `benchmarkName()` et de la mention « campagne » du glossaire. Le code garde `campaign`.
 - Retester le hot reload sans `usePolling`, `mountInotify` étant actif dans Colima.
 - Atlas : molette de souris : elle déplace maintenant la vue, le zoom passe par le pincement ou Ctrl.
 - URLs sans `#` (`/resultats`) : routeur maison de `App.svelte` passé sur l'History API (`pushState`, `popstate`, clics internes interceptés), sans bibliothèque. Serveur prêt (`spa()` renvoie `index.html`). Anciens liens `#/...` redirigés vers leur chemin.
