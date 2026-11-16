@@ -28,11 +28,10 @@ type openAIChunk struct {
 		} `json:"delta"`
 	} `json:"choices"`
 	Usage *struct {
-		PromptTokens       int    `json:"prompt_tokens"`
-		CompletionTokens   int    `json:"completion_tokens"`
-		CLIStartupMs       *int64 `json:"cli_startup_ms"`
-		CLIExitMs          *int64 `json:"cli_exit_ms"`
-		DefaultTemperature bool   `json:"default_temperature"`
+		PromptTokens     int    `json:"prompt_tokens"`
+		CompletionTokens int    `json:"completion_tokens"`
+		CLIStartupMs     *int64 `json:"cli_startup_ms"`
+		CLIExitMs        *int64 `json:"cli_exit_ms"`
 	} `json:"usage"`
 }
 
@@ -110,7 +109,6 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 			result.PromptTokens = &chunk.Usage.PromptTokens
 			result.OutputTokens = &chunk.Usage.CompletionTokens
 			result.CLIStartupMs, result.CLIExitMs = chunk.Usage.CLIStartupMs, chunk.Usage.CLIExitMs
-			result.DefaultTemperature = reasoning || chunk.Usage.DefaultTemperature
 		}
 		return nil
 	})
