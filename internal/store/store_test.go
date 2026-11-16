@@ -138,7 +138,7 @@ func TestCampaignRunsAndStats(t *testing.T) {
 			run.CLIStartupMs, run.DefaultTemperature = nil, true
 		}
 		if i == 2 {
-			run.Error, run.Score, run.TotalMs, run.ConnectionType = "out of memory", 0, 1, ""
+			run.Error, run.Score, run.TotalMs, run.ConnectionType, run.DefaultTemperature = "out of memory", 0, 1, "", true
 		}
 		if err := s.CreateRun(ctx, run); err != nil {
 			t.Fatal(err)
@@ -166,7 +166,7 @@ func TestCampaignRunsAndStats(t *testing.T) {
 		t.Fatalf("an unmeasured answer must stay out of the average, a theme without measure has none: overall=%+v code=%+v", stats[0], stats[1])
 	}
 	if !stats[0].DefaultTemperature || stats[1].DefaultTemperature || !stats[2].DefaultTemperature {
-		t.Fatalf("one answer at the default temperature marks its group: overall=%v code=%v rag=%v",
+		t.Fatalf("one measured answer at the default temperature marks its group: overall=%v code=%v rag=%v",
 			stats[0].DefaultTemperature, stats[1].DefaultTemperature, stats[2].DefaultTemperature)
 	}
 	runs, err := s.Runs(ctx, id)
