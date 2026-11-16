@@ -110,7 +110,7 @@ func TestOpenAIChatSendsKeySchemaAndReadsUsage(t *testing.T) {
 func TestOpenAIChatReadsBridgeFieldsFromUsage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\n")
-		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7,\"cli_startup_ms\":430,\"cli_exit_ms\":650,\"default_temperature\":true}}\n\n")
+		fmt.Fprint(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7,\"cli_startup_ms\":430,\"cli_exit_ms\":650}}\n\n")
 		fmt.Fprint(w, "data: [DONE]\n\n")
 	}))
 	defer srv.Close()
@@ -119,7 +119,7 @@ func TestOpenAIChatReadsBridgeFieldsFromUsage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.CLIStartupMs == nil || *result.CLIStartupMs != 430 || result.CLIExitMs == nil || *result.CLIExitMs != 650 || !result.DefaultTemperature {
+	if result.CLIStartupMs == nil || *result.CLIStartupMs != 430 || result.CLIExitMs == nil || *result.CLIExitMs != 650 {
 		t.Fatalf("result: %+v", result)
 	}
 }

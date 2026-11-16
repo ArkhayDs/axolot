@@ -97,7 +97,7 @@ func TestChatStreamsTextAndReportsUsage(t *testing.T) {
 	if strings.Join(deltas, "|") != "Bon|jour" || result.Output != "Bonjour" {
 		t.Errorf("deltas = %v, output = %q", deltas, result.Output)
 	}
-	if result.PromptTokens == nil || *result.PromptTokens != 631 || result.OutputTokens == nil || *result.OutputTokens != 4 || !result.DefaultTemperature {
+	if result.PromptTokens == nil || *result.PromptTokens != 631 || result.OutputTokens == nil || *result.OutputTokens != 4 {
 		t.Errorf("usage = %+v", result)
 	}
 }

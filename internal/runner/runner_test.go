@@ -49,6 +49,19 @@ func (f fakeModel) Chat(_ context.Context, req provider.ChatRequest, onDelta fun
 	return provider.ChatResult{Output: "bonjour", TotalMs: 5, DefaultTemperature: req.Model == "m2"}, nil
 }
 
+func TestRunFlagsEverySubscriptionAnswer(t *testing.T) {
+	results := &fakeResults{}
+	plan := textPlan("a", "m1")
+	plan.Targets[0].ConnectionType = store.ConnectionSubscription
+
+	if err := Run(context.Background(), "c1", []Plan{plan}, newDeps(results, fakeModel{failModel: "m1"}, nil)); err != nil {
+		t.Fatal(err)
+	}
+	if len(results.runs) != 1 || !results.runs[0].DefaultTemperature {
+		t.Fatalf("a failed subscription answer must be flagged: %+v", results.runs)
+	}
+}
+
 func textPlan(id string, models ...string) Plan {
 	targets := make([]Target, 0, len(models))
 	for _, m := range models {
