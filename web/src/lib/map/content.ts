@@ -72,6 +72,8 @@ export function rankOnQuestions(items: ItemIndex, models: string[], machine: str
             p50_net_total_ms: null,
             p95_total_ms: null,
             p50_tok_per_sec: null,
+            // shortcut: MapItem does not carry the flag, add it to MapItems if this ranking needs the marker.
+            default_temperature: false,
           };
     return { key: model, label: model, cell: figures };
   });

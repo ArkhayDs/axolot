@@ -60,6 +60,9 @@ export const NET_HINT = 'Modèles Claude : sans le lancement ni la fermeture de 
 
 export const GROSS_HINT = 'Attente réelle, lancement et fermeture de Claude Code compris.';
 
+export const DEFAULT_TEMPERATURE_HINT =
+  "Température par défaut du modèle : il ignore le réglage de la campagne, ses réponses peuvent varier d'un passage à l'autre.";
+
 const decimal = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 

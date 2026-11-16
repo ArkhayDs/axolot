@@ -150,6 +150,7 @@ export interface Run {
   checks: Check[] | null;
   retrieved: Hit[] | null;
   retrieval_hit: boolean | null;
+  default_temperature: boolean;
 }
 
 export interface CaseAnswer extends Run {
@@ -176,6 +177,8 @@ export interface ModelStats {
   max_load_ms: number | null;
   retrieval_hits: number;
   retrieval_total: number;
+  // Set as soon as one answer ran at the model's own default temperature.
+  default_temperature: boolean;
 }
 
 export interface Pick {
