@@ -201,7 +201,7 @@
           focus = null;
         }}
         onrecenter={() => canvas?.recenter()}
-        onlaunch={() => (launching = !launching)}
+        onlaunch={() => (launching = true)}
       />
     {/if}
   </div>

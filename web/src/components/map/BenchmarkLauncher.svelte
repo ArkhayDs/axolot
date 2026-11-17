@@ -4,6 +4,7 @@
   import Icon from '../Icon.svelte';
   import ModelName from '../ModelName.svelte';
   import Notice from '../Notice.svelte';
+  import CheckGroup from './CheckGroup.svelte';
   import { api, errorMessage } from '../../lib/api';
   import type { Case, CasesResponse, Estimate, Models, Selection } from '../../lib/api';
   import { refreshCampaigns } from '../../lib/campaigns.svelte';
@@ -22,14 +23,24 @@
   let estimate = $state<Estimate | null>(null);
 
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
-  const available = $derived(
-    (models?.connections ?? [])
-      .filter((connection) => connection.online)
-      .flatMap((connection) =>
-        connection.models
-          .filter((model) => !embedding.has(model.name) && !embedding.has(model.name.split(':')[0]))
-          .map((model) => ({ key: `${connection.provider.id}|${model.name}`, provider: connection.provider, name: model.name, label: model.label })),
-      ),
+  // Offline connections stay listed, empty, so a missing model reads as a state rather than an absence.
+  const connections = $derived(
+    (models?.connections ?? []).map((connection) => ({
+      provider: connection.provider,
+      online: connection.online,
+      models: connection.online
+        ? connection.models
+            .filter((model) => !embedding.has(model.name) && !embedding.has(model.name.split(':')[0]))
+            .map((model) => ({ key: `${connection.provider.id}|${model.name}`, provider: connection.provider, name: model.name, label: model.label }))
+        : [],
+    })),
+  );
+  const available = $derived(connections.flatMap((connection) => connection.models));
+  const themes = $derived(
+    [...new Set((catalog?.cases ?? []).map((item) => item.category))].map((category) => ({
+      category,
+      cases: (catalog?.cases ?? []).filter((item) => item.category === category).map((item) => ({ key: item.id, title: item.title })),
+    })),
   );
 
   /** Loads what the form offers; the saved models come checked, and the filtered theme's scenarios if any */
@@ -96,51 +107,54 @@
     <h2>Lancer un Benchmark</h2>
     <button class="btn" type="button" aria-label="Fermer et revenir au classement" onclick={onclose}><Icon name="cross" /></button>
   </div>
-  <Notice message={error} />
   <form onsubmit={start}>
-    <label class="field">
-      Nom (facultatif)
-      <input class="input" bind:value={name} maxlength="80" placeholder="Généré automatiquement" />
-    </label>
+    <div class="body">
+      <label class="field">
+        Nom (facultatif)
+        <input class="input" bind:value={name} maxlength="80" placeholder="Généré automatiquement" />
+      </label>
 
-    <fieldset>
-      <legend>Modèles</legend>
-      {#each available as model (model.key)}
-        <label class="check">
-          <input type="checkbox" bind:group={chosenModels} value={model.key} />
-          <ModelName name={model.label} />
-        </label>
-      {:else}
-        <p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>
-      {/each}
-    </fieldset>
-
-    <fieldset>
-      <legend class="legend-row">
-        Scénarios
-        <button class="link" type="button" onclick={() => (chosenCases = (catalog?.cases ?? []).map((item) => item.id))}>Tous</button>
-        <button class="link" type="button" onclick={() => (chosenCases = [])}>Aucun</button>
-      </legend>
-      <div class="case-list">
-        {#each catalog?.cases ?? [] as item (item.id)}
-          <label class="check">
-            <input type="checkbox" bind:group={chosenCases} value={item.id} />
-            <span>{item.title} <span class="muted">{categoryLabel(item.category)}</span></span>
-          </label>
+      <fieldset>
+        <legend>Modèles</legend>
+        {#each connections as connection (connection.provider.id)}
+          <CheckGroup title={connection.provider.name} items={connection.models} bind:chosen={chosenModels} note={connection.online ? '' : 'Hors ligne'}>
+            {#snippet row(model)}<ModelName name={model.label} />{/snippet}
+          </CheckGroup>
         {/each}
-      </div>
-    </fieldset>
+        {#if models && available.length === 0}
+          <p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>
+        {/if}
+      </fieldset>
 
-    <p class="muted hint">Ces modèles remplacent la sélection enregistrée des scénarios cochés. Les réponses s'ajoutent à la base.</p>
-    {#if estimate}
-      <p class="estimate" aria-live="polite">
-        <strong>{estimateLabel(estimate)}</strong>, {estimate.answers} réponses prévues{estimate.known && estimate.partial ? ', estimation partielle' : ''}
-      </p>
-    {/if}
-    <button class="btn btn-primary" type="submit" disabled={busy || chosenModels.length === 0 || chosenCases.length === 0}>
-      <Icon name="play" />
-      {busy ? 'Démarrage...' : 'Lancer'}
-    </button>
+      <fieldset>
+        <legend class="legend-row">
+          Scénarios
+          <button class="link" type="button" onclick={() => (chosenCases = (catalog?.cases ?? []).map((item) => item.id))}>Tous</button>
+          <button class="link" type="button" onclick={() => (chosenCases = [])}>Aucun</button>
+        </legend>
+        {#each themes as theme (theme.category)}
+          <CheckGroup title={categoryLabel(theme.category)} items={theme.cases} bind:chosen={chosenCases}>
+            {#snippet row(item)}<span>{item.title}</span>{/snippet}
+          </CheckGroup>
+        {/each}
+      </fieldset>
+    </div>
+
+    <div class="foot">
+      <Notice message={error} />
+      <p class="muted hint">Ces modèles remplacent la sélection enregistrée des scénarios cochés. Les réponses s'ajoutent à la base.</p>
+      <div class="go">
+        <p class="estimate" aria-live="polite">
+          {#if estimate}
+            <strong>{estimateLabel(estimate)}</strong>, {estimate.answers} réponses prévues{estimate.known && estimate.partial ? ', estimation partielle' : ''}
+          {/if}
+        </p>
+        <button class="btn btn-primary" type="submit" disabled={busy || chosenModels.length === 0 || chosenCases.length === 0}>
+          <Icon name="play" />
+          {busy ? 'Démarrage...' : 'Lancer'}
+        </button>
+      </div>
+    </div>
   </form>
 </aside>
 
@@ -150,10 +164,8 @@
     flex-direction: column;
     gap: var(--s3);
     min-height: 0;
-    overflow-y: auto;
     padding: var(--s4);
     border-radius: var(--radius-lg);
-    scrollbar-color: var(--axis) transparent;
   }
 
   .head {
@@ -163,14 +175,42 @@
     gap: var(--s3);
   }
 
+  /* Only the body scrolls: the launch button and its error stay in view. */
   form {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .body {
     display: grid;
-    gap: var(--s4);
+    flex: 1;
+    align-content: start;
+    gap: calc(var(--s4) * 1.5);
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: var(--s4);
+    scrollbar-color: var(--axis) transparent;
+  }
+
+  .foot {
+    display: grid;
+    gap: var(--s2);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--hairline);
+  }
+
+  .go {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s3);
   }
 
   fieldset {
     display: grid;
-    gap: var(--s2);
+    gap: var(--s3);
     min-width: 0;
     margin: 0;
     padding: 0;
@@ -204,22 +244,6 @@
 
   .link:hover {
     text-decoration-color: var(--accent);
-  }
-
-  /* Scrolls on its own so the launch button stays in view. */
-  .case-list {
-    display: grid;
-    gap: var(--s2);
-    max-height: 32vh;
-    overflow-y: auto;
-    scrollbar-color: var(--axis) transparent;
-  }
-
-  .check {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s2);
-    cursor: pointer;
   }
 
   .hint,

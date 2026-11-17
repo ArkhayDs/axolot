@@ -147,9 +147,11 @@
     </form>
 
     <button type="button" class="tool" onclick={onrecenter}><Icon name="center" size={16} /> Recentrer</button>
-    <button type="button" class="btn btn-primary launch" aria-expanded={launching} disabled={live.campaign !== ''} onclick={onlaunch}>
-      <Icon name="play" size={16} /> Lancer un Benchmark
-    </button>
+    {#if !launching}
+      <button type="button" class="btn btn-primary launch" disabled={live.campaign !== ''} onclick={onlaunch}>
+        <Icon name="play" size={16} /> Lancer un Benchmark
+      </button>
+    {/if}
   </div>
 </footer>
 
