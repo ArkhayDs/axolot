@@ -31,6 +31,19 @@ func TestClientReachesTheBridgeFromTheEnvironment(t *testing.T) {
 	}
 }
 
+func TestProbeLabelsModelsWithTheirConnectionType(t *testing.T) {
+	bridge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"data":[{"id":"claude-haiku-5-5"}]}`))
+	}))
+	defer bridge.Close()
+	s := &Server{cfg: Config{BridgeURL: bridge.URL + "/v1"}}
+
+	view := s.probe(context.Background(), store.Provider{Kind: "bridge"}, 0)
+	if len(view.Models) != 1 || view.Models[0].Name != "claude-haiku-5-5" || view.Models[0].Label != "claude-haiku-5-5 (abo)" {
+		t.Fatalf("models=%+v error=%q", view.Models, view.Error)
+	}
+}
+
 func TestConnectionTypeFollowsTheConnection(t *testing.T) {
 	for _, tc := range []struct {
 		p    store.Provider

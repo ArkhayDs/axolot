@@ -28,7 +28,7 @@
       .flatMap((connection) =>
         connection.models
           .filter((model) => !embedding.has(model.name) && !embedding.has(model.name.split(':')[0]))
-          .map((model) => ({ key: `${connection.provider.id}|${model.name}`, provider: connection.provider, name: model.name })),
+          .map((model) => ({ key: `${connection.provider.id}|${model.name}`, provider: connection.provider, name: model.name, label: model.label })),
       ),
   );
 
@@ -108,7 +108,7 @@
       {#each available as model (model.key)}
         <label class="check">
           <input type="checkbox" bind:group={chosenModels} value={model.key} />
-          <ModelName name={model.name} />
+          <ModelName name={model.label} />
         </label>
       {:else}
         <p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>

@@ -110,10 +110,11 @@ type connectionModels struct {
 	Models []modelView `json:"models"`
 }
 
-// modelView adds the fit estimate for this machine.
+// modelView adds the fit estimate for this machine and the label results name the model by.
 type modelView struct {
 	provider.Model
-	Fit string `json:"fit"`
+	Label string `json:"label"`
+	Fit   string `json:"fit"`
 }
 
 // catalogView is a library entry with its fit and download state.
@@ -167,8 +168,13 @@ func (s *Server) probe(ctx context.Context, p store.Provider, reservedGB int) co
 		return view
 	}
 	view.Online = true
+	connection := connectionType(p)
 	for _, m := range models {
-		view.Models = append(view.Models, modelView{Model: m, Fit: hardware.FitFor(s.cfg.Hardware, m.SizeBytes, reservedGB)})
+		view.Models = append(view.Models, modelView{
+			Model: m,
+			Label: store.ModelLabel(m.Name, connection),
+			Fit:   hardware.FitFor(s.cfg.Hardware, m.SizeBytes, reservedGB),
+		})
 	}
 	return view
 }

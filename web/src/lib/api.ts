@@ -43,7 +43,8 @@ export interface Connection {
   bridge: boolean;
   error?: string;
   // vision is absent when the server cannot tell whether the model reads images.
-  models: { name: string; size_bytes: number; family?: string; quantization?: string; vision?: boolean; fit: Fit }[];
+  // label is the name results show, with its connection type for a cloud model.
+  models: { name: string; label: string; size_bytes: number; family?: string; quantization?: string; vision?: boolean; fit: Fit }[];
 }
 
 export interface LibraryEntry {
