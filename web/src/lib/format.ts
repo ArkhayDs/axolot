@@ -245,3 +245,28 @@ export function seriesColor(model: string, all: string[]): string {
   // shortcut: past 8 models the rest share a neutral color, fold them into "Autres" if a campaign ever gets there.
   return index >= 0 && index < 8 ? `var(--series-${index + 1})` : 'var(--series-other)';
 }
+
+/**
+ * Splits a model label as the store builds it
+ * @param {string} label - e.g. `gpt-oss:120b (API · OpenRouter)`
+ * @returns {{ family: string; tag: string; via: string }} - tag keeps its colon, via its leading space; both '' when absent
+ */
+export function modelParts(label: string): { family: string; tag: string; via: string } {
+  const at = label.indexOf(' (');
+  const name = at < 0 ? label : label.slice(0, at);
+  const colon = name.indexOf(':');
+  return {
+    family: colon < 0 ? name : name.slice(0, colon),
+    tag: colon < 0 ? '' : name.slice(colon),
+    via: at < 0 ? '' : label.slice(at),
+  };
+}
+
+/**
+ * @param {string} label - model label
+ * @returns {string} - label without its tag, connection kept
+ */
+export function shortModelName(label: string): string {
+  const { family, via } = modelParts(label);
+  return family + via;
+}

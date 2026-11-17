@@ -1,7 +1,7 @@
 // Pure figures of the map: cell lookups, rankings with explicit ties, and gaps to the leader.
 
 import type { MapBenchmark, MapCell, MapData } from '../api';
-import { categoryLabel, modelMs, number, score as formatScore } from '../format';
+import { categoryLabel, modelMs, number, score as formatScore, shortModelName } from '../format';
 
 export interface MapFilter {
   machine: string;
@@ -90,13 +90,13 @@ export function listsOf(data: MapData): MapLists {
 }
 
 /**
- * @param {string} model - model tag
+ * @param {string} model - model label
  * @param {string[]} models - every model of the view
- * @returns {string} - family alone while it still identifies the model
+ * @returns {string} - label without its tag while that still identifies the model
  */
 export function shortModel(model: string, models: string[]): string {
-  const family = model.split(':')[0];
-  return models.filter((other) => other.split(':')[0] === family).length > 1 ? model : family;
+  const short = shortModelName(model);
+  return models.filter((other) => shortModelName(other) === short).length > 1 ? model : short;
 }
 
 /**
