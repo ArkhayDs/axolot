@@ -155,7 +155,7 @@ func runItem(ctx context.Context, campaignID string, c cases.Case, item cases.It
 
 	run := store.Run{
 		CampaignID: campaignID, CaseID: c.ID, ItemID: item.ID, Category: c.Category,
-		ProviderName: target.ProviderName, ConnectionType: target.ConnectionType, Model: target.Model, Checks: json.RawMessage(`[]`), ItemHash: item.Hash,
+		ProviderName: target.ProviderName, ConnectionType: target.ConnectionType, Model: target.Model, Label: base.Model, Checks: json.RawMessage(`[]`), ItemHash: item.Hash,
 	}
 	result, hits, err := generate(ctx, c, item, target, retrieved, base, deps)
 	if ctx.Err() != nil {
@@ -187,11 +187,9 @@ func runItem(ctx context.Context, campaignID string, c cases.Case, item cases.It
 	if err := deps.Results.CreateRun(ctx, run); err != nil {
 		return err
 	}
-	labelled := run
-	labelled.Model = base.Model
 	end := base
 	end.Type = EventItemEnd
-	end.Run = &labelled
+	end.Run = &run
 	deps.Emit(end)
 	return nil
 }

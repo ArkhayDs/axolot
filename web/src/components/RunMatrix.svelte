@@ -11,8 +11,8 @@
     activeModel = '',
   }: { cases: Case[]; models: string[]; runs: Run[]; activeItem?: string; activeModel?: string } = $props();
 
-  const byCell = $derived(new Map(runs.map((run) => [`${run.model}|${run.case_id}|${run.item_id}`, run])));
-  const atDefault = $derived(new Set(runs.filter((run) => run.default_temperature).map((run) => run.model)));
+  const byCell = $derived(new Map(runs.map((run) => [`${run.label}|${run.case_id}|${run.item_id}`, run])));
+  const atDefault = $derived(new Set(runs.filter((run) => run.default_temperature).map((run) => run.label)));
 
   /**
    * @param {Run | undefined} run - answer, absent when not played yet

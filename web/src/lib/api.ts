@@ -137,6 +137,8 @@ export interface Run {
   category: string;
   provider_name: string;
   model: string;
+  // label names the model in results, with its connection for a cloud model; model is the name it was called by.
+  label: string;
   output: string;
   error: string;
   ttft_ms: number | null;
@@ -241,7 +243,7 @@ export interface MapData {
 export interface Answer {
   id: string;
   item_id: string;
-  model: string;
+  label: string;
   category: string;
   total_ms: number;
   cli_startup_ms: number | null;

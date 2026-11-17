@@ -38,7 +38,7 @@ type MapBenchmark struct {
 type Answer struct {
 	ID           string `json:"id"`
 	ItemID       string `json:"item_id"`
-	Model        string `json:"model"`
+	Label        string `json:"label"`
 	Category     string `json:"category"`
 	TotalMs      int64  `json:"total_ms"`
 	CLIStartupMs *int64 `json:"cli_startup_ms"`
@@ -63,9 +63,9 @@ type MapItem struct {
 // ten times weighs as much as one played once; the weight does that in a single pass while times stay medians of the answers.
 // An unmeasured answer (error) gets no weight and no time, a quick failure passing for a fast answer; a group without any has neither.
 const cumulatedAnswers = `WITH answers AS (
-		SELECT c.hardware->>'label' AS machine, r.*, ` + modelLabel + ` AS label,
+		SELECT c.hardware->>'label' AS machine, r.*,
 			CASE WHEN r.error = '' THEN 1.0::float8 / count(*) FILTER (WHERE r.error = '')
-				OVER (PARTITION BY c.hardware->>'label', ` + modelLabel + `, r.case_id, r.item_id) END AS weight
+				OVER (PARTITION BY c.hardware->>'label', r.label, r.case_id, r.item_id) END AS weight
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE ` + countedAnswer + `
 	)`
@@ -111,7 +111,7 @@ func (s *Store) MapItems(ctx context.Context, hashes []string, connection string
 
 // MapAnswers lists what MapCells counted, without the heavy columns.
 func (s *Store) MapAnswers(ctx context.Context, hashes []string, connection string) ([]Answer, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, `+modelLabel+`, r.category, r.total_ms, r.cli_startup_ms, r.cli_exit_ms, r.error
+	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, r.label, r.category, r.total_ms, r.cli_startup_ms, r.cli_exit_ms, r.error
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE `+countedAnswer, StatusRunning, hashes, connection)
 	if err != nil {
@@ -135,14 +135,13 @@ type EstimateRow struct {
 // EstimateRows reads what duration estimates are built from, measured answers only. Means rather than medians,
 // because a sum of medians underestimates a total that has long answers.
 func (s *Store) EstimateRows(ctx context.Context, machine string, hashes []string) ([]EstimateRow, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+modelLabel+`, COALESCE(r.category, ''), COALESCE(r.case_id, ''), COALESCE(r.item_id, ''),
+	rows, err := s.pool.Query(ctx, `SELECT r.label, COALESCE(r.category, ''), COALESCE(r.case_id, ''), COALESCE(r.item_id, ''),
 			avg(r.total_ms)::float8,
 			percentile_cont(0.9) WITHIN GROUP (ORDER BY r.total_ms),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY r.load_ms) FILTER (WHERE r.load_ms > 0)
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE c.status <> $1 AND c.hardware->>'label' = $2 AND r.item_hash = ANY($3) AND r.error = ''
-		GROUP BY GROUPING SETS ((`+modelLabel+`, r.category, r.case_id, r.item_id), (`+modelLabel+`, r.category), (`+modelLabel+`))`,
-		StatusRunning, machine, hashes)
+		GROUP BY GROUPING SETS ((r.label, r.category, r.case_id, r.item_id), (r.label, r.category), (r.label))`, StatusRunning, machine, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("read estimate rows: %w", err)
 	}
@@ -158,7 +157,7 @@ type PlayedItem struct {
 
 // PlayedItems lists what a campaign has answered so far.
 func (s *Store) PlayedItems(ctx context.Context, campaignID string) ([]PlayedItem, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+modelLabel+`, case_id, item_id FROM runs WHERE campaign_id = $1::uuid`, campaignID)
+	rows, err := s.pool.Query(ctx, `SELECT label, case_id, item_id FROM runs WHERE campaign_id = $1::uuid`, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("list played items: %w", err)
 	}
@@ -170,10 +169,10 @@ func (s *Store) MapBenchmarks(ctx context.Context) ([]MapBenchmark, error) {
 	rows, err := s.pool.Query(ctx, `SELECT c.id::text, c.name, c.status, c.created_at, c.finished_at,
 			(SELECT count(*)::int FROM runs r WHERE r.campaign_id = c.id),
 			COALESCE(c.hardware->>'label', ''),
-			ARRAY(SELECT DISTINCT `+modelLabel+` FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
+			ARRAY(SELECT DISTINCT r.label FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
 			ARRAY(SELECT DISTINCT r.category FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
 			COALESCE((SELECT jsonb_agg(jsonb_build_object('model', p.label, 'category', p.category, 'measured', p.measured, 'avg_score', p.avg_score))
-				FROM (SELECT `+modelLabel+` AS label, r.category, count(*) FILTER (WHERE r.error = '') AS measured,
+				FROM (SELECT r.label, r.category, count(*) FILTER (WHERE r.error = '') AS measured,
 						avg(r.score) FILTER (WHERE r.error = '') AS avg_score
 					FROM runs r WHERE r.campaign_id = c.id GROUP BY 1, 2) p), '[]'::jsonb)
 		FROM campaigns c ORDER BY c.created_at DESC`)

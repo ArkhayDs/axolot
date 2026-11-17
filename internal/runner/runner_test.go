@@ -62,7 +62,7 @@ func TestRunFlagsEverySubscriptionAnswer(t *testing.T) {
 	}
 }
 
-func TestRunLabelsLiveEventsOnly(t *testing.T) {
+func TestRunLabelsLiveEvents(t *testing.T) {
 	results := &fakeResults{}
 	var events []Event
 	plan := textPlan("a", "m1")
@@ -75,7 +75,7 @@ func TestRunLabelsLiveEventsOnly(t *testing.T) {
 		t.Fatalf("the stored answer must keep the model it called: %q", results.runs[0].Model)
 	}
 	for _, event := range events {
-		if event.Type != EventFinished && (event.Model != "m1 (API · OpenAI)" || event.Run != nil && event.Run.Model != "m1 (API · OpenAI)") {
+		if event.Type != EventFinished && (event.Model != "m1 (API · OpenAI)" || event.Run != nil && event.Run.Label != "m1 (API · OpenAI)") {
 			t.Fatalf("unlabelled event: %+v", event)
 		}
 	}

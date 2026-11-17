@@ -79,7 +79,7 @@ func baseOf(cells []store.MapCell, answers []store.Answer, picked []string) base
 		}
 	}
 	view.Verdicts = analytics.Verdicts(stats)
-	view.Answers = slices.DeleteFunc(answers, func(answer store.Answer) bool { return !kept(answer.Model) })
+	view.Answers = slices.DeleteFunc(answers, func(answer store.Answer) bool { return !kept(answer.Label) })
 	return view
 }
 

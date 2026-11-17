@@ -25,7 +25,7 @@
   const current = $derived(catalog?.cases.find((item) => item.id === id));
   const selections = $derived((catalog?.selections ?? []).filter((selection) => selection.case_id === id));
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
-  const modelNames = $derived([...new Set(answers.map((answer) => answer.model))].sort());
+  const modelNames = $derived([...new Set(answers.map((answer) => answer.label))].sort());
   const corpus = $derived(settings?.corpus_dir ?? '');
   const runsByItem = $derived(
     answers.reduce((groups, answer) => {
@@ -182,8 +182,8 @@
         <h3 class="part-label">Résultats</h3>
         {#if itemRuns.length > 0}
           <div class="columns">
-            {#each itemRuns as run (run.id || run.model)}
-              <RunColumn {run} color={seriesColor(run.model, modelNames)} answers={run.answers} average={run.avg_score} />
+            {#each itemRuns as run (run.id || run.label)}
+              <RunColumn {run} color={seriesColor(run.label, modelNames)} answers={run.answers} average={run.avg_score} />
             {/each}
           </div>
         {:else}

@@ -6,7 +6,7 @@ import type { Run } from '../src/lib/api.ts';
 
 /** @returns {Run} - answer with the given overrides */
 function run(overrides: Partial<Run>): Run {
-  return { id: '', campaign_id: '', case_id: 'c', item_id: 'i', category: 'tri', provider_name: 'p', model: 'm', output: '', error: '', ttft_ms: null, total_ms: 1, load_ms: null, prompt_tokens: null, output_tokens: null, tok_per_sec: null, score: 0, checks: [], retrieved: null, retrieval_hit: null, ...overrides };
+  return { id: '', campaign_id: '', case_id: 'c', item_id: 'i', category: 'tri', provider_name: 'p', model: 'm', label: 'm', output: '', error: '', ttft_ms: null, total_ms: 1, load_ms: null, prompt_tokens: null, output_tokens: null, tok_per_sec: null, score: 0, checks: [], retrieved: null, retrieval_hit: null, ...overrides };
 }
 
 test('counts French words and keeps decimals in one sentence', () => {
