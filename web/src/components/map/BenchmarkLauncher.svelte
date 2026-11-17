@@ -21,6 +21,7 @@
   let busy = $state(false);
   let error = $state('');
   let estimate = $state<Estimate | null>(null);
+  let closeButton: HTMLButtonElement;
 
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
   // Offline connections stay listed, empty, so a missing model reads as a state rather than an absence.
@@ -80,7 +81,11 @@
     }
   }
 
-  onMount(load);
+  // The Atlas launch button disappears while the panel is open: focus moves here instead of the page top.
+  onMount(() => {
+    closeButton.focus();
+    load();
+  });
 
   $effect(() => {
     const targets = available
@@ -105,7 +110,7 @@
 <aside class="launcher glass" aria-label="Lancer un Benchmark">
   <div class="head">
     <h2>Lancer un Benchmark</h2>
-    <button class="btn" type="button" aria-label="Fermer et revenir au classement" onclick={onclose}><Icon name="cross" /></button>
+    <button class="btn" type="button" bind:this={closeButton} aria-label="Fermer et revenir au classement" onclick={onclose}><Icon name="cross" /></button>
   </div>
   <form onsubmit={start}>
     <div class="body">
@@ -117,7 +122,7 @@
       <fieldset>
         <legend>Modèles</legend>
         {#each connections as connection (connection.provider.id)}
-          <CheckGroup title={connection.provider.name} items={connection.models} bind:chosen={chosenModels} note={connection.online ? '' : 'Hors ligne'}>
+          <CheckGroup title={connection.provider.name} items={connection.models} bind:chosen={chosenModels} note={connection.online ? (connection.models.length ? '' : 'Aucun modèle') : 'Hors ligne'}>
             {#snippet row(model)}<ModelName name={model.label} />{/snippet}
           </CheckGroup>
         {/each}
