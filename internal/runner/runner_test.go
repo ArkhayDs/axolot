@@ -62,6 +62,25 @@ func TestRunFlagsEverySubscriptionAnswer(t *testing.T) {
 	}
 }
 
+func TestRunLabelsLiveEventsOnly(t *testing.T) {
+	results := &fakeResults{}
+	var events []Event
+	plan := textPlan("a", "m1")
+	plan.Targets[0].ConnectionType = store.ConnectionAPI
+
+	if err := Run(context.Background(), "c1", []Plan{plan}, newDeps(results, fakeModel{}, &events)); err != nil {
+		t.Fatal(err)
+	}
+	if results.runs[0].Model != "m1" {
+		t.Fatalf("the stored answer must keep the model it called: %q", results.runs[0].Model)
+	}
+	for _, event := range events {
+		if event.Type != EventFinished && (event.Model != "m1 (API)" || event.Run != nil && event.Run.Model != "m1 (API)") {
+			t.Fatalf("unlabelled event: %+v", event)
+		}
+	}
+}
+
 func textPlan(id string, models ...string) Plan {
 	targets := make([]Target, 0, len(models))
 	for _, m := range models {
