@@ -121,7 +121,7 @@ func computeEstimate(rows []store.EstimateRow, plans []runner.Plan, played []sto
 	loaded := map[string]bool{}
 	for _, plan := range plans {
 		for _, target := range plan.Targets {
-			label := store.ModelLabel(target.Model, target.ConnectionType)
+			label := store.ModelLabel(target.Model, target.ConnectionType, target.ProviderName)
 			for _, item := range plan.Case.Items {
 				if done[key{label, "", plan.Case.ID, item.ID}] {
 					continue
@@ -168,14 +168,14 @@ func (s *Server) postEstimate(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
-	connections := make(map[int64]string, len(providers))
+	byID := make(map[int64]store.Provider, len(providers))
 	for _, p := range providers {
-		connections[p.ID] = connectionType(p)
+		byID[p.ID] = p
 	}
 	var targets []runner.Target
 	for _, t := range body.Targets {
-		if connection, ok := connections[t.ProviderID]; ok {
-			targets = append(targets, runner.Target{ProviderID: t.ProviderID, ConnectionType: connection, Model: t.Model})
+		if p, ok := byID[t.ProviderID]; ok {
+			targets = append(targets, runner.Target{ProviderID: t.ProviderID, ProviderName: p.Name, ConnectionType: connectionType(p), Model: t.Model})
 		}
 	}
 	var plans []runner.Plan

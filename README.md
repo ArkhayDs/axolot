@@ -70,7 +70,7 @@ Résultats côte à côte par question, vérifications, passages RAG, citation s
 
 ### Résultats
 
-Quel modèle pour quelle tâche, sur toute la base : score et temps médian par thème, modèle recommandé. Plus une case est rouge, plus le modèle a perdu de points. Filtres en haut de page : type de connexion (locale, cloud par API, cloud par abonnement) et modèles ; les anciennes réponses de type inconnu ne comptent que sous « Toutes ». Un modèle cloud porte son type de connexion, `(API)` ou `(abo)` : servi des deux façons, il compte comme deux modèles.
+Quel modèle pour quelle tâche, sur toute la base : score et temps médian par thème, modèle recommandé. Plus une case est rouge, plus le modèle a perdu de points. Filtres en haut de page : type de connexion (locale, cloud par API, cloud par abonnement) et modèles ; les anciennes réponses de type inconnu ne comptent que sous « Toutes ». Un modèle cloud porte sa connexion, `(API · <nom de la connexion>)` ou `(abo)` : servi par deux connexions, il compte comme deux modèles. Renommer une connexion API sépare ses nouvelles réponses des anciennes.
 
 ![Résultats](docs/captures/resultats-desktop.png)
 

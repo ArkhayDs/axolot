@@ -172,7 +172,7 @@ func (s *Server) probe(ctx context.Context, p store.Provider, reservedGB int) co
 	for _, m := range models {
 		view.Models = append(view.Models, modelView{
 			Model: m,
-			Label: store.ModelLabel(m.Name, connection),
+			Label: store.ModelLabel(m.Name, connection, p.Name),
 			Fit:   hardware.FitFor(s.cfg.Hardware, m.SizeBytes, reservedGB),
 		})
 	}
