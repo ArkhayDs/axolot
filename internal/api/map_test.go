@@ -34,6 +34,11 @@ func TestComputeEstimate(t *testing.T) {
 	if got := computeEstimate(rows, plan("other", "known"), nil); got.Known || got.Answers != 1 {
 		t.Fatalf("unknown model must not get a figure: %+v", got)
 	}
+	viaAPI := plan("m", "known")
+	viaAPI[0].Targets[0].ConnectionType = store.ConnectionAPI
+	if got := computeEstimate(rows, viaAPI, nil); got.Known {
+		t.Fatalf("an API model must not be estimated from the local one of the same name: %+v", got)
+	}
 	played := []store.PlayedItem{{Model: "m", CaseID: "c", ItemID: "known"}}
 	if got := computeEstimate(rows, plan("m", "known", "new"), played); got != (Estimate{Answers: 1, LowMs: 300, HighMs: 500, Partial: true, Known: true}) {
 		t.Fatalf("remaining skips played answers and the load already done: %+v", got)

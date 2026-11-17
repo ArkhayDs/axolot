@@ -121,14 +121,15 @@ func computeEstimate(rows []store.EstimateRow, plans []runner.Plan, played []sto
 	loaded := map[string]bool{}
 	for _, plan := range plans {
 		for _, target := range plan.Targets {
+			label := store.ModelLabel(target.Model, target.ConnectionType)
 			for _, item := range plan.Case.Items {
-				if done[key{target.Model, "", plan.Case.ID, item.ID}] {
+				if done[key{label, "", plan.Case.ID, item.ID}] {
 					continue
 				}
 				estimate.Answers++
-				row, ok := known[key{target.Model, plan.Case.Category, plan.Case.ID, item.ID}]
+				row, ok := known[key{label, plan.Case.Category, plan.Case.ID, item.ID}]
 				if !ok {
-					row, ok = known[key{target.Model, plan.Case.Category, "", ""}]
+					row, ok = known[key{label, plan.Case.Category, "", ""}]
 					estimate.Partial = true
 				}
 				if !ok {
@@ -137,9 +138,9 @@ func computeEstimate(rows []store.EstimateRow, plans []runner.Plan, played []sto
 				}
 				estimate.LowMs += row.AvgMs
 				estimate.HighMs += row.P90Ms
-				if !started[target.Model] && !loaded[target.Model] {
-					loaded[target.Model] = true
-					if load := known[key{target.Model, "", "", ""}].LoadMs; load != nil {
+				if !started[label] && !loaded[label] {
+					loaded[label] = true
+					if load := known[key{label, "", "", ""}].LoadMs; load != nil {
 						estimate.LowMs += *load
 						estimate.HighMs += *load
 					}
@@ -153,23 +154,35 @@ func computeEstimate(rows []store.EstimateRow, plans []runner.Plan, played []sto
 // postEstimate estimates a benchmark of the given models and scenarios on this machine.
 func (s *Server) postEstimate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Models []string `json:"models"`
-		Cases  []string `json:"cases"`
+		Targets []struct {
+			ProviderID int64  `json:"provider_id"`
+			Model      string `json:"model"`
+		} `json:"targets"`
+		Cases []string `json:"cases"`
 	}
 	if !readJSON(w, r, &body) {
 		return
 	}
+	providers, err := s.cfg.Store.Providers(r.Context())
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	connections := make(map[int64]string, len(providers))
+	for _, p := range providers {
+		connections[p.ID] = connectionType(p)
+	}
+	var targets []runner.Target
+	for _, t := range body.Targets {
+		if connection, ok := connections[t.ProviderID]; ok {
+			targets = append(targets, runner.Target{ProviderID: t.ProviderID, ConnectionType: connection, Model: t.Model})
+		}
+	}
 	var plans []runner.Plan
 	for _, id := range body.Cases {
-		c, ok := s.findCase(id)
-		if !ok {
-			continue
+		if c, ok := s.findCase(id); ok {
+			plans = append(plans, runner.Plan{Case: c, Targets: targets})
 		}
-		plan := runner.Plan{Case: c}
-		for _, model := range body.Models {
-			plan.Targets = append(plan.Targets, runner.Target{Model: model})
-		}
-		plans = append(plans, plan)
 	}
 	rows, err := s.cfg.Store.EstimateRows(r.Context(), s.cfg.Hardware.Label, s.currentHashes())
 	if err != nil {

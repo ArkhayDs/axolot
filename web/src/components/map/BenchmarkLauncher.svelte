@@ -72,13 +72,15 @@
   onMount(load);
 
   $effect(() => {
-    const names = available.filter((model) => chosenModels.includes(model.key)).map((model) => model.name);
+    const targets = available
+      .filter((model) => chosenModels.includes(model.key))
+      .map((model) => ({ provider_id: model.provider.id, model: model.name }));
     const scenarios = [...chosenCases];
     estimate = null;
-    if (names.length === 0 || scenarios.length === 0) return;
+    if (targets.length === 0 || scenarios.length === 0) return;
     let stale = false;
     api
-      .estimate(names, scenarios)
+      .estimate(targets, scenarios)
       .then((loaded) => {
         if (!stale) estimate = loaded;
       })

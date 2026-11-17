@@ -443,7 +443,8 @@ export const api = {
     for (const model of models) query.append('model', model);
     return get(`/base?${query}`);
   },
-  estimate: (models: string[], cases: string[]): Promise<Estimate> => write('POST', '/estimate', { models, cases }),
+  estimate: (targets: { provider_id: number; model: string }[], cases: string[]): Promise<Estimate> =>
+    write('POST', '/estimate', { targets, cases }),
   remaining: (): Promise<Estimate> => get('/estimate/remaining'),
   chatSearch: async (question: string, signal: AbortSignal): Promise<ChatSearch> =>
     (
