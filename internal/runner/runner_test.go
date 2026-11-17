@@ -66,7 +66,7 @@ func TestRunLabelsLiveEventsOnly(t *testing.T) {
 	results := &fakeResults{}
 	var events []Event
 	plan := textPlan("a", "m1")
-	plan.Targets[0].ConnectionType = store.ConnectionAPI
+	plan.Targets[0].ConnectionType, plan.Targets[0].ProviderName = store.ConnectionAPI, "OpenAI"
 
 	if err := Run(context.Background(), "c1", []Plan{plan}, newDeps(results, fakeModel{}, &events)); err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestRunLabelsLiveEventsOnly(t *testing.T) {
 		t.Fatalf("the stored answer must keep the model it called: %q", results.runs[0].Model)
 	}
 	for _, event := range events {
-		if event.Type != EventFinished && (event.Model != "m1 (API)" || event.Run != nil && event.Run.Model != "m1 (API)") {
+		if event.Type != EventFinished && (event.Model != "m1 (API · OpenAI)" || event.Run != nil && event.Run.Model != "m1 (API · OpenAI)") {
 			t.Fatalf("unlabelled event: %+v", event)
 		}
 	}

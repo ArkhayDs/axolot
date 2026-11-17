@@ -27,21 +27,20 @@ const (
 	ConnectionSubscription = "subscription"
 )
 
-const (
-	suffixAPI          = " (API)"
-	suffixSubscription = " (abo)"
-)
+const suffixSubscription = " (abo)"
 
-// modelLabel is ModelLabel in SQL, on unqualified model and connection_type columns.
-const modelLabel = `CASE connection_type WHEN '` + ConnectionAPI + `' THEN model || '` + suffixAPI + `'
+// modelLabel is ModelLabel in SQL, on unqualified model, connection_type and provider_name columns.
+const modelLabel = `CASE connection_type WHEN '` + ConnectionAPI + `' THEN model || ' (API · ' || provider_name || ')'
 	WHEN '` + ConnectionSubscription + `' THEN model || '` + suffixSubscription + `' ELSE model END`
 
-// ModelLabel names a model for display and grouping: one cloud tag can be served by API and by subscription.
+// ModelLabel names a model for display and grouping: one cloud tag can be served by several API connections and by subscription.
+// A renamed API connection starts a new label, its older answers keep the name they were played under.
 // @param connectionType - Connection* const, empty when unknown
-func ModelLabel(model, connectionType string) string {
+// @param providerName - connection name, told apart for API models only
+func ModelLabel(model, connectionType, providerName string) string {
 	switch connectionType {
 	case ConnectionAPI:
-		return model + suffixAPI
+		return model + " (API · " + providerName + ")"
 	case ConnectionSubscription:
 		return model + suffixSubscription
 	}

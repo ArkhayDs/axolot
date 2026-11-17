@@ -329,34 +329,36 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 }
 
 func TestModelLabel(t *testing.T) {
-	for connection, want := range map[string]string{ConnectionLocal: "m", "": "m", ConnectionAPI: "m (API)", ConnectionSubscription: "m (abo)"} {
-		if got := ModelLabel("m", connection); got != want {
+	for connection, want := range map[string]string{ConnectionLocal: "m", "": "m", ConnectionAPI: "m (API · OpenAI)", ConnectionSubscription: "m (abo)"} {
+		if got := ModelLabel("m", connection, "OpenAI"); got != want {
 			t.Fatalf("%q: got %q, want %q", connection, got, want)
 		}
 	}
 }
 
-// Scores of the API label: i1 played twice at 100, i2 once at 0, so 50 when questions weigh the same within the label.
-func TestModelLabelSplitsConnectionTypes(t *testing.T) {
+// Scores of the OpenAI label: i1 played twice at 100, i2 once at 0, so 50 when questions weigh the same within the label.
+func TestModelLabelSplitsConnections(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	for _, connection := range []string{ConnectionLocal, ConnectionAPI, ConnectionSubscription, ""} {
 		var label string
-		err := s.pool.QueryRow(ctx, `SELECT `+modelLabel+` FROM (VALUES ('m', NULLIF($1::text, ''))) AS runs (model, connection_type)`, connection).Scan(&label)
-		if err != nil || label != ModelLabel("m", connection) {
-			t.Fatalf("%q: sql label %q, go label %q, err %v", connection, label, ModelLabel("m", connection), err)
+		err := s.pool.QueryRow(ctx, `SELECT `+modelLabel+` FROM (VALUES ('m', NULLIF($1::text, ''), 'OpenAI')) AS runs (model, connection_type, provider_name)`,
+			connection).Scan(&label)
+		if err != nil || label != ModelLabel("m", connection, "OpenAI") {
+			t.Fatalf("%q: sql label %q, go label %q, err %v", connection, label, ModelLabel("m", connection, "OpenAI"), err)
 		}
 	}
 
-	id, err := s.CreateCampaign(ctx, "demo", json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{}`), 4)
+	id, err := s.CreateCampaign(ctx, "demo", json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{}`), 5)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, run := range []Run{
-		{ProviderName: "api", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 100},
-		{ProviderName: "api", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 100},
-		{ProviderName: "api", ConnectionType: ConnectionAPI, ItemID: "i2", Score: 0},
-		{ProviderName: "bridge", ConnectionType: ConnectionSubscription, ItemID: "i1", Score: 0},
+		{ProviderName: "OpenAI", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 100},
+		{ProviderName: "OpenAI", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 100},
+		{ProviderName: "OpenAI", ConnectionType: ConnectionAPI, ItemID: "i2", Score: 0},
+		{ProviderName: "OpenRouter", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 0},
+		{ProviderName: "Claude (abonnement)", ConnectionType: ConnectionSubscription, ItemID: "i1", Score: 0},
 	} {
 		run.CampaignID, run.CaseID, run.Category, run.Model = id, "c", "code", "claude"
 		run.Checks, run.ItemHash = json.RawMessage(`[]`), "h-"+run.ItemID
@@ -367,7 +369,7 @@ func TestModelLabelSplitsConnectionTypes(t *testing.T) {
 	if err := s.FinishCampaign(ctx, id, StatusDone); err != nil {
 		t.Fatal(err)
 	}
-	apiLabel, subscriptionLabel := "claude (API)", "claude (abo)"
+	apiLabel, otherAPILabel, subscriptionLabel := "claude (API · OpenAI)", "claude (API · OpenRouter)", "claude (abo)"
 	hashes := []string{"h-i1", "h-i2"}
 
 	cells, err := s.MapCells(ctx, hashes, "")
@@ -380,11 +382,11 @@ func TestModelLabelSplitsConnectionTypes(t *testing.T) {
 			rollups[cell.Model] = scoreOf(cell.AvgScore)
 		}
 	}
-	if len(rollups) != 2 || rollups[apiLabel] != 50 || rollups[subscriptionLabel] != 0 {
+	if len(rollups) != 3 || rollups[apiLabel] != 50 || rollups[otherAPILabel] != 0 || rollups[subscriptionLabel] != 0 {
 		t.Fatalf("one row per label, questions weighing the same within it: %v", rollups)
 	}
 	items, err := s.MapItems(ctx, hashes, "")
-	if err != nil || len(items) != 6 {
+	if err != nil || len(items) != 8 {
 		t.Fatalf("items=%+v err=%v", items, err)
 	}
 	answers, err := s.MapAnswers(ctx, hashes, ConnectionSubscription)
@@ -393,24 +395,24 @@ func TestModelLabelSplitsConnectionTypes(t *testing.T) {
 	}
 
 	stats, err := s.Stats(ctx, id)
-	if err != nil || len(stats) != 4 || stats[0].Model != apiLabel || stats[2].Model != subscriptionLabel {
+	if err != nil || len(stats) != 6 || stats[0].Model != subscriptionLabel || stats[2].Model != apiLabel || stats[4].Model != otherAPILabel {
 		t.Fatalf("stats=%+v err=%v", stats, err)
 	}
 	runs, err := s.Runs(ctx, id)
-	if err != nil || runs[0].Model != apiLabel || runs[0].ConnectionType != ConnectionAPI {
+	if err != nil || runs[1].Model != apiLabel || runs[1].ConnectionType != ConnectionAPI {
 		t.Fatalf("runs=%+v err=%v", runs, err)
 	}
 	caseAnswers, err := s.CaseAnswers(ctx, "c", hashes)
-	if err != nil || len(caseAnswers) != 3 {
+	if err != nil || len(caseAnswers) != 4 {
 		t.Fatalf("caseAnswers=%+v err=%v", caseAnswers, err)
 	}
 	for _, answer := range caseAnswers {
 		if answer.Model == apiLabel && answer.ItemID == "i1" && answer.Answers != 2 {
-			t.Fatalf("the subscription answer counted with the API ones: %+v", answer)
+			t.Fatalf("another connection's answer counted with the OpenAI ones: %+v", answer)
 		}
 	}
 	benchmarks, err := s.MapBenchmarks(ctx)
-	if err != nil || len(benchmarks) != 1 || len(benchmarks[0].Models) != 2 || !strings.Contains(string(benchmarks[0].Cells), subscriptionLabel) {
+	if err != nil || len(benchmarks) != 1 || len(benchmarks[0].Models) != 3 || !strings.Contains(string(benchmarks[0].Cells), subscriptionLabel) {
 		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
 	}
 	estimates, err := s.EstimateRows(ctx, "mac", hashes)
@@ -420,11 +422,11 @@ func TestModelLabelSplitsConnectionTypes(t *testing.T) {
 			overall[row.Model] = true
 		}
 	}
-	if err != nil || len(overall) != 2 || !overall[apiLabel] || !overall[subscriptionLabel] {
+	if err != nil || len(overall) != 3 || !overall[apiLabel] || !overall[otherAPILabel] || !overall[subscriptionLabel] {
 		t.Fatalf("estimates=%+v err=%v", estimates, err)
 	}
 	played, err := s.PlayedItems(ctx, id)
-	if err != nil || len(played) != 4 || !slices.Contains(played, PlayedItem{Model: subscriptionLabel, CaseID: "c", ItemID: "i1"}) {
+	if err != nil || len(played) != 5 || !slices.Contains(played, PlayedItem{Model: subscriptionLabel, CaseID: "c", ItemID: "i1"}) {
 		t.Fatalf("played=%+v err=%v", played, err)
 	}
 }

@@ -16,6 +16,7 @@ func TestComputeEstimate(t *testing.T) {
 		{Model: "m", Category: "code", CaseID: "c", ItemID: "known", AvgMs: 100, P90Ms: 200},
 		{Model: "m", Category: "code", AvgMs: 300, P90Ms: 500},
 		{Model: "m", LoadMs: &load},
+		{Model: "m (API · OpenAI)", Category: "code", AvgMs: 300, P90Ms: 500},
 	}
 	plan := func(model string, items ...string) []runner.Plan {
 		c := cases.Case{ID: "c", Category: "code"}
@@ -34,10 +35,16 @@ func TestComputeEstimate(t *testing.T) {
 	if got := computeEstimate(rows, plan("other", "known"), nil); got.Known || got.Answers != 1 {
 		t.Fatalf("unknown model must not get a figure: %+v", got)
 	}
-	viaAPI := plan("m", "known")
-	viaAPI[0].Targets[0].ConnectionType = store.ConnectionAPI
-	if got := computeEstimate(rows, viaAPI, nil); got.Known {
-		t.Fatalf("an API model must not be estimated from the local one of the same name: %+v", got)
+	viaAPI := func(connection string) []runner.Plan {
+		p := plan("m", "known")
+		p[0].Targets[0].ConnectionType, p[0].Targets[0].ProviderName = store.ConnectionAPI, connection
+		return p
+	}
+	if got := computeEstimate(rows, viaAPI("OpenAI"), nil); got != (Estimate{Answers: 1, LowMs: 300, HighMs: 500, Partial: true, Known: true}) {
+		t.Fatalf("an API model is estimated from its own connection, not the local one of the same name: %+v", got)
+	}
+	if got := computeEstimate(rows, viaAPI("OpenRouter"), nil); got.Known {
+		t.Fatalf("an API model must not be estimated from another connection: %+v", got)
 	}
 	played := []store.PlayedItem{{Model: "m", CaseID: "c", ItemID: "known"}}
 	if got := computeEstimate(rows, plan("m", "known", "new"), played); got != (Estimate{Answers: 1, LowMs: 300, HighMs: 500, Partial: true, Known: true}) {
