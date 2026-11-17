@@ -27,13 +27,8 @@ const (
 	ConnectionSubscription = "subscription"
 )
 
-const suffixSubscription = " (abo)"
-
-// modelLabel is ModelLabel in SQL, on unqualified model, connection_type and provider_name columns.
-const modelLabel = `CASE connection_type WHEN '` + ConnectionAPI + `' THEN model || ' (API · ' || provider_name || ')'
-	WHEN '` + ConnectionSubscription + `' THEN model || '` + suffixSubscription + `' ELSE model END`
-
-// ModelLabel names a model for display and grouping: one cloud tag can be served by several API connections and by subscription.
+// ModelLabel names a model for display and grouping before it has answered; stored answers carry it as runs.label,
+// which must compute the same. One cloud tag can be served by several API connections and by subscription.
 // A renamed API connection starts a new label, its older answers keep the name they were played under.
 // @param connectionType - Connection* const, empty when unknown
 // @param providerName - connection name, told apart for API models only
@@ -42,7 +37,7 @@ func ModelLabel(model, connectionType, providerName string) string {
 	case ConnectionAPI:
 		return model + " (API · " + providerName + ")"
 	case ConnectionSubscription:
-		return model + suffixSubscription
+		return model + " (abo)"
 	}
 	return model
 }
@@ -63,7 +58,7 @@ type Campaign struct {
 	FinishedAt *time.Time      `json:"finished_at"`
 }
 
-// Run is one model answering one item.
+// Run is one model answering one item. Label is computed by the database, CreateRun ignores it.
 type Run struct {
 	ID                 string          `json:"id"`
 	CampaignID         string          `json:"campaign_id"`
@@ -73,6 +68,7 @@ type Run struct {
 	ProviderName       string          `json:"provider_name"`
 	ConnectionType     string          `json:"connection_type"`
 	Model              string          `json:"model"`
+	Label              string          `json:"label"`
 	Output             string          `json:"output"`
 	Error              string          `json:"error"`
 	TTFTMs             *int64          `json:"ttft_ms"`
@@ -120,9 +116,9 @@ func (s *Store) MarkInterrupted(ctx context.Context) error {
 	return nil
 }
 
-// runColumns must stay in the order of the Run fields; Model reads back as its label.
+// runColumns must stay in the order of the Run fields.
 const runColumns = `r.id::text, r.campaign_id::text, r.case_id, r.item_id, r.category, r.provider_name, COALESCE(r.connection_type, ''),
-	` + modelLabel + `, r.output, r.error,
+	r.model, r.label, r.output, r.error,
 	r.ttft_ms, r.total_ms, r.load_ms, r.cli_startup_ms, r.cli_exit_ms, r.prompt_tokens, r.output_tokens, r.tok_per_sec, r.score, r.checks, r.retrieved,
 	r.retrieval_hit, COALESCE(r.item_hash, ''), r.default_temperature`
 
@@ -195,13 +191,13 @@ const statsFigures = `percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTE
 // Scores and times count measured answers only: an error (bridge, quota, connection) says nothing about the model,
 // and a quick failure would pass for a fast answer.
 func (s *Store) Stats(ctx context.Context, campaignID string) ([]analytics.ModelStats, error) {
-	rows, err := s.pool.Query(ctx, `SELECT provider_name, `+modelLabel+`, COALESCE(category, ''),
+	rows, err := s.pool.Query(ctx, `SELECT provider_name, label, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
 			avg(score) FILTER (WHERE error = ''),
 			`+statsFigures+`
 		FROM runs WHERE campaign_id = $1::uuid
-		GROUP BY GROUPING SETS ((provider_name, `+modelLabel+`), (provider_name, `+modelLabel+`, category))
+		GROUP BY GROUPING SETS ((provider_name, label), (provider_name, label, category))
 		ORDER BY 1, 2, 3`, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("compute stats: %w", err)

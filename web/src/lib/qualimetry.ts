@@ -110,12 +110,12 @@ function rowOf(model: string, category: string, runs: Run[], maxTokens: number):
  * @returns {QualityRow[]} - one row per model overall, then per model and theme
  */
 export function qualityRows(runs: Run[], maxTokens: number): QualityRow[] {
-  const models = [...new Set(runs.map((run) => run.model))].sort();
+  const models = [...new Set(runs.map((run) => run.label))].sort();
   const themes = [...new Set(runs.map((run) => run.category))].sort();
-  const overall = models.map((model) => rowOf(model, '', runs.filter((run) => run.model === model), maxTokens));
+  const overall = models.map((model) => rowOf(model, '', runs.filter((run) => run.label === model), maxTokens));
   const detailed = themes.flatMap((category) =>
     models.flatMap((model) => {
-      const pair = runs.filter((run) => run.model === model && run.category === category);
+      const pair = runs.filter((run) => run.label === model && run.category === category);
       return pair.length > 0 ? [rowOf(model, category, pair, maxTokens)] : [];
     }),
   );

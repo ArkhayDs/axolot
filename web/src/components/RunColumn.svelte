@@ -8,7 +8,7 @@
 </script>
 
 <article class="run">
-  <ModelName name={run.model} {color} />
+  <ModelName name={run.label} {color} />
   <p class="cumul">{answers} {answers > 1 ? 'réponses' : 'réponse'}{#if average !== null}, moyenne {score(average)}/100{/if}. Dernière réponse :</p>
   {#if run.error}
     <p class="muted" title={UNMEASURED_HINT}>Non mesurée</p>

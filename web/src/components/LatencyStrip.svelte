@@ -48,7 +48,7 @@
       top: rowIndex * rowHeight,
       lanes: models
         .map((model, laneIndex) => {
-          const laneRuns = answered.filter((run) => run.category === category && run.model === model);
+          const laneRuns = answered.filter((run) => run.category === category && run.label === model);
           return { model, laneRuns, y: rowIndex * rowHeight + laneIndex * LANE_HEIGHT + LANE_HEIGHT / 2 };
         })
         .filter((lane) => lane.laneRuns.length > 0),

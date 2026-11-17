@@ -62,7 +62,7 @@ func TestBaseOfKeepsThePickedModels(t *testing.T) {
 		cell("", "a", "", &slow), cell("", "a", "code", &slow), cell("", "b", "", &quick), cell("", "b", "code", &quick),
 		cell("mac", "a", "", &slow),
 	}
-	answers := []store.Answer{{Model: "a"}, {Model: "b"}}
+	answers := []store.Answer{{Label: "a"}, {Label: "b"}}
 
 	all := baseOf(cells, answers, nil)
 	if len(all.Stats) != 4 || len(all.Answers) != 2 || !slices.Equal(all.Models, []string{"a", "b"}) {

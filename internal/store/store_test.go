@@ -340,15 +340,6 @@ func TestModelLabel(t *testing.T) {
 func TestModelLabelSplitsConnections(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
-	for _, connection := range []string{ConnectionLocal, ConnectionAPI, ConnectionSubscription, ""} {
-		var label string
-		err := s.pool.QueryRow(ctx, `SELECT `+modelLabel+` FROM (VALUES ('m', NULLIF($1::text, ''), 'OpenAI')) AS runs (model, connection_type, provider_name)`,
-			connection).Scan(&label)
-		if err != nil || label != ModelLabel("m", connection, "OpenAI") {
-			t.Fatalf("%q: sql label %q, go label %q, err %v", connection, label, ModelLabel("m", connection, "OpenAI"), err)
-		}
-	}
-
 	id, err := s.CreateCampaign(ctx, "demo", json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{}`), 5)
 	if err != nil {
 		t.Fatal(err)
@@ -390,7 +381,7 @@ func TestModelLabelSplitsConnections(t *testing.T) {
 		t.Fatalf("items=%+v err=%v", items, err)
 	}
 	answers, err := s.MapAnswers(ctx, hashes, ConnectionSubscription)
-	if err != nil || len(answers) != 1 || answers[0].Model != subscriptionLabel {
+	if err != nil || len(answers) != 1 || answers[0].Label != subscriptionLabel {
 		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
 
@@ -399,15 +390,20 @@ func TestModelLabelSplitsConnections(t *testing.T) {
 		t.Fatalf("stats=%+v err=%v", stats, err)
 	}
 	runs, err := s.Runs(ctx, id)
-	if err != nil || runs[1].Model != apiLabel || runs[1].ConnectionType != ConnectionAPI {
+	if err != nil || runs[1].Model != "claude" || runs[1].Label != apiLabel {
 		t.Fatalf("runs=%+v err=%v", runs, err)
+	}
+	for _, run := range runs {
+		if run.Label != ModelLabel(run.Model, run.ConnectionType, run.ProviderName) {
+			t.Fatalf("stored label drifted from ModelLabel: %+v", run)
+		}
 	}
 	caseAnswers, err := s.CaseAnswers(ctx, "c", hashes)
 	if err != nil || len(caseAnswers) != 4 {
 		t.Fatalf("caseAnswers=%+v err=%v", caseAnswers, err)
 	}
 	for _, answer := range caseAnswers {
-		if answer.Model == apiLabel && answer.ItemID == "i1" && answer.Answers != 2 {
+		if answer.Label == apiLabel && answer.ItemID == "i1" && answer.Answers != 2 {
 			t.Fatalf("another connection's answer counted with the OpenAI ones: %+v", answer)
 		}
 	}
@@ -467,7 +463,7 @@ func TestMapKeepsOneConnectionType(t *testing.T) {
 		t.Fatalf("items=%+v err=%v", items, err)
 	}
 	answers, err := s.MapAnswers(ctx, []string{"h"}, ConnectionLocal)
-	if err != nil || len(answers) != 1 || answers[0].Model != "qwen" {
+	if err != nil || len(answers) != 1 || answers[0].Label != "qwen" {
 		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
 }

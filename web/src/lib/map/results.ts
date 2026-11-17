@@ -62,13 +62,13 @@ export function stateOfItem(item: MapItem | undefined): ResultState {
 
 /**
  * @param {Run[]} runs - answers of the running benchmark
- * @returns {Map<string, ResultState>} - by "model|question", and by "|question" for the latest of any model
+ * @returns {Map<string, ResultState>} - by "label|question", and by "|question" for the latest of any model
  */
 export function resultsOfRuns(runs: Run[]): Map<string, ResultState> {
   const results = new Map<string, ResultState>();
   for (const run of runs) {
     const state = stateOfScore(run.score, run.error !== '');
-    results.set(`${run.model}|${run.case_id}/${run.item_id}`, state);
+    results.set(`${run.label}|${run.case_id}/${run.item_id}`, state);
     results.set(`|${run.case_id}/${run.item_id}`, state);
   }
   return results;

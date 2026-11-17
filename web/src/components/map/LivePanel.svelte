@@ -16,7 +16,7 @@
 
   const currentCase = $derived(catalog?.cases.find((item) => item.id === live.caseId));
   const lastRun = $derived(live.runs.at(-1));
-  const matrixModels = $derived([...new Set([...live.runs.map((run) => run.model), ...(live.model ? [live.model] : [])])].sort());
+  const matrixModels = $derived([...new Set([...live.runs.map((run) => run.label), ...(live.model ? [live.model] : [])])].sort());
   const matrixCases = $derived((catalog?.cases ?? []).filter((item) => item.id === live.caseId || live.runs.some((run) => run.case_id === item.id)));
 
   /** Stops the running benchmark; the current question is abandoned */
