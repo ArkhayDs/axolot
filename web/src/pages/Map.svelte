@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   import Icon from '../components/Icon.svelte';
   import Notice from '../components/Notice.svelte';
@@ -104,6 +104,13 @@
     else focus = focus?.kind === kind && focus.key === key ? null : { kind, key };
   }
 
+  /** Closes the launcher and gives focus back to the button it replaced */
+  async function closeLauncher(): Promise<void> {
+    launching = false;
+    await tick();
+    statusEl?.querySelector<HTMLButtonElement>('.launch')?.focus();
+  }
+
   /** @returns {{ top: number; right: number; bottom: number; left: number }} - canvas margins the panels cover */
   function reserve(): { top: number; right: number; bottom: number; left: number } {
     if (phone.matches || !statusEl || !sideEl) return { top: 8, right: 8, bottom: 8, left: 8 };
@@ -166,7 +173,7 @@
     {#if running}
       <LivePanel {catalog} />
     {:else if launching}
-      <BenchmarkLauncher category={filter.category} onclose={() => (launching = false)} />
+      <BenchmarkLauncher category={filter.category} onclose={closeLauncher} />
     {:else if content}
       {#if focus}
         <NodeDetail {focus} {content} {items} {filter} onclose={() => (focus = null)} />
