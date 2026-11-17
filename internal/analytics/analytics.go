@@ -23,6 +23,7 @@ type ModelStats struct {
 	RetrievalHits      int      `json:"retrieval_hits"`
 	RetrievalTotal     int      `json:"retrieval_total"`
 	DefaultTemperature bool     `json:"default_temperature"`
+	ConnectionType     string   `json:"connection_type"`
 }
 
 // Pick names a winning model with its score.

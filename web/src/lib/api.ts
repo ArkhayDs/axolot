@@ -181,6 +181,8 @@ export interface ModelStats {
   retrieval_hits: number;
   retrieval_total: number;
   default_temperature: boolean;
+  // Of the label, '' when unknown.
+  connection_type: ConnectionType;
 }
 
 export interface Pick {

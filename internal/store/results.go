@@ -184,7 +184,8 @@ const statsFigures = `percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTE
 	max(load_ms),
 	count(*) FILTER (WHERE retrieval_hit)::int,
 	count(retrieval_hit)::int,
-	COALESCE(bool_or(default_temperature) FILTER (WHERE error = ''), false)`
+	COALESCE(bool_or(default_temperature) FILTER (WHERE error = ''), false),
+	COALESCE(min(connection_type), '')`
 
 // Stats aggregates a campaign per model, overall (empty category) and per category.
 // Medians, because a model's first run carries its load time and would skew an average.
