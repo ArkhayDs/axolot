@@ -124,7 +124,7 @@
           {#each connection.models.filter((model) => !embedding.has(model.name) && !embedding.has(model.name.split(':')[0])) as model (model.name)}
             <label class="chip" class:on={isSelected(connection.provider.id, model.name)}>
               <input type="checkbox" checked={isSelected(connection.provider.id, model.name)} onchange={() => toggle(connection.provider.id, model.name)} />
-              <ModelName name={model.name} />
+              <ModelName name={model.label} />
             </label>
           {/each}
         {/each}
