@@ -386,7 +386,7 @@ func TestModelLabelSplitsConnections(t *testing.T) {
 	}
 
 	stats, err := s.Stats(ctx, id)
-	if err != nil || len(stats) != 6 || stats[0].Model != subscriptionLabel || stats[2].Model != apiLabel || stats[4].Model != otherAPILabel {
+	if err != nil || len(stats) != 6 || stats[0].Model != subscriptionLabel || stats[0].ConnectionType != ConnectionSubscription || stats[2].Model != apiLabel || stats[4].Model != otherAPILabel {
 		t.Fatalf("stats=%+v err=%v", stats, err)
 	}
 	runs, err := s.Runs(ctx, id)

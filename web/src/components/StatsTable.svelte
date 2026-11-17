@@ -7,8 +7,7 @@
 
   const rows = $derived([...stats].sort((a, b) => a.category.localeCompare(b.category) || a.model.localeCompare(b.model)));
   const viaBridge = $derived(stats.some((stat) => stat.p50_net_total_ms !== null));
-  // Suffix the store gives subscription models, see ModelLabel.
-  const subscription = $derived(stats.some((stat) => stat.model.endsWith(' (abo)')));
+  const subscription = $derived(stats.some((stat) => stat.connection_type === 'subscription'));
 </script>
 
 <div class="table-wrap">
