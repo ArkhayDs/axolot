@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -411,6 +412,20 @@ func TestModelLabelSplitsConnectionTypes(t *testing.T) {
 	benchmarks, err := s.MapBenchmarks(ctx)
 	if err != nil || len(benchmarks) != 1 || len(benchmarks[0].Models) != 2 || !strings.Contains(string(benchmarks[0].Cells), subscriptionLabel) {
 		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
+	}
+	estimates, err := s.EstimateRows(ctx, "mac", hashes)
+	overall := map[string]bool{}
+	for _, row := range estimates {
+		if row.Category == "" {
+			overall[row.Model] = true
+		}
+	}
+	if err != nil || len(overall) != 2 || !overall[apiLabel] || !overall[subscriptionLabel] {
+		t.Fatalf("estimates=%+v err=%v", estimates, err)
+	}
+	played, err := s.PlayedItems(ctx, id)
+	if err != nil || len(played) != 4 || !slices.Contains(played, PlayedItem{Model: subscriptionLabel, CaseID: "c", ItemID: "i1"}) {
+		t.Fatalf("played=%+v err=%v", played, err)
 	}
 }
 
