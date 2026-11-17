@@ -150,13 +150,9 @@ func (s *Server) buildPlans(ctx context.Context, only []string) ([]runner.Plan, 
 	if err != nil {
 		return nil, err
 	}
-	providers, err := s.cfg.Store.Providers(ctx)
+	byID, err := s.providersByID(ctx)
 	if err != nil {
 		return nil, err
-	}
-	byID := make(map[int64]store.Provider, len(providers))
-	for _, p := range providers {
-		byID[p.ID] = p
 	}
 	wanted := make(map[string]bool, len(only))
 	for _, id := range only {
@@ -171,7 +167,7 @@ func (s *Server) buildPlans(ctx context.Context, only []string) ([]runner.Plan, 
 		for _, sel := range selections {
 			// A connection deleted since the selections were read is skipped, not run under a blank name.
 			if p, ok := byID[sel.ProviderID]; ok && sel.CaseID == c.ID {
-				plan.Targets = append(plan.Targets, runner.Target{ProviderID: sel.ProviderID, ProviderName: p.Name, ConnectionType: connectionType(p), Model: sel.Model})
+				plan.Targets = append(plan.Targets, targetOf(p, sel.Model))
 			}
 		}
 		if len(plan.Targets) > 0 {

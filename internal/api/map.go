@@ -163,19 +163,15 @@ func (s *Server) postEstimate(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	providers, err := s.cfg.Store.Providers(r.Context())
+	byID, err := s.providersByID(r.Context())
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	byID := make(map[int64]store.Provider, len(providers))
-	for _, p := range providers {
-		byID[p.ID] = p
-	}
 	var targets []runner.Target
 	for _, t := range body.Targets {
 		if p, ok := byID[t.ProviderID]; ok {
-			targets = append(targets, runner.Target{ProviderID: t.ProviderID, ProviderName: p.Name, ConnectionType: connectionType(p), Model: t.Model})
+			targets = append(targets, targetOf(p, t.Model))
 		}
 	}
 	var plans []runner.Plan

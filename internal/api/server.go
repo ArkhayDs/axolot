@@ -275,6 +275,24 @@ func connectionType(p store.Provider) string {
 	}
 }
 
+// providersByID indexes the saved connections.
+func (s *Server) providersByID(ctx context.Context) (map[int64]store.Provider, error) {
+	providers, err := s.cfg.Store.Providers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]store.Provider, len(providers))
+	for _, p := range providers {
+		byID[p.ID] = p
+	}
+	return byID, nil
+}
+
+// targetOf names a model on its connection the way the runs it plays will store it.
+func targetOf(p store.Provider, model string) runner.Target {
+	return runner.Target{ProviderID: p.ID, ProviderName: p.Name, ConnectionType: connectionType(p), Model: model}
+}
+
 // pathID parses a numeric path parameter, answering 400 when malformed.
 func pathID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue(name), 10, 64)
