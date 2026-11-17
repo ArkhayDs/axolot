@@ -22,6 +22,8 @@
   let error = $state('');
   let estimate = $state<Estimate | null>(null);
   let closeButton: HTMLButtonElement;
+  // Groups mount once the saved picks are in: they open on what is checked at mount.
+  let ready = $state(false);
 
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
   // Offline connections stay listed, empty, so a missing model reads as a state rather than an absence.
@@ -51,6 +53,7 @@
       const saved = new Set(catalog.selections.map((selection) => `${selection.provider_id}|${selection.model}`));
       chosenModels = available.filter((model) => saved.has(model.key)).map((model) => model.key);
       chosenCases = catalog.cases.filter((item: Case) => !category || item.category === category).map((item: Case) => item.id);
+      ready = true;
     } catch (loadError) {
       error = errorMessage(loadError);
     }
@@ -121,13 +124,15 @@
 
       <fieldset>
         <legend>Modèles</legend>
-        {#each connections as connection (connection.provider.id)}
-          <CheckGroup title={connection.provider.name} items={connection.models} bind:chosen={chosenModels} note={connection.online ? (connection.models.length ? '' : 'Aucun modèle') : 'Hors ligne'}>
-            {#snippet row(model)}<ModelName name={model.label} />{/snippet}
-          </CheckGroup>
-        {/each}
-        {#if models && available.length === 0}
-          <p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>
+        {#if ready}
+          {#each connections as connection (connection.provider.id)}
+            <CheckGroup title={connection.provider.name} items={connection.models} bind:chosen={chosenModels} note={connection.online ? (connection.models.length ? '' : 'Aucun modèle') : 'Hors ligne'}>
+              {#snippet row(model)}<ModelName name={model.label} />{/snippet}
+            </CheckGroup>
+          {/each}
+          {#if available.length === 0}
+            <p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>
+          {/if}
         {/if}
       </fieldset>
 
@@ -137,11 +142,13 @@
           <button class="link" type="button" onclick={() => (chosenCases = (catalog?.cases ?? []).map((item) => item.id))}>Tous</button>
           <button class="link" type="button" onclick={() => (chosenCases = [])}>Aucun</button>
         </legend>
-        {#each themes as theme (theme.category)}
-          <CheckGroup title={categoryLabel(theme.category)} items={theme.cases} bind:chosen={chosenCases}>
-            {#snippet row(item)}<span>{item.title}</span>{/snippet}
-          </CheckGroup>
-        {/each}
+        {#if ready}
+          {#each themes as theme (theme.category)}
+            <CheckGroup title={categoryLabel(theme.category)} items={theme.cases} bind:chosen={chosenCases}>
+              {#snippet row(item)}<span>{item.title}</span>{/snippet}
+            </CheckGroup>
+          {/each}
+        {/if}
       </fieldset>
     </div>
 
@@ -195,7 +202,9 @@
     gap: calc(var(--s4) * 1.5);
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: var(--s4);
+    /* macOS overlay scrollbars draw over content: the scroll edge moves into the panel padding, past the chevrons. */
+    margin-right: calc(-1 * var(--s3));
+    padding: 0 var(--s3) var(--s4) 0;
     scrollbar-color: var(--axis) transparent;
   }
 
