@@ -27,6 +27,27 @@ const (
 	ConnectionSubscription = "subscription"
 )
 
+const (
+	suffixAPI          = " (API)"
+	suffixSubscription = " (abo)"
+)
+
+// modelLabel is ModelLabel in SQL, on unqualified model and connection_type columns.
+const modelLabel = `CASE connection_type WHEN '` + ConnectionAPI + `' THEN model || '` + suffixAPI + `'
+	WHEN '` + ConnectionSubscription + `' THEN model || '` + suffixSubscription + `' ELSE model END`
+
+// ModelLabel names a model for display and grouping: one cloud tag can be served by API and by subscription.
+// @param connectionType - Connection* const, empty when unknown
+func ModelLabel(model, connectionType string) string {
+	switch connectionType {
+	case ConnectionAPI:
+		return model + suffixAPI
+	case ConnectionSubscription:
+		return model + suffixSubscription
+	}
+	return model
+}
+
 // ErrNotFound is returned when a requested row does not exist.
 var ErrNotFound = errors.New("not found")
 
@@ -100,9 +121,9 @@ func (s *Store) MarkInterrupted(ctx context.Context) error {
 	return nil
 }
 
-// runColumns must stay in the order of the Run fields.
+// runColumns must stay in the order of the Run fields; Model reads back as its label.
 const runColumns = `r.id::text, r.campaign_id::text, r.case_id, r.item_id, r.category, r.provider_name, COALESCE(r.connection_type, ''),
-	r.model, r.output, r.error,
+	` + modelLabel + `, r.output, r.error,
 	r.ttft_ms, r.total_ms, r.load_ms, r.cli_startup_ms, r.cli_exit_ms, r.prompt_tokens, r.output_tokens, r.tok_per_sec, r.score, r.checks, r.retrieved,
 	r.retrieval_hit, COALESCE(r.item_hash, ''), r.default_temperature`
 
@@ -175,13 +196,13 @@ const statsFigures = `percentile_cont(0.5) WITHIN GROUP (ORDER BY ttft_ms) FILTE
 // Scores and times count measured answers only: an error (bridge, quota, connection) says nothing about the model,
 // and a quick failure would pass for a fast answer.
 func (s *Store) Stats(ctx context.Context, campaignID string) ([]analytics.ModelStats, error) {
-	rows, err := s.pool.Query(ctx, `SELECT provider_name, model, COALESCE(category, ''),
+	rows, err := s.pool.Query(ctx, `SELECT provider_name, `+modelLabel+`, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
 			avg(score) FILTER (WHERE error = ''),
 			`+statsFigures+`
 		FROM runs WHERE campaign_id = $1::uuid
-		GROUP BY GROUPING SETS ((provider_name, model), (provider_name, model, category))
+		GROUP BY GROUPING SETS ((provider_name, `+modelLabel+`), (provider_name, `+modelLabel+`, category))
 		ORDER BY 1, 2, 3`, campaignID)
 	if err != nil {
 		return nil, fmt.Errorf("compute stats: %w", err)

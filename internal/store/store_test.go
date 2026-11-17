@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -323,6 +324,93 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 				t.Fatalf("an unmeasured answer must weigh nothing in the benchmark score: %+v", cell)
 			}
 		}
+	}
+}
+
+func TestModelLabel(t *testing.T) {
+	for connection, want := range map[string]string{ConnectionLocal: "m", "": "m", ConnectionAPI: "m (API)", ConnectionSubscription: "m (abo)"} {
+		if got := ModelLabel("m", connection); got != want {
+			t.Fatalf("%q: got %q, want %q", connection, got, want)
+		}
+	}
+}
+
+// Scores of the API label: i1 played twice at 100, i2 once at 0, so 50 when questions weigh the same within the label.
+func TestModelLabelSplitsConnectionTypes(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	for _, connection := range []string{ConnectionLocal, ConnectionAPI, ConnectionSubscription, ""} {
+		var label string
+		err := s.pool.QueryRow(ctx, `SELECT `+modelLabel+` FROM (VALUES ('m', NULLIF($1::text, ''))) AS runs (model, connection_type)`, connection).Scan(&label)
+		if err != nil || label != ModelLabel("m", connection) {
+			t.Fatalf("%q: sql label %q, go label %q, err %v", connection, label, ModelLabel("m", connection), err)
+		}
+	}
+
+	id, err := s.CreateCampaign(ctx, "demo", json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{}`), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range []Run{
+		{ProviderName: "api", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 100},
+		{ProviderName: "api", ConnectionType: ConnectionAPI, ItemID: "i1", Score: 100},
+		{ProviderName: "api", ConnectionType: ConnectionAPI, ItemID: "i2", Score: 0},
+		{ProviderName: "bridge", ConnectionType: ConnectionSubscription, ItemID: "i1", Score: 0},
+	} {
+		run.CampaignID, run.CaseID, run.Category, run.Model = id, "c", "code", "claude"
+		run.Checks, run.ItemHash = json.RawMessage(`[]`), "h-"+run.ItemID
+		if err := s.CreateRun(ctx, run); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.FinishCampaign(ctx, id, StatusDone); err != nil {
+		t.Fatal(err)
+	}
+	apiLabel, subscriptionLabel := "claude (API)", "claude (abo)"
+	hashes := []string{"h-i1", "h-i2"}
+
+	cells, err := s.MapCells(ctx, hashes, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rollups := map[string]float64{}
+	for _, cell := range cells {
+		if cell.Machine == "" && cell.Category == "" {
+			rollups[cell.Model] = scoreOf(cell.AvgScore)
+		}
+	}
+	if len(rollups) != 2 || rollups[apiLabel] != 50 || rollups[subscriptionLabel] != 0 {
+		t.Fatalf("one row per label, questions weighing the same within it: %v", rollups)
+	}
+	items, err := s.MapItems(ctx, hashes, "")
+	if err != nil || len(items) != 6 {
+		t.Fatalf("items=%+v err=%v", items, err)
+	}
+	answers, err := s.MapAnswers(ctx, hashes, ConnectionSubscription)
+	if err != nil || len(answers) != 1 || answers[0].Model != subscriptionLabel {
+		t.Fatalf("answers=%+v err=%v", answers, err)
+	}
+
+	stats, err := s.Stats(ctx, id)
+	if err != nil || len(stats) != 4 || stats[0].Model != apiLabel || stats[2].Model != subscriptionLabel {
+		t.Fatalf("stats=%+v err=%v", stats, err)
+	}
+	runs, err := s.Runs(ctx, id)
+	if err != nil || runs[0].Model != apiLabel || runs[0].ConnectionType != ConnectionAPI {
+		t.Fatalf("runs=%+v err=%v", runs, err)
+	}
+	caseAnswers, err := s.CaseAnswers(ctx, "c", hashes)
+	if err != nil || len(caseAnswers) != 3 {
+		t.Fatalf("caseAnswers=%+v err=%v", caseAnswers, err)
+	}
+	for _, answer := range caseAnswers {
+		if answer.Model == apiLabel && answer.ItemID == "i1" && answer.Answers != 2 {
+			t.Fatalf("the subscription answer counted with the API ones: %+v", answer)
+		}
+	}
+	benchmarks, err := s.MapBenchmarks(ctx)
+	if err != nil || len(benchmarks) != 1 || len(benchmarks[0].Models) != 2 || !strings.Contains(string(benchmarks[0].Cells), subscriptionLabel) {
+		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
 	}
 }
 
