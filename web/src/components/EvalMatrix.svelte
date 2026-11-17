@@ -1,12 +1,12 @@
 <script lang="ts">
   import ModelName from './ModelName.svelte';
   import type { ModelStats, Verdict } from '../lib/api';
-  import { NET_HINT, categoryLabel, duration, modelMs, score, seriesColor } from '../lib/format';
+  import { NET_HINT, categoryLabel, duration, modelMs, score, seriesColor, shortModelName } from '../lib/format';
 
   let { stats, verdicts, models }: { stats: ModelStats[]; verdicts: Verdict[]; models: string[] } = $props();
 
   // The tag is only dropped while the family alone still identifies each model.
-  const shortNames = $derived(new Set(models.map((model) => model.split(':')[0])).size === models.length);
+  const shortNames = $derived(new Set(models.map(shortModelName)).size === models.length);
   const byKey = $derived(new Map(stats.map((stat) => [`${stat.category}|${stat.model}`, stat])));
 
   /**

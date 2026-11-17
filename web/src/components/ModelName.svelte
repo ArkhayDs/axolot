@@ -1,12 +1,14 @@
 <script lang="ts">
+  import { modelParts } from '../lib/format';
+
   let { name, color = '', short = false }: { name: string; color?: string; short?: boolean } = $props();
 
-  const parts = $derived(name.split(':'));
+  const parts = $derived(modelParts(name));
 </script>
 
 <span class="model">
   {#if color}<span class="dot" style:background={color}></span>{/if}
-  <span><strong>{parts[0]}</strong>{#if parts[1] && !short}<span class="tag">:{parts[1]}</span>{/if}</span>
+  <span><strong>{parts.family}</strong>{#if !short}<span class="tag">{parts.tag}</span>{/if}<span class="tag">{parts.via}</span></span>
 </span>
 
 <style>
