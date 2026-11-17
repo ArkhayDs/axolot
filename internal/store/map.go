@@ -59,13 +59,13 @@ type MapItem struct {
 }
 
 // cumulatedAnswers selects what the cumulated figures count: finished answers to the current version of each
-// question. Scores average per (machine, model, question) first, so a question repeated ten times weighs as much
-// as one played once; the weight does that in a single pass while times stay medians of the answers. An unmeasured
-// answer (error) gets no weight and no time, a quick failure passing for a fast answer; a group without any has neither.
+// question, models told apart by their label. Scores average per (machine, label, question) first, so a question repeated
+// ten times weighs as much as one played once; the weight does that in a single pass while times stay medians of the answers.
+// An unmeasured answer (error) gets no weight and no time, a quick failure passing for a fast answer; a group without any has neither.
 const cumulatedAnswers = `WITH answers AS (
-		SELECT c.hardware->>'label' AS machine, r.*,
+		SELECT c.hardware->>'label' AS machine, r.*, ` + modelLabel + ` AS label,
 			CASE WHEN r.error = '' THEN 1.0::float8 / count(*) FILTER (WHERE r.error = '')
-				OVER (PARTITION BY c.hardware->>'label', r.model, r.case_id, r.item_id) END AS weight
+				OVER (PARTITION BY c.hardware->>'label', ` + modelLabel + `, r.case_id, r.item_id) END AS weight
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE ` + countedAnswer + `
 	)`
@@ -74,11 +74,10 @@ const cumulatedAnswers = `WITH answers AS (
 // answers only, those of unknown type in none; empty keeps them all.
 const countedAnswer = `c.status <> $1 AND r.item_hash = ANY($2) AND ($3 = '' OR r.connection_type = $3)`
 
-// MapCells cumulates answers per machine, model and theme, with their rollups.
-// shortcut: a tag served by two connections counts as one model, split on provider if that ever happens.
+// MapCells cumulates answers per machine, model label and theme, with their rollups.
 func (s *Store) MapCells(ctx context.Context, hashes []string, connection string) ([]MapCell, error) {
 	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
-		SELECT COALESCE(machine, ''), min(provider_name), model, COALESCE(category, ''),
+		SELECT COALESCE(machine, ''), min(provider_name), label, COALESCE(category, ''),
 			count(*)::int,
 			count(*) FILTER (WHERE error <> '')::int,
 			sum(score * weight) / sum(weight),
@@ -86,7 +85,7 @@ func (s *Store) MapCells(ctx context.Context, hashes []string, connection string
 			count(DISTINCT case_id || '/' || item_id)::int,
 			percentile_cont(0.95) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = '')
 		FROM answers
-		GROUP BY GROUPING SETS ((machine, model, category), (machine, model), (model, category), (model))
+		GROUP BY GROUPING SETS ((machine, label, category), (machine, label), (label, category), (label))
 		ORDER BY 1, 3, 4`, StatusRunning, hashes, connection)
 	if err != nil {
 		return nil, fmt.Errorf("compute map cells: %w", err)
@@ -94,16 +93,16 @@ func (s *Store) MapCells(ctx context.Context, hashes []string, connection string
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[MapCell])
 }
 
-// MapItems cumulates answers per machine, model and question, with the rollup over machines.
+// MapItems cumulates answers per machine, model label and question, with the rollup over machines.
 func (s *Store) MapItems(ctx context.Context, hashes []string, connection string) ([]MapItem, error) {
 	rows, err := s.pool.Query(ctx, cumulatedAnswers+`
-		SELECT COALESCE(machine, ''), model, case_id, item_id,
+		SELECT COALESCE(machine, ''), label, case_id, item_id,
 			count(*)::int,
 			sum(score * weight) / sum(weight),
 			percentile_cont(0.5) WITHIN GROUP (ORDER BY total_ms) FILTER (WHERE error = ''),
 			count(*) FILTER (WHERE error <> '')::int
 		FROM answers
-		GROUP BY GROUPING SETS ((machine, model, case_id, item_id), (model, case_id, item_id))`, StatusRunning, hashes, connection)
+		GROUP BY GROUPING SETS ((machine, label, case_id, item_id), (label, case_id, item_id))`, StatusRunning, hashes, connection)
 	if err != nil {
 		return nil, fmt.Errorf("compute map items: %w", err)
 	}
@@ -112,7 +111,7 @@ func (s *Store) MapItems(ctx context.Context, hashes []string, connection string
 
 // MapAnswers lists what MapCells counted, without the heavy columns.
 func (s *Store) MapAnswers(ctx context.Context, hashes []string, connection string) ([]Answer, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, r.model, r.category, r.total_ms, r.cli_startup_ms, r.cli_exit_ms, r.error
+	rows, err := s.pool.Query(ctx, `SELECT r.id::text, r.item_id, `+modelLabel+`, r.category, r.total_ms, r.cli_startup_ms, r.cli_exit_ms, r.error
 		FROM runs r JOIN campaigns c ON c.id = r.campaign_id
 		WHERE `+countedAnswer, StatusRunning, hashes, connection)
 	if err != nil {
@@ -170,12 +169,12 @@ func (s *Store) MapBenchmarks(ctx context.Context) ([]MapBenchmark, error) {
 	rows, err := s.pool.Query(ctx, `SELECT c.id::text, c.name, c.status, c.created_at, c.finished_at,
 			(SELECT count(*)::int FROM runs r WHERE r.campaign_id = c.id),
 			COALESCE(c.hardware->>'label', ''),
-			ARRAY(SELECT DISTINCT r.model FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
+			ARRAY(SELECT DISTINCT `+modelLabel+` FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
 			ARRAY(SELECT DISTINCT r.category FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
-			COALESCE((SELECT jsonb_agg(jsonb_build_object('model', p.model, 'category', p.category, 'measured', p.measured, 'avg_score', p.avg_score))
-				FROM (SELECT r.model, r.category, count(*) FILTER (WHERE r.error = '') AS measured,
+			COALESCE((SELECT jsonb_agg(jsonb_build_object('model', p.label, 'category', p.category, 'measured', p.measured, 'avg_score', p.avg_score))
+				FROM (SELECT `+modelLabel+` AS label, r.category, count(*) FILTER (WHERE r.error = '') AS measured,
 						avg(r.score) FILTER (WHERE r.error = '') AS avg_score
-					FROM runs r WHERE r.campaign_id = c.id GROUP BY r.model, r.category) p), '[]'::jsonb)
+					FROM runs r WHERE r.campaign_id = c.id GROUP BY 1, 2) p), '[]'::jsonb)
 		FROM campaigns c ORDER BY c.created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list map benchmarks: %w", err)
