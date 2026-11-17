@@ -7,8 +7,8 @@
 
   const rows = $derived([...stats].sort((a, b) => a.category.localeCompare(b.category) || a.model.localeCompare(b.model)));
   const viaBridge = $derived(stats.some((stat) => stat.p50_net_total_ms !== null));
-  // shortcut: runs store only the connection name, so a Claude model is assumed to come through the bridge; store the connection type per run once an API key connection exists.
-  const claude = $derived(stats.some((stat) => stat.model.startsWith('claude-')));
+  // Suffix the store gives subscription models, see ModelLabel.
+  const subscription = $derived(stats.some((stat) => stat.model.endsWith(' (abo)')));
 </script>
 
 <div class="table-wrap">
@@ -51,7 +51,7 @@
     </tbody>
   </table>
 </div>
-{#if claude}
+{#if subscription}
   <p class="muted note">
     Modèles Claude (abonnement, via le pont) : scores comparables aux autres.
     {viaBridge
