@@ -2,7 +2,8 @@
   import CounterMenu from './CounterMenu.svelte';
   import SelectionRow from './SelectionRow.svelte';
   import Icon from '../Icon.svelte';
-  import { categoryLabel } from '../../lib/format';
+  import type { ConnectionType } from '../../lib/api';
+  import { CONNECTIONS, categoryLabel } from '../../lib/format';
   import { live } from '../../lib/live.svelte';
   import type { MapContent } from '../../lib/map/content';
   import type { Findable } from '../../lib/map/findable';
@@ -19,6 +20,8 @@
     results,
     launching,
     findable,
+    connection,
+    onconnection,
     onfind,
     onremove,
     onclearfocus,
@@ -33,6 +36,8 @@
     results: Record<ResultState, number> | null;
     launching: boolean;
     findable: Findable[];
+    connection: ConnectionType;
+    onconnection: (connection: ConnectionType) => void;
     onfind: (entry: Findable) => void;
     onremove: (axis: keyof MapFilter) => void;
     onclearfocus: () => void;
@@ -121,6 +126,15 @@
       {/each}
     </ul>
 
+    <label class="connection">
+      Connexion
+      <select value={connection} onchange={(event) => onconnection(event.currentTarget.value as ConnectionType)}>
+        {#each CONNECTIONS as option (option.value)}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </label>
+
     {#if pills.length === 0 && !focusLabel}
       <span class="hint">Cliquez sur un élément pour filtrer</span>
     {/if}
@@ -207,6 +221,29 @@
   .counter[aria-expanded='true'] {
     border-color: var(--accent);
     color: var(--ink);
+  }
+
+  .connection {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--s1);
+  }
+
+  .connection select {
+    height: 30px;
+    padding: 0 var(--s2);
+    border: 1px solid var(--axis);
+    border-radius: var(--radius-sm);
+    background: var(--raised);
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .connection select:hover,
+  .connection select:focus-visible {
+    border-color: var(--accent);
   }
 
   .hint {

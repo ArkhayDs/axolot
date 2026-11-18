@@ -11,7 +11,7 @@
   import CounterMenu from '../components/map/CounterMenu.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { BaseDetail, Case, ConnectionType, Hardware } from '../lib/api';
-  import { seriesColor } from '../lib/format';
+  import { CONNECTIONS, seriesColor } from '../lib/format';
   import type { Findable } from '../lib/map/findable';
   import { live } from '../lib/live.svelte';
 
@@ -78,10 +78,9 @@
         <label class="field">
           Connexion
           <select class="input" bind:value={connection}>
-            <option value="">Toutes</option>
-            <option value="local">Locale</option>
-            <option value="api">Cloud par API</option>
-            <option value="subscription">Cloud par abonnement</option>
+            {#each CONNECTIONS as option (option.value)}
+              <option value={option.value}>{option.label}</option>
+            {/each}
           </select>
         </label>
         <div class="field">
