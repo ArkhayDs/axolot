@@ -45,6 +45,8 @@ export interface Scene {
   activePath: GraphNode[];
   // Answers of the running benchmark: by "model|question", and by "|question" for the latest of any model.
   liveResults: Map<string, ResultState>;
+  // Nodes of the running benchmark, the rest fades; null at rest.
+  liveNodes: Set<string> | null;
   particles: Particle[];
   ripples: Ripple[];
 }
@@ -260,7 +262,7 @@ function paintParticle(context: CanvasRenderingContext2D, particle: Particle, pi
  * @param {Scene} scene - what to paint
  */
 export function drawScene(context: CanvasRenderingContext2D, scene: Scene): void {
-  const { width, height, view, graph, content, cells, filter, focus, hover, activePath } = scene;
+  const { width, height, view, graph, content, cells, filter, focus, hover, activePath, liveNodes } = scene;
   const ratio = window.devicePixelRatio || 1;
   const pixel = 1 / view.k;
   const ink = resolve('var(--ink)');
@@ -272,7 +274,8 @@ export function drawScene(context: CanvasRenderingContext2D, scene: Scene): void
   paintGrid(context, scene);
   context.setTransform(ratio * view.k, 0, 0, ratio * view.k, ratio * view.x, ratio * view.y);
 
-  const kept = new Set(graph.nodes.filter((node) => nodeMatches(node, cells, content, filter)).map((node) => node.id));
+  const kept = new Set(graph.nodes.filter((node) => nodeMatches(node, cells, content, filter) && (!liveNodes || liveNodes.has(node.id))).map((node) => node.id));
+  const faded = liveNodes ? 0.08 : 0.2;
   const family = hover ? familyOf(graph, hover) : focus ? familyOf(graph, focus) : null;
   const previewing = Boolean(filter.model) || hover?.kind === 'model';
   paintHalos(context, scene, Number(resolve('var(--map-halo-opacity)')) * (previewing ? 0.45 : 1));
@@ -288,7 +291,7 @@ export function drawScene(context: CanvasRenderingContext2D, scene: Scene): void
 
   for (const node of graph.nodes) {
     const dimmed = !kept.has(node.id) || (family !== null && !family.has(node.id) && !shownResult(node, scene));
-    context.globalAlpha = dimmed && !activePath.includes(node) ? 0.2 : 1;
+    context.globalAlpha = dimmed && !activePath.includes(node) ? faded : 1;
     paintNode(context, scene, node, pixel);
     if (node === focus || node === hover || node === activePath.at(-1) || node.key === filter.model || node.key === filter.machine || node.key === filter.category) {
       context.globalAlpha = 1;
