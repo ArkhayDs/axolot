@@ -1,6 +1,6 @@
 // French display helpers for figures, statuses and scoring labels.
 
-import type { Answer, Campaign, Check, Estimate, Fit, Item, ModelStats } from './api';
+import type { Answer, Campaign, Check, ConnectionType, Estimate, Fit, Item, ModelStats } from './api';
 
 const CATEGORIES: Record<string, string> = {
   '': 'Tous les thèmes',
@@ -59,6 +59,13 @@ export const UNMEASURED_HINT = "La question n'a pas pu être mesurée (pont, quo
 export const NET_HINT = 'Modèles Claude : sans le lancement ni la fermeture de Claude Code, mesurés à chaque appel du pont.';
 
 export const GROSS_HINT = 'Attente réelle, lancement et fermeture de Claude Code compris.';
+
+export const CONNECTIONS: { value: ConnectionType; label: string }[] = [
+  { value: '', label: 'Toutes' },
+  { value: 'local', label: 'Locale' },
+  { value: 'api', label: 'Cloud par API' },
+  { value: 'subscription', label: 'Cloud par abonnement' },
+];
 
 export const DEFAULT_TEMPERATURE_HINT =
   "Température par défaut du modèle : il ignore le réglage de la campagne, ses réponses peuvent varier d'un passage à l'autre.";

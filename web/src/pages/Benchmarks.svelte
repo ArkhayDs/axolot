@@ -18,7 +18,7 @@
   /** Reloads the history */
   async function load(): Promise<void> {
     try {
-      benchmarks = (await api.map()).benchmarks;
+      benchmarks = (await api.map('')).benchmarks;
       error = '';
     } catch (loadError) {
       error = errorMessage(loadError);

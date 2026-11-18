@@ -442,7 +442,7 @@ export const api = {
   campaign: (id: string): Promise<CampaignDetail> => get(`/campaigns/${id}`),
   startCampaign: (name: string, cases: string[]): Promise<{ id: string }> => write('POST', '/campaigns', { name, cases }),
   cancelCampaign: (id: string): Promise<void> => write('POST', `/campaigns/${id}/cancel`),
-  map: (): Promise<MapData> => get('/map'),
+  map: (connection: ConnectionType): Promise<MapData> => get(`/map?${new URLSearchParams({ connection })}`),
   base: (connection: ConnectionType, models: string[]): Promise<BaseDetail> => {
     const query = new URLSearchParams({ connection });
     for (const model of models) query.append('model', model);

@@ -11,7 +11,7 @@
   import RankingPanel from '../components/map/RankingPanel.svelte';
   import StatusBar from '../components/map/StatusBar.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { CasesResponse, MapData } from '../lib/api';
+  import type { CasesResponse, ConnectionType, MapData } from '../lib/api';
   import { benchmarkName, categoryLabel } from '../lib/format';
   import { contentOf, rankOnQuestions } from '../lib/map/content';
   import { resultCounts } from '../lib/map/figures';
@@ -29,6 +29,8 @@
   let error = $state('');
   let launching = $state(false);
   let filter = $state<MapFilter>({ machine: '', model: '', category: '' });
+  let connection = $state<ConnectionType>('');
+  let asked = 0;
   let focus = $state.raw<Focus | null>(null);
   let pinned = $state('');
   let lastCampaign = '';
@@ -76,14 +78,21 @@
   const results = $derived(content && filter.model ? resultCounts(content, items, filter) : null);
   const findable = $derived(content ? findableOf(content, cells, items, filter) : []);
 
-  /** Loads the cumulated figures and the scenarios; the last ones stay on screen when the server is away */
+  /**
+   * Loads the cumulated figures of the connection type and the scenarios; the last ones stay on screen when the
+   * server is away. Only the last request lands, an earlier one answering late would show a type already left.
+   */
   async function load(): Promise<void> {
     clearTimeout(retry);
+    const request = ++asked;
     try {
-      [data, catalog] = await Promise.all([api.map(), api.cases()]);
+      const loaded = await Promise.all([api.map(connection), api.cases()]);
+      if (request !== asked) return;
+      [data, catalog] = loaded;
       unreachable = false;
       error = '';
     } catch (loadError) {
+      if (request !== asked) return;
       // The API words its own errors; a bare status comes from the dev proxy while the app restarts.
       const message = errorMessage(loadError);
       unreachable = message === 'Serveur injoignable' || /^Erreur 5\d\d$/.test(message);
@@ -131,6 +140,13 @@
   $effect(() => {
     if (live.reconnects === seenReconnects) return;
     seenReconnects = live.reconnects;
+    void load();
+  });
+
+  let seenConnection: ConnectionType = '';
+  $effect(() => {
+    if (connection === seenConnection) return;
+    seenConnection = connection;
     void load();
   });
 
@@ -198,6 +214,8 @@
         {results}
         {launching}
         {findable}
+        {connection}
+        onconnection={(value) => (connection = value)}
         onfind={(entry) => pick(entry.kind, entry.key)}
         onremove={(axis) => {
           filter[axis] = '';
