@@ -1,7 +1,7 @@
 // Single event-stream connection, exposed as reactive state shared by every page.
 
 import { api } from './api';
-import type { Pull, Run } from './api';
+import type { ConnectionType, Pull, Run } from './api';
 
 export interface Ingest {
   done: number;
@@ -17,6 +17,7 @@ export const live = $state({
   caseId: '',
   item: '',
   model: '',
+  connection: '' as ConnectionType,
   output: '',
   tokens: 0,
   done: 0,
@@ -65,6 +66,7 @@ function reset(): void {
   live.caseId = '';
   live.item = '';
   live.model = '';
+  live.connection = '';
   live.output = '';
   live.tokens = 0;
   live.done = 0;
@@ -83,6 +85,7 @@ function apply(event: Record<string, unknown>): void {
       live.caseId = event.case as string;
       live.item = event.item as string;
       live.model = event.model as string;
+      live.connection = (event.connection as ConnectionType | undefined) ?? '';
       live.output = '';
       live.tokens = 0;
       break;

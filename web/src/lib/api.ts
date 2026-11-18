@@ -136,6 +136,7 @@ export interface Run {
   item_id: string;
   category: string;
   provider_name: string;
+  connection_type: ConnectionType;
   model: string;
   // label names the model in results, with its connection for a cloud model; model is the name it was called by.
   label: string;

@@ -173,6 +173,7 @@
       {cells}
       {items}
       {filter}
+      {connection}
       {focus}
       {sections}
       {reserve}

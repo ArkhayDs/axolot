@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
 
+  import type { ConnectionType } from '../../lib/api';
   import { score as formatScore, seriesColor } from '../../lib/format';
   import { applyMoves, planMoves } from '../../lib/map/arrange';
   import type { Move } from '../../lib/map/arrange';
@@ -23,6 +24,7 @@
     cells,
     items,
     filter,
+    connection,
     focus,
     sections,
     reserve,
@@ -33,6 +35,7 @@
     cells: CellIndex;
     items: ItemIndex;
     filter: MapFilter;
+    connection: ConnectionType;
     focus: { kind: NodeKind; key: string } | null;
     sections: RankSection[];
     reserve: () => { top: number; right: number; bottom: number; left: number };
@@ -70,8 +73,10 @@
   let arranged = false;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  const newLiveModel = $derived(content.models.includes(live.model) ? '' : live.model);
-  const liveResults = $derived(resultsOfRuns(live.runs));
+  // The live run of another connection type stays off the graph, its figures are not on it either.
+  const liveShown = $derived(!connection || live.connection === connection);
+  const newLiveModel = $derived(liveShown && !content.models.includes(live.model) ? live.model : '');
+  const liveResults = $derived(resultsOfRuns(connection ? live.runs.filter((run) => run.connection_type === connection) : live.runs));
 
   /** Frames the whole graph in the area the panels leave free */
   function fit(): void {
@@ -153,7 +158,7 @@
       focus: focus ? (graph.byId.get(nodeId(focus.kind, focus.key)) ?? null) : null,
       sections,
       hover,
-      activePath: activeRoute(graph, content, live),
+      activePath: liveShown ? activeRoute(graph, content, live) : [],
       liveResults,
       particles,
       ripples,
@@ -261,6 +266,7 @@
     observer.observe(wrap);
     canvas.addEventListener('wheel', onWheel, { passive: false });
     const unsubscribe = onPulse((pulse) => {
+      if (!liveShown) return;
       if (reducedMotion.matches) {
         schedule();
         return;
@@ -308,7 +314,7 @@
   });
 
   $effect(() => {
-    void [filter.machine, filter.model, filter.category, focus, sections, hover, liveResults, live.model, live.item];
+    void [filter.machine, filter.model, filter.category, focus, sections, hover, liveResults, liveShown, live.model, live.item];
     schedule();
   });
 </script>
