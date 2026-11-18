@@ -101,7 +101,7 @@ Vocabulaire commun du code, des docs et des échanges. Un mot présent ici a exa
 
 ### Direct
 
-**Definition**: suivi d'un Benchmark en cours sur l'Atlas : impulsions sur le chemin de la question, grille des réponses qui se remplit.
+**Definition**: suivi d'un Benchmark en cours sur l'Atlas : impulsions sur le chemin de la question, reste du graphe estompé, caméra qui peut suivre la question (Suivre), grille des réponses qui se remplit.
 **Translations**: live (code).
 **Examples**: `LivePanel.svelte`, `live.svelte.ts`, `GET /api/events`.
 
