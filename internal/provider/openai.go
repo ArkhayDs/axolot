@@ -2,6 +2,7 @@ package provider
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -24,7 +25,15 @@ type OpenAI struct {
 type openAIChunk struct {
 	Choices []struct {
 		Delta struct {
-			Content string `json:"content"`
+			Content   string `json:"content"`
+			ToolCalls []struct {
+				Index    int    `json:"index"`
+				ID       string `json:"id"`
+				Function struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
 		} `json:"delta"`
 	} `json:"choices"`
 	Usage *struct {
@@ -77,6 +86,9 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 			"json_schema": map[string]any{"name": "answer", "strict": true, "schema": schema},
 		}
 	}
+	if len(req.Tools) > 0 {
+		body["tools"] = wireTools(req.Tools)
+	}
 
 	start := time.Now()
 	resp, err := postJSON(ctx, o.BaseURL+"/chat/completions", o.APIKey, body)
@@ -104,6 +116,20 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 			}
 			output.WriteString(chunk.Choices[0].Delta.Content)
 			onDelta(chunk.Choices[0].Delta.Content)
+		}
+		if len(chunk.Choices) > 0 {
+			for _, delta := range chunk.Choices[0].Delta.ToolCalls {
+				if delta.Index > len(result.ToolCalls) {
+					return fmt.Errorf("tool call %d streamed before call %d", delta.Index, len(result.ToolCalls))
+				}
+				if delta.Index == len(result.ToolCalls) {
+					result.ToolCalls = append(result.ToolCalls, ToolCall{})
+				}
+				call := &result.ToolCalls[delta.Index]
+				call.ID = cmp.Or(delta.ID, call.ID)
+				call.Name = cmp.Or(delta.Function.Name, call.Name)
+				call.Arguments += delta.Function.Arguments
+			}
 		}
 		if chunk.Usage != nil {
 			result.PromptTokens = &chunk.Usage.PromptTokens
@@ -149,21 +175,35 @@ func closeObjects(node map[string]any) {
 	}
 }
 
-// openAIMessages turns a message with images into content parts, the only form this API accepts for them.
+// openAIMessages converts each message to this API's wire format.
 func openAIMessages(messages []Message) []any {
-	out := make([]any, 0, len(messages))
-	for _, message := range messages {
-		if len(message.Images) == 0 {
-			out = append(out, message)
-			continue
-		}
-		parts := []map[string]any{{"type": "text", "text": message.Content}}
-		for _, image := range message.Images {
-			parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]string{"url": imageDataURL(image)}})
-		}
-		out = append(out, map[string]any{"role": message.Role, "content": parts})
+	out := make([]any, len(messages))
+	for i, message := range messages {
+		out[i] = openAIMessage(message)
 	}
 	return out
+}
+
+// openAIMessage rewords what this API words differently: tool calls with their arguments as a string,
+// tool answers without Ollama's tool_name (strict servers reject it), images as content parts.
+func openAIMessage(message Message) any {
+	switch {
+	case len(message.ToolCalls) > 0:
+		calls := make([]map[string]any, len(message.ToolCalls))
+		for i, call := range message.ToolCalls {
+			calls[i] = map[string]any{"id": call.ID, "type": "function", "function": map[string]string{"name": call.Name, "arguments": call.Arguments}}
+		}
+		return map[string]any{"role": message.Role, "content": message.Content, "tool_calls": calls}
+	case message.Role == "tool":
+		return map[string]string{"role": message.Role, "tool_call_id": message.ToolCallID, "content": message.Content}
+	case len(message.Images) == 0:
+		return message
+	}
+	parts := []map[string]any{{"type": "text", "text": message.Content}}
+	for _, image := range message.Images {
+		parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]string{"url": imageDataURL(image)}})
+	}
+	return map[string]any{"role": message.Role, "content": parts}
 }
 
 // imageDataURL wraps a base64 picture, its media type sniffed from the first bytes.

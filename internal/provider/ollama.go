@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,7 +25,8 @@ type Ollama struct {
 // ollamaChunk is one line of the /api/chat stream.
 type ollamaChunk struct {
 	Message struct {
-		Content string `json:"content"`
+		Content   string           `json:"content"`
+		ToolCalls []ollamaToolCall `json:"tool_calls"`
 	} `json:"message"`
 	Done            bool   `json:"done"`
 	Error           string `json:"error"`
@@ -32,6 +34,15 @@ type ollamaChunk struct {
 	PromptEvalCount int    `json:"prompt_eval_count"`
 	EvalCount       int    `json:"eval_count"`
 	EvalDuration    int64  `json:"eval_duration"`
+}
+
+// ollamaToolCall is a tool call as Ollama words it, arguments as a JSON object.
+type ollamaToolCall struct {
+	ID       string `json:"id,omitempty"`
+	Function struct {
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
+	} `json:"function"`
 }
 
 // Chat streams a generation with thinking off; models rejecting the option are retried without it.
@@ -48,7 +59,7 @@ func (o *Ollama) Chat(ctx context.Context, req ChatRequest, onDelta func(string)
 func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string), withThinkOff bool) (ChatResult, error) {
 	body := map[string]any{
 		"model":    req.Model,
-		"messages": req.Messages,
+		"messages": ollamaMessages(req.Messages),
 		"stream":   true,
 		"options": map[string]any{
 			"temperature": Temperature,
@@ -61,6 +72,9 @@ func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	}
 	if len(req.Schema) > 0 {
 		body["format"] = json.RawMessage(req.Schema)
+	}
+	if len(req.Tools) > 0 {
+		body["tools"] = wireTools(req.Tools)
 	}
 
 	start := time.Now()
@@ -88,6 +102,9 @@ func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 			output.WriteString(chunk.Message.Content)
 			onDelta(chunk.Message.Content)
 		}
+		for _, call := range chunk.Message.ToolCalls {
+			result.ToolCalls = append(result.ToolCalls, ToolCall{ID: call.ID, Name: call.Function.Name, Arguments: string(call.Function.Arguments)})
+		}
 		if chunk.Done {
 			setOllamaMetrics(&result, chunk)
 		}
@@ -96,6 +113,25 @@ func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	result.Output = output.String()
 	result.TotalMs = msSince(start)
 	return result, err
+}
+
+// ollamaMessages gives each tool call back as Ollama sent it; other messages already are in its wire format.
+// Arguments came from Ollama, so they are valid JSON; an empty one stands for no argument.
+func ollamaMessages(messages []Message) []any {
+	out := make([]any, 0, len(messages))
+	for _, message := range messages {
+		if len(message.ToolCalls) == 0 {
+			out = append(out, message)
+			continue
+		}
+		calls := make([]ollamaToolCall, len(message.ToolCalls))
+		for i, call := range message.ToolCalls {
+			calls[i].ID, calls[i].Function.Name = call.ID, call.Name
+			calls[i].Function.Arguments = json.RawMessage(cmp.Or(call.Arguments, "{}"))
+		}
+		out = append(out, map[string]any{"role": message.Role, "content": message.Content, "tool_calls": calls})
+	}
+	return out
 }
 
 // setOllamaMetrics copies the server-side counters of the final chunk.
