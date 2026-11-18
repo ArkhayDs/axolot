@@ -28,9 +28,11 @@
     connection,
     focus,
     sections,
+    follow,
     reserve,
     onpick,
     onclear,
+    onunfollow,
   }: {
     content: MapContent;
     cells: CellIndex;
@@ -39,9 +41,11 @@
     connection: ConnectionType;
     focus: { kind: NodeKind; key: string } | null;
     sections: RankSection[];
+    follow: boolean;
     reserve: () => { top: number; right: number; bottom: number; left: number };
     onpick: (node: GraphNode) => void;
     onclear: () => void;
+    onunfollow: () => void;
   } = $props();
 
   const MAX_PARTICLES = 140;
@@ -50,8 +54,10 @@
   const MIN_ZOOM = 0.35;
   const MAX_ZOOM = 6;
   const FIT_ZOOM = 1.5;
+  const FOLLOW_ZOOM = 2.5;
   const GRAB_PIXELS = 7;
   const ARRANGE_MS = 500;
+  const GLIDE_MS = 600;
 
   let wrap: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -72,6 +78,7 @@
   let moves: Move[] = [];
   let movesStart = 0;
   let arranged = false;
+  let glide: { from: View; to: View; start: number } | null = null;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   // The live run of another connection type stays off the graph, its figures are not on it either.
@@ -90,8 +97,27 @@
 
   /** Back to the framed view */
   export function recenter(): void {
+    unfollow();
     fit();
     schedule();
+  }
+
+  /** Frames the route of the running answer, gliding unless motion is reduced */
+  function followRoute(): void {
+    const path = liveShown ? activeRoute(graph, content, live) : [];
+    if (path.length === 0 || width === 0) return;
+    // Framed where the nodes stand now: a selection may have moved them away from their home.
+    const to = frameNodes(path.map((node) => ({ ...node, homeX: node.x, homeY: node.y })), reserve(), width, height, MIN_ZOOM, FOLLOW_ZOOM);
+    viewMoved = true;
+    if (reducedMotion.matches) view = to;
+    else glide = { from: view, to, start: performance.now() };
+    schedule();
+  }
+
+  /** The user takes the camera back */
+  function unfollow(): void {
+    glide = null;
+    if (follow) onunfollow();
   }
 
   /** Rebuilds the graph from the data; the layout runs once, a node that appears only pushes its neighbours aside */
@@ -145,6 +171,13 @@
       applyMoves(moves, progress);
       if (progress === 1) moves = [];
     }
+    if (glide) {
+      const progress = Math.min((performance.now() - glide.start) / GLIDE_MS, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      const { from, to } = glide;
+      view = { x: from.x + (to.x - from.x) * eased, y: from.y + (to.y - from.y) * eased, k: from.k + (to.k - from.k) * eased };
+      if (progress === 1) glide = null;
+    }
     for (const particle of particles) particle.progress += PARTICLE_SPEED;
     particles = particles.filter((particle) => particle.progress < 1);
     for (const ripple of ripples) ripple.age += RIPPLE_SPEED;
@@ -167,7 +200,7 @@
       particles,
       ripples,
     });
-    if (moves.length > 0 || particles.length > 0 || ripples.length > 0) schedule();
+    if (moves.length > 0 || glide || particles.length > 0 || ripples.length > 0) schedule();
   }
 
   /** Queues a frame unless one is already pending */
@@ -215,6 +248,7 @@
       return;
     }
     travelled += Math.abs(event.clientX - last.x) + Math.abs(event.clientY - last.y);
+    if (travelled >= 5) unfollow();
     if (dragged && travelled >= 5) {
       const { x, y } = toWorld(event);
       dragged.x = x;
@@ -232,7 +266,10 @@
   function onPointerUp(event: PointerEvent): void {
     if (dragged) {
       dragged.pinned = false;
-      if (travelled < 5) onpick(dragged);
+      if (travelled < 5) {
+        unfollow();
+        onpick(dragged);
+      }
     } else if (panning && travelled < 5) {
       onclear();
     }
@@ -248,6 +285,7 @@
    */
   function onWheel(event: WheelEvent): void {
     event.preventDefault();
+    unfollow();
     if (!event.ctrlKey) {
       view = { ...view, x: view.x - event.deltaX, y: view.y - event.deltaY };
       viewMoved = true;
@@ -310,6 +348,12 @@
   $effect(() => {
     void [content, cells, items, newLiveModel];
     untrack(rebuild);
+  });
+
+  // After the rebuild, so a model appearing with the item is already a node.
+  $effect(() => {
+    void [live.model, live.caseId, live.item, liveShown];
+    if (follow) untrack(followRoute);
   });
 
   $effect(() => {

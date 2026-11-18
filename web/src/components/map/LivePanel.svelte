@@ -8,7 +8,7 @@
   import { UNMEASURED_HINT, duration, estimateLabel, number, score } from '../../lib/format';
   import { live } from '../../lib/live.svelte';
 
-  let { catalog }: { catalog: CasesResponse | null } = $props();
+  let { catalog, following, onfollow }: { catalog: CasesResponse | null; following: boolean; onfollow: () => void } = $props();
 
   let error = $state('');
   let outputBox = $state<HTMLPreElement | undefined>();
@@ -47,7 +47,10 @@
 <aside class="live glass" aria-label="Benchmark en cours">
   <div class="head">
     <h2>{currentCase?.title ?? 'Démarrage'}</h2>
-    <button class="btn" type="button" onclick={cancel}><Icon name="stop" /> Arrêter</button>
+    <div class="actions">
+      <button class="btn" class:btn-primary={following} type="button" aria-pressed={following} onclick={onfollow}><Icon name="target" /> Suivre</button>
+      <button class="btn" type="button" onclick={cancel}><Icon name="stop" /> Arrêter</button>
+    </div>
   </div>
   <Notice message={error} />
   {#if live.model}<ModelName name={live.model} />{/if}
@@ -94,6 +97,12 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--s3);
+  }
+
+  .actions {
+    display: flex;
+    flex: none;
+    gap: var(--s2);
   }
 
   .counts {

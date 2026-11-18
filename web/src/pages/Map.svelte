@@ -33,6 +33,7 @@
   let asked = 0;
   let focus = $state.raw<Focus | null>(null);
   let pinned = $state('');
+  let following = $state(false);
   let lastCampaign = '';
   let unreachable = $state(false);
   let mounted = false;
@@ -161,6 +162,7 @@
     seenFinished = live.finished;
     pinned = lastCampaign;
     launching = false;
+    following = false;
     void load();
   });
 </script>
@@ -176,9 +178,11 @@
       {connection}
       {focus}
       {sections}
+      follow={following}
       {reserve}
       onpick={(node: GraphNode) => pick(node.kind, node.key)}
       onclear={() => (focus = null)}
+      onunfollow={() => (following = false)}
     />
   {/if}
 
@@ -188,7 +192,7 @@
       <p class="reconnecting glass" role="status"><Icon name="refresh" size={16} /> Reconnexion...</p>
     {/if}
     {#if running}
-      <LivePanel {catalog} />
+      <LivePanel {catalog} {following} onfollow={() => (following = !following)} />
     {:else if launching}
       <BenchmarkLauncher category={filter.category} onclose={closeLauncher} />
     {:else if content}
