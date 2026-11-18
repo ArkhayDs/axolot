@@ -12,6 +12,7 @@
   import { settle, solve } from '../../lib/map/force';
   import { buildGraph, nodeId } from '../../lib/map/graph';
   import type { Graph, GraphNode, NodeKind } from '../../lib/map/graph';
+  import { liveNodes } from '../../lib/map/live';
   import { resolve } from '../../lib/map/paint';
   import type { CellIndex, MapFilter, RankSection } from '../../lib/map/ranking';
   import { resultsOfRuns } from '../../lib/map/results';
@@ -76,7 +77,9 @@
   // The live run of another connection type stays off the graph, its figures are not on it either.
   const liveShown = $derived(!connection || live.connection === connection);
   const newLiveModel = $derived(liveShown && !content.models.includes(live.model) ? live.model : '');
-  const liveResults = $derived(resultsOfRuns(connection ? live.runs.filter((run) => run.connection_type === connection) : live.runs));
+  const liveRuns = $derived(connection ? live.runs.filter((run) => run.connection_type === connection) : live.runs);
+  const liveResults = $derived(resultsOfRuns(liveRuns));
+  const liveFocus = $derived(live.campaign && liveShown ? liveNodes(content, { campaign: live.campaign, model: live.model, caseId: live.caseId, runs: liveRuns }) : null);
 
   /** Frames the whole graph in the area the panels leave free */
   function fit(): void {
@@ -160,6 +163,7 @@
       hover,
       activePath: liveShown ? activeRoute(graph, content, live) : [],
       liveResults,
+      liveNodes: liveFocus,
       particles,
       ripples,
     });
@@ -314,7 +318,7 @@
   });
 
   $effect(() => {
-    void [filter.machine, filter.model, filter.category, focus, sections, hover, liveResults, liveShown, live.model, live.item];
+    void [filter.machine, filter.model, filter.category, focus, sections, hover, liveResults, liveFocus, live.model, live.item];
     schedule();
   });
 </script>
