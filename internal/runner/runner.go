@@ -46,15 +46,16 @@ type Plan struct {
 
 // Event reports campaign progress, models named by their label as the stored results read back.
 type Event struct {
-	Type     string     `json:"type"`
-	Campaign string     `json:"campaign"`
-	Case     string     `json:"case,omitempty"`
-	Item     string     `json:"item,omitempty"`
-	Provider string     `json:"provider,omitempty"`
-	Model    string     `json:"model,omitempty"`
-	Text     string     `json:"text,omitempty"`
-	Run      *store.Run `json:"run,omitempty"`
-	Status   string     `json:"status,omitempty"`
+	Type       string     `json:"type"`
+	Campaign   string     `json:"campaign"`
+	Case       string     `json:"case,omitempty"`
+	Item       string     `json:"item,omitempty"`
+	Provider   string     `json:"provider,omitempty"`
+	Connection string     `json:"connection,omitempty"`
+	Model      string     `json:"model,omitempty"`
+	Text       string     `json:"text,omitempty"`
+	Run        *store.Run `json:"run,omitempty"`
+	Status     string     `json:"status,omitempty"`
 }
 
 // Results persists campaign outcomes.
@@ -148,7 +149,7 @@ func hasTarget(plan Plan, target Target) bool {
 // runItem generates, grades and stores one answer.
 // @returns only errors preventing the result from being stored; a model failure becomes a stored run
 func runItem(ctx context.Context, campaignID string, c cases.Case, item cases.Item, target Target, retrieved map[string][]rag.Hit, deps Deps) error {
-	base := Event{Campaign: campaignID, Case: c.ID, Item: item.ID, Provider: target.ProviderName, Model: store.ModelLabel(target.Model, target.ConnectionType, target.ProviderName)}
+	base := Event{Campaign: campaignID, Case: c.ID, Item: item.ID, Provider: target.ProviderName, Connection: target.ConnectionType, Model: store.ModelLabel(target.Model, target.ConnectionType, target.ProviderName)}
 	start := base
 	start.Type = EventItemStart
 	deps.Emit(start)

@@ -75,8 +75,8 @@ func TestRunLabelsLiveEvents(t *testing.T) {
 		t.Fatalf("the stored answer must keep the model it called: %q", results.runs[0].Model)
 	}
 	for _, event := range events {
-		if event.Type != EventFinished && (event.Model != "m1 (API · OpenAI)" || event.Run != nil && event.Run.Label != "m1 (API · OpenAI)") {
-			t.Fatalf("unlabelled event: %+v", event)
+		if event.Type != EventFinished && (event.Model != "m1 (API · OpenAI)" || event.Connection != store.ConnectionAPI || event.Run != nil && event.Run.Label != "m1 (API · OpenAI)") {
+			t.Fatalf("unlabelled or untyped event: %+v", event)
 		}
 	}
 }
