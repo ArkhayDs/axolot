@@ -293,6 +293,132 @@ func TestOpenAISendsImagesAsContentParts(t *testing.T) {
 	}
 }
 
+var weatherTool = Tool{Name: "weather", Description: "Météo d'une ville", Parameters: json.RawMessage(`{"type":"object","properties":{"city":{"type":"string"}}}`)}
+
+// toolHistory is one tool round: the model's call, then the tool's answer.
+var toolHistory = []Message{
+	{Role: "user", Content: "Quel temps ?"},
+	{Role: "assistant", ToolCalls: []ToolCall{{ID: "c1", Name: "weather", Arguments: `{"city":"Pau"}`}}},
+	{Role: "tool", Content: "12 °C", ToolCallID: "c1", ToolName: "weather"},
+}
+
+// sentTool returns the first tool definition of a request body.
+func sentTool(t *testing.T, body map[string]any) map[string]any {
+	t.Helper()
+	tools, _ := body["tools"].([]any)
+	if len(tools) != 1 {
+		t.Fatalf("tools = %v", body["tools"])
+	}
+	tool := tools[0].(map[string]any)
+	if tool["type"] != "function" {
+		t.Errorf("tool = %v", tool)
+	}
+	return tool["function"].(map[string]any)
+}
+
+func TestOllamaChatSendsToolsAndReadsToolCalls(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		fmt.Fprintln(w, `{"message":{"content":"","tool_calls":[{"id":"c1","function":{"name":"weather","arguments":{"city":"Pau"}}}]},"done":false}`)
+		fmt.Fprintln(w, `{"message":{"content":""},"done":true,"eval_count":9,"eval_duration":1000000000}`)
+	}))
+	defer srv.Close()
+
+	req := newChat()
+	req.Tools = []Tool{weatherTool}
+	result, err := (&Ollama{BaseURL: srv.URL}).Chat(context.Background(), req, func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if function := sentTool(t, got); function["name"] != "weather" || function["parameters"] == nil {
+		t.Errorf("function = %v", function)
+	}
+	want := ToolCall{ID: "c1", Name: "weather", Arguments: `{"city":"Pau"}`}
+	if len(result.ToolCalls) != 1 || result.ToolCalls[0] != want {
+		t.Fatalf("tool calls = %+v", result.ToolCalls)
+	}
+	if result.TTFTMs != nil || *result.OutputTokens != 9 {
+		t.Errorf("metrics: %+v", result)
+	}
+}
+
+func TestOllamaSendsToolHistory(t *testing.T) {
+	got := captureChat(t, func(url string) Provider { return &Ollama{BaseURL: url} }, toolHistory)
+	messages := got["messages"].([]any)
+	call := messages[1].(map[string]any)["tool_calls"].([]any)[0].(map[string]any)["function"].(map[string]any)
+	if call["name"] != "weather" || call["arguments"].(map[string]any)["city"] != "Pau" {
+		t.Errorf("call = %v", call)
+	}
+	if answer := messages[2].(map[string]any); answer["role"] != "tool" || answer["tool_name"] != "weather" || answer["content"] != "12 °C" {
+		t.Errorf("answer = %v", answer)
+	}
+	if _, ok := got["tools"]; ok {
+		t.Error("empty tools sent")
+	}
+}
+
+func TestOpenAIChatJoinsStreamedToolCalls(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		for _, delta := range []string{
+			`{"index":0,"id":"c1","type":"function","function":{"name":"weather","arguments":""}}`,
+			`{"index":0,"function":{"arguments":"{\"city\":"}}`,
+			`{"index":1,"id":"c2","type":"function","function":{"name":"weather","arguments":"{\"city\":\"Dax\"}"}}`,
+			`{"index":0,"function":{"arguments":"\"Pau\"}"}}`,
+		} {
+			fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[%s]}}]}\n\n", delta)
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer srv.Close()
+
+	req := newChat()
+	req.Tools = []Tool{weatherTool}
+	result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), req, func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if function := sentTool(t, got); function["name"] != "weather" || function["description"] != "Météo d'une ville" {
+		t.Errorf("function = %v", function)
+	}
+	want := []ToolCall{{ID: "c1", Name: "weather", Arguments: `{"city":"Pau"}`}, {ID: "c2", Name: "weather", Arguments: `{"city":"Dax"}`}}
+	if len(result.ToolCalls) != 2 || result.ToolCalls[0] != want[0] || result.ToolCalls[1] != want[1] {
+		t.Fatalf("tool calls = %+v", result.ToolCalls)
+	}
+}
+
+func TestOpenAIChatRejectsToolCallIndexGap(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":5,\"id\":\"c1\",\"function\":{\"name\":\"weather\"}}]}}]}\n\n")
+	}))
+	defer srv.Close()
+
+	if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil {
+		t.Fatal("index gap accepted")
+	}
+}
+
+func TestOpenAISendsToolHistory(t *testing.T) {
+	got := captureChat(t, func(url string) Provider { return &OpenAI{BaseURL: url} }, toolHistory)
+	messages := got["messages"].([]any)
+	call := messages[1].(map[string]any)["tool_calls"].([]any)[0].(map[string]any)
+	if call["id"] != "c1" || call["type"] != "function" || call["function"].(map[string]any)["arguments"] != `{"city":"Pau"}` {
+		t.Errorf("call = %v", call)
+	}
+	answer := messages[2].(map[string]any)
+	if answer["role"] != "tool" || answer["tool_call_id"] != "c1" || answer["content"] != "12 °C" {
+		t.Errorf("answer = %v", answer)
+	}
+	if _, ok := answer["tool_name"]; ok {
+		t.Errorf("Ollama-only field sent: %v", answer)
+	}
+	if _, ok := got["tools"]; ok {
+		t.Error("empty tools sent")
+	}
+}
+
 func TestOllamaModelsReportVision(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/tags" {

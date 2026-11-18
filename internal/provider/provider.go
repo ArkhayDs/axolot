@@ -19,12 +19,30 @@ const maxErrorBody = 2048
 // otherwise the cumulative base would count the same answer many times and show false precision.
 const Temperature = 0.3
 
-// Message is one chat turn.
-// Images are base64 pictures, Ollama's wire format; the OpenAI provider converts them.
+// Message is one chat turn, in Ollama's wire format; each provider converts what its API words differently.
+// Images are base64 pictures. A "tool" message answers the call named by ToolCallID (OpenAI) and ToolName (Ollama).
 type Message struct {
-	Role    string   `json:"role"`
-	Content string   `json:"content"`
-	Images  []string `json:"images,omitempty"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	Images     []string   `json:"images,omitempty"`
+	ToolCalls  []ToolCall `json:"-"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+	ToolName   string     `json:"tool_name,omitempty"`
+}
+
+// Tool is a function offered to the model; Parameters is its JSON Schema.
+type Tool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
+}
+
+// ToolCall is one tool the model asks to run.
+// Arguments is the JSON text the model wrote, kept as is: it may be invalid, the caller reports that to the model.
+type ToolCall struct {
+	ID        string
+	Name      string
+	Arguments string
 }
 
 // ChatRequest describes one generation; Schema forces structured output when set.
@@ -32,6 +50,7 @@ type ChatRequest struct {
 	Model     string
 	Messages  []Message
 	Schema    json.RawMessage
+	Tools     []Tool
 	MaxTokens int
 }
 
@@ -40,6 +59,7 @@ type ChatRequest struct {
 // DefaultTemperature means the model ignored Temperature and sampled at its own default.
 type ChatResult struct {
 	Output             string
+	ToolCalls          []ToolCall
 	TTFTMs             *int64
 	TotalMs            int64
 	LoadMs             *int64
@@ -91,6 +111,15 @@ func New(kind, baseURL, apiKey string) (Provider, error) {
 		return &OpenAI{BaseURL: baseURL, APIKey: apiKey}, nil
 	}
 	return nil, fmt.Errorf("unknown provider kind %q", kind)
+}
+
+// wireTools wraps each tool the way both APIs declare a function.
+func wireTools(tools []Tool) []map[string]any {
+	out := make([]map[string]any, len(tools))
+	for i, tool := range tools {
+		out[i] = map[string]any{"type": "function", "function": tool}
+	}
+	return out
 }
 
 // postJSON sends body and returns the response once its status is checked; caller closes the body.
