@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 
@@ -74,5 +76,16 @@ func TestBaseOfKeepsThePickedModels(t *testing.T) {
 	}
 	if speed := picked.Verdicts[0].Speed; speed == nil || speed.Model != "a" {
 		t.Fatalf("verdicts must be drawn among the picked models only: %+v", picked.Verdicts)
+	}
+}
+
+func TestMapViewsRefuseAnUnknownConnectionType(t *testing.T) {
+	s := &Server{}
+	for _, handler := range []http.HandlerFunc{s.getMap, s.getBase} {
+		rec := httptest.NewRecorder()
+		handler(rec, httptest.NewRequest(http.MethodGet, "/?connection=cloud", nil))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("code=%d body=%s", rec.Code, rec.Body)
+		}
 	}
 }

@@ -9,20 +9,34 @@ import (
 	"github.com/arkhayds/axolot/internal/store"
 )
 
-// getMap returns what the landing map draws and ranks.
+// connectionOf reads the connection type a view keeps, empty for all; an unknown one is refused with a 400.
+func connectionOf(w http.ResponseWriter, r *http.Request) (string, bool) {
+	connection := r.URL.Query().Get("connection")
+	if !slices.Contains([]string{"", store.ConnectionLocal, store.ConnectionAPI, store.ConnectionSubscription}, connection) {
+		writeError(w, http.StatusBadRequest, "Type de connexion inconnu")
+		return "", false
+	}
+	return connection, true
+}
+
+// getMap returns what the landing map draws and ranks, of one connection type when asked.
 func (s *Server) getMap(w http.ResponseWriter, r *http.Request) {
+	connection, ok := connectionOf(w, r)
+	if !ok {
+		return
+	}
 	hashes := s.currentHashes()
-	cells, err := s.cfg.Store.MapCells(r.Context(), hashes, "")
+	cells, err := s.cfg.Store.MapCells(r.Context(), hashes, connection)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	items, err := s.cfg.Store.MapItems(r.Context(), hashes, "")
+	items, err := s.cfg.Store.MapItems(r.Context(), hashes, connection)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	benchmarks, err := s.cfg.Store.MapBenchmarks(r.Context())
+	benchmarks, err := s.cfg.Store.MapBenchmarks(r.Context(), connection)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -40,10 +54,8 @@ type baseView struct {
 
 // getBase returns the cumulated database, all machines together, of one connection type and some models when asked.
 func (s *Server) getBase(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	connection := query.Get("connection")
-	if !slices.Contains([]string{"", store.ConnectionLocal, store.ConnectionAPI, store.ConnectionSubscription}, connection) {
-		writeError(w, http.StatusBadRequest, "Type de connexion inconnu")
+	connection, ok := connectionOf(w, r)
+	if !ok {
 		return
 	}
 	hashes := s.currentHashes()
@@ -57,7 +69,7 @@ func (s *Server) getBase(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, baseOf(cells, answers, query["model"]))
+	writeJSON(w, http.StatusOK, baseOf(cells, answers, r.URL.Query()["model"]))
 }
 
 // baseOf keeps the rollups over machines of the picked models, all when none is. Filtering after the query holds
