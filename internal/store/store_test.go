@@ -295,7 +295,7 @@ func TestMapCumulatesAnswersPerQuestion(t *testing.T) {
 		t.Fatalf("answers=%+v err=%v", answers, err)
 	}
 
-	benchmarks, err := s.MapBenchmarks(ctx)
+	benchmarks, err := s.MapBenchmarks(ctx, "")
 	if err != nil || len(benchmarks) != 9 {
 		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
 	}
@@ -407,7 +407,7 @@ func TestModelLabelSplitsConnections(t *testing.T) {
 			t.Fatalf("another connection's answer counted with the OpenAI ones: %+v", answer)
 		}
 	}
-	benchmarks, err := s.MapBenchmarks(ctx)
+	benchmarks, err := s.MapBenchmarks(ctx, "")
 	if err != nil || len(benchmarks) != 1 || len(benchmarks[0].Models) != 3 || !strings.Contains(string(benchmarks[0].Cells), subscriptionLabel) {
 		t.Fatalf("benchmarks=%+v err=%v", benchmarks, err)
 	}
@@ -465,5 +465,23 @@ func TestMapKeepsOneConnectionType(t *testing.T) {
 	answers, err := s.MapAnswers(ctx, []string{"h"}, ConnectionLocal)
 	if err != nil || len(answers) != 1 || answers[0].Label != "qwen" {
 		t.Fatalf("answers=%+v err=%v", answers, err)
+	}
+
+	subscriptionOnly, err := s.CreateCampaign(ctx, "abo", json.RawMessage(`{"label":"mac"}`), json.RawMessage(`{}`), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := Run{CampaignID: subscriptionOnly, CaseID: "c", ItemID: "i", Category: "code", Model: "claude", ConnectionType: ConnectionSubscription,
+		ProviderName: "p", Checks: json.RawMessage(`[]`), ItemHash: "h"}
+	if err := s.CreateRun(ctx, run); err != nil {
+		t.Fatal(err)
+	}
+	benchmarks, err := s.MapBenchmarks(ctx, ConnectionLocal)
+	if err != nil || len(benchmarks) != 1 || benchmarks[0].ID != id || benchmarks[0].DoneItems != 1 ||
+		!slices.Equal(benchmarks[0].Models, []string{"qwen"}) || strings.Contains(string(benchmarks[0].Cells), "claude") {
+		t.Fatalf("a benchmark keeps the chosen type's answers only, one without any is left out: %+v err=%v", benchmarks, err)
+	}
+	if all, err := s.MapBenchmarks(ctx, ""); err != nil || len(all) != 2 || all[1].DoneItems != 3 {
+		t.Fatalf("all=%+v err=%v", all, err)
 	}
 }

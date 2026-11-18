@@ -164,18 +164,24 @@ func (s *Store) PlayedItems(ctx context.Context, campaignID string) ([]PlayedIte
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[PlayedItem])
 }
 
-// MapBenchmarks lists campaigns newest first, with what each one played.
-func (s *Store) MapBenchmarks(ctx context.Context) ([]MapBenchmark, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.id::text, c.name, c.status, c.created_at, c.finished_at,
-			(SELECT count(*)::int FROM runs r WHERE r.campaign_id = c.id),
+// MapBenchmarks lists campaigns newest first, with what each one played. A connection type keeps its own answers
+// only and the campaigns that have at least one; empty keeps them all.
+func (s *Store) MapBenchmarks(ctx context.Context, connection string) ([]MapBenchmark, error) {
+	rows, err := s.pool.Query(ctx, `WITH typed AS NOT MATERIALIZED (
+			SELECT * FROM runs WHERE $1 = '' OR connection_type = $1
+		)
+		SELECT c.id::text, c.name, c.status, c.created_at, c.finished_at,
+			(SELECT count(*)::int FROM typed r WHERE r.campaign_id = c.id),
 			COALESCE(c.hardware->>'label', ''),
-			ARRAY(SELECT DISTINCT r.label FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
-			ARRAY(SELECT DISTINCT r.category FROM runs r WHERE r.campaign_id = c.id ORDER BY 1),
+			ARRAY(SELECT DISTINCT r.label FROM typed r WHERE r.campaign_id = c.id ORDER BY 1),
+			ARRAY(SELECT DISTINCT r.category FROM typed r WHERE r.campaign_id = c.id ORDER BY 1),
 			COALESCE((SELECT jsonb_agg(jsonb_build_object('model', p.label, 'category', p.category, 'measured', p.measured, 'avg_score', p.avg_score))
 				FROM (SELECT r.label, r.category, count(*) FILTER (WHERE r.error = '') AS measured,
 						avg(r.score) FILTER (WHERE r.error = '') AS avg_score
-					FROM runs r WHERE r.campaign_id = c.id GROUP BY 1, 2) p), '[]'::jsonb)
-		FROM campaigns c ORDER BY c.created_at DESC`)
+					FROM typed r WHERE r.campaign_id = c.id GROUP BY 1, 2) p), '[]'::jsonb)
+		FROM campaigns c
+		WHERE $1 = '' OR EXISTS (SELECT 1 FROM typed r WHERE r.campaign_id = c.id)
+		ORDER BY c.created_at DESC`, connection)
 	if err != nil {
 		return nil, fmt.Errorf("list map benchmarks: %w", err)
 	}
