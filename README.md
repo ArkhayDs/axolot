@@ -56,6 +56,10 @@ Vue d'ensemble : machine, modèles, thèmes, scénarios, questions et documents 
 
 Sélectionner un modèle colore chaque question selon son résultat et rapproche les thèmes où il a le meilleur score.
 
+Type de connexion dans la barre du bas, comme dans les Résultats : chiffres, classements et Benchmarks limités aux réponses de ce type. Le direct d'un Benchmark d'un autre type reste dans le panneau live, pas sur le graphe.
+
+Pendant un Benchmark, ce qu'il ne touche pas s'estompe. Suivre, dans le panneau live, cadre la question en cours à chaque nouvelle question ; molette, glisser, clic sur un nœud ou Recentrer rendent la main.
+
 ![Atlas, modèle sélectionné](docs/captures/atlas-modele.png)
 
 ### Chat
