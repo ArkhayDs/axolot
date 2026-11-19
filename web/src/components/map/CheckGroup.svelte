@@ -21,6 +21,15 @@
     const keys = new Set(items.map((item) => item.key));
     chosen = all ? chosen.filter((key) => !keys.has(key)) : [...chosen.filter((key) => !keys.has(key)), ...keys];
   }
+
+  /**
+   * Adds or removes one item, keeping picks of sibling groups bound to the same list
+   * @param {string} key - item key
+   * @param {boolean} on - checked state
+   */
+  function flip(key: string, on: boolean): void {
+    chosen = on ? [...chosen, key] : chosen.filter((k) => k !== key);
+  }
 </script>
 
 <div class="group">
@@ -45,7 +54,7 @@
     <div class="items">
       {#each items as item (item.key)}
         <label class="check">
-          <input type="checkbox" bind:group={chosen} value={item.key} />
+          <input type="checkbox" checked={chosen.includes(item.key)} onchange={(e) => flip(item.key, e.currentTarget.checked)} />
           {@render row(item)}
         </label>
       {/each}
