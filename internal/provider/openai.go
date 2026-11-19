@@ -47,7 +47,7 @@ type openAIChunk struct {
 // Chat streams a generation; a model rejecting the sampling parameters is retried the way reasoning models want them.
 func (o *OpenAI) Chat(ctx context.Context, req ChatRequest, onDelta func(string)) (ChatResult, error) {
 	result, err := o.chat(ctx, req, onDelta, false)
-	if err != nil && result.Output == "" && rejectsSampling(err) {
+	if err != nil && result.TTFTMs == nil && rejectsSampling(err) {
 		return o.chat(ctx, req, onDelta, true)
 	}
 	return result, err
