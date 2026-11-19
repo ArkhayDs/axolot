@@ -194,6 +194,8 @@ func openAIMessages(messages []Message) []any {
 
 // openAIMessage rewords what this API words differently: tool calls with their arguments as a string,
 // tool answers without Ollama's tool_name (strict servers reject it), images as content parts.
+// @param message - one message of the conversation
+// @returns any - message as this API reads it
 func openAIMessage(message Message) any {
 	switch {
 	case len(message.ToolCalls) > 0:

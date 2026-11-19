@@ -116,6 +116,8 @@ func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 
 // ollamaMessages gives each tool call back as Ollama sent it; other messages already are in its wire format.
 // Arguments came from Ollama, so they are valid JSON; an empty one stands for no argument.
+// @param messages - conversation so far
+// @returns []any - request "messages" field
 func ollamaMessages(messages []Message) []any {
 	out := make([]any, 0, len(messages))
 	for _, message := range messages {

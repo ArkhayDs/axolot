@@ -114,6 +114,8 @@ func New(kind, baseURL, apiKey string) (Provider, error) {
 }
 
 // wireTools wraps each tool the way both APIs declare a function.
+// @param tools - case tools
+// @returns []map[string]any - request "tools" field
 func wireTools(tools []Tool) []map[string]any {
 	out := make([]map[string]any, len(tools))
 	for i, tool := range tools {
@@ -123,6 +125,7 @@ func wireTools(tools []Tool) []map[string]any {
 }
 
 // setTTFT records the time to the first text or tool call, both being what the model starts answering with.
+// @param result - filled once, at the first call
 // @param start - request start
 func setTTFT(result *ChatResult, start time.Time) {
 	if result.TTFTMs == nil {
