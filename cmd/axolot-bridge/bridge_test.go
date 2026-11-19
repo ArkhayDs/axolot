@@ -316,6 +316,7 @@ func TestChatRefusesInvalidRequestsWithoutStartingCLI(t *testing.T) {
 		"no question":      {Model: testModel, Messages: []provider.Message{{Role: "system", Content: "Consigne"}}},
 		"assistant last":   {Model: testModel, Messages: []provider.Message{user("Salut"), {Role: "assistant", Content: "Oui"}}},
 		"tool role":        {Model: testModel, Messages: []provider.Message{{Role: "tool", Content: "x"}, user("Salut")}},
+		"tools":            {Model: testModel, Messages: []provider.Message{user("Salut")}, Tools: []provider.Tool{{Name: "weather"}}},
 		"no message":       {Model: testModel},
 		"system mid-story": {Model: testModel, Messages: []provider.Message{user("Un"), {Role: "system", Content: "x"}, user("Deux")}},
 	}
