@@ -109,26 +109,27 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		if err := json.Unmarshal(payload, &chunk); err != nil {
 			return fmt.Errorf("decode chat chunk: %w", err)
 		}
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-			if result.TTFTMs == nil {
-				ttft := msSince(start)
-				result.TTFTMs = &ttft
-			}
-			output.WriteString(chunk.Choices[0].Delta.Content)
-			onDelta(chunk.Choices[0].Delta.Content)
-		}
 		if len(chunk.Choices) > 0 {
-			for _, delta := range chunk.Choices[0].Delta.ToolCalls {
-				if delta.Index < 0 || delta.Index > len(result.ToolCalls) {
-					return fmt.Errorf("tool call %d streamed before call %d", delta.Index, len(result.ToolCalls))
+			delta := chunk.Choices[0].Delta
+			if delta.Content != "" {
+				if result.TTFTMs == nil {
+					ttft := msSince(start)
+					result.TTFTMs = &ttft
 				}
-				if delta.Index == len(result.ToolCalls) {
+				output.WriteString(delta.Content)
+				onDelta(delta.Content)
+			}
+			for _, piece := range delta.ToolCalls {
+				if piece.Index < 0 || piece.Index > len(result.ToolCalls) {
+					return fmt.Errorf("tool call %d streamed before call %d", piece.Index, len(result.ToolCalls))
+				}
+				if piece.Index == len(result.ToolCalls) {
 					result.ToolCalls = append(result.ToolCalls, ToolCall{})
 				}
-				call := &result.ToolCalls[delta.Index]
-				call.ID = cmp.Or(delta.ID, call.ID)
-				call.Name = cmp.Or(delta.Function.Name, call.Name)
-				call.Arguments += delta.Function.Arguments
+				call := &result.ToolCalls[piece.Index]
+				call.ID = cmp.Or(piece.ID, call.ID)
+				call.Name = cmp.Or(piece.Function.Name, call.Name)
+				call.Arguments += piece.Function.Arguments
 			}
 		}
 		if chunk.Usage != nil {
