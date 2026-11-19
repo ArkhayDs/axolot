@@ -199,7 +199,7 @@ func openAIMessage(message Message) any {
 	case len(message.ToolCalls) > 0:
 		calls := make([]map[string]any, len(message.ToolCalls))
 		for i, call := range message.ToolCalls {
-			calls[i] = map[string]any{"id": call.ID, "type": "function", "function": map[string]string{"name": call.Name, "arguments": call.Arguments}}
+			calls[i] = map[string]any{"id": call.ID, "type": "function", "function": map[string]string{"name": call.Name, "arguments": cmp.Or(call.Arguments, "{}")}}
 		}
 		return map[string]any{"role": message.Role, "content": message.Content, "tool_calls": calls}
 	case message.Role == "tool":
