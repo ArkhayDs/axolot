@@ -389,14 +389,16 @@ func TestOpenAIChatJoinsStreamedToolCalls(t *testing.T) {
 	}
 }
 
-func TestOpenAIChatRejectsToolCallIndexGap(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":5,\"id\":\"c1\",\"function\":{\"name\":\"weather\"}}]}}]}\n\n")
-	}))
-	defer srv.Close()
+func TestOpenAIChatRejectsToolCallIndexOutOfOrder(t *testing.T) {
+	for _, index := range []int{5, -1} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":%d,\"id\":\"c1\",\"function\":{\"name\":\"weather\"}}]}}]}\n\n", index)
+		}))
 
-	if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil {
-		t.Fatal("index gap accepted")
+		if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil {
+			t.Errorf("index %d accepted", index)
+		}
+		srv.Close()
 	}
 }
 

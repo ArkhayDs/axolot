@@ -119,7 +119,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		}
 		if len(chunk.Choices) > 0 {
 			for _, delta := range chunk.Choices[0].Delta.ToolCalls {
-				if delta.Index > len(result.ToolCalls) {
+				if delta.Index < 0 || delta.Index > len(result.ToolCalls) {
 					return fmt.Errorf("tool call %d streamed before call %d", delta.Index, len(result.ToolCalls))
 				}
 				if delta.Index == len(result.ToolCalls) {
