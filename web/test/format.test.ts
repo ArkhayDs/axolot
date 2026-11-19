@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { modelParts, shortModelName } from '../src/lib/format.ts';
+import { connectionTypeOf, modelParts, shortModelName } from '../src/lib/format.ts';
+
+test('classifies a connection like the server', () => {
+  assert.equal(connectionTypeOf('ollama'), 'local');
+  assert.equal(connectionTypeOf('openai'), 'api');
+  assert.equal(connectionTypeOf('bridge'), 'subscription');
+});
 
 test('splits a label into family, tag and connection', () => {
   assert.deepEqual(modelParts('deepseek/deepseek-r1:free (API · OpenRouter)'), { family: 'deepseek/deepseek-r1', tag: ':free', via: ' (API · OpenRouter)' });
