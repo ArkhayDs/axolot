@@ -111,11 +111,10 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		}
 		if len(chunk.Choices) > 0 {
 			delta := chunk.Choices[0].Delta
+			if delta.Content != "" || len(delta.ToolCalls) > 0 {
+				setTTFT(&result, start)
+			}
 			if delta.Content != "" {
-				if result.TTFTMs == nil {
-					ttft := msSince(start)
-					result.TTFTMs = &ttft
-				}
 				output.WriteString(delta.Content)
 				onDelta(delta.Content)
 			}

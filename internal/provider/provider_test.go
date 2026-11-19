@@ -338,7 +338,7 @@ func TestOllamaChatSendsToolsAndReadsToolCalls(t *testing.T) {
 	if len(result.ToolCalls) != 1 || result.ToolCalls[0] != want {
 		t.Fatalf("tool calls = %+v", result.ToolCalls)
 	}
-	if result.TTFTMs != nil || *result.OutputTokens != 9 {
+	if result.TTFTMs == nil || *result.OutputTokens != 9 {
 		t.Errorf("metrics: %+v", result)
 	}
 }
@@ -386,6 +386,9 @@ func TestOpenAIChatJoinsStreamedToolCalls(t *testing.T) {
 	want := []ToolCall{{ID: "c1", Name: "weather", Arguments: `{"city":"Pau"}`}, {ID: "c2", Name: "weather", Arguments: `{"city":"Dax"}`}}
 	if len(result.ToolCalls) != 2 || result.ToolCalls[0] != want[0] || result.ToolCalls[1] != want[1] {
 		t.Fatalf("tool calls = %+v", result.ToolCalls)
+	}
+	if result.TTFTMs == nil {
+		t.Error("no TTFT for a tool-call-only answer")
 	}
 }
 
