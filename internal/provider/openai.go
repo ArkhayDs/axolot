@@ -126,10 +126,15 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 				if piece.Index > len(result.ToolCalls) {
 					return fmt.Errorf("tool call %d streamed before call %d", piece.Index, len(result.ToolCalls))
 				}
-				if piece.Index == len(result.ToolCalls) {
+				index := piece.Index
+				// Servers leaving index out send each call whole, all read as index 0: a new ID is a new call.
+				if index < len(result.ToolCalls) && piece.ID != "" && result.ToolCalls[index].ID != "" && piece.ID != result.ToolCalls[index].ID {
+					index = len(result.ToolCalls)
+				}
+				if index == len(result.ToolCalls) {
 					result.ToolCalls = append(result.ToolCalls, ToolCall{})
 				}
-				call := &result.ToolCalls[piece.Index]
+				call := &result.ToolCalls[index]
 				call.ID = cmp.Or(piece.ID, call.ID)
 				call.Name = cmp.Or(piece.Function.Name, call.Name)
 				call.Arguments += piece.Function.Arguments
