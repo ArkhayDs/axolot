@@ -9,6 +9,7 @@
   import ChatModels from '../components/ChatModels.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
+  import { restorePicks } from '../lib/chat';
   import { connectionTypeOf, duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -34,8 +35,16 @@
     image: ChatImage | null;
   }
 
+  const PICKS_KEY = 'axolot.chat.models';
+
   let models = $state<Models | null>(null);
   let chosen = $state<string[]>([]);
+  let savedPicks: unknown = null;
+  try {
+    savedPicks = JSON.parse(localStorage.getItem(PICKS_KEY) ?? 'null');
+  } catch {
+    // Storage blocked or value corrupt: start with nothing picked.
+  }
   let question = $state('');
   let useDocuments = $state(false);
   let attachedDocument = $state<ChatDocument | null>(null);
@@ -167,6 +176,15 @@
     sending = false;
   }
 
+  $effect(() => {
+    if (!models) return;
+    try {
+      localStorage.setItem(PICKS_KEY, JSON.stringify(chosen));
+    } catch {
+      // Storage blocked: the picks only last for this visit.
+    }
+  });
+
   /** Lets Enter send and Shift+Enter add a line */
   function onKeydown(event: KeyboardEvent & { currentTarget: HTMLTextAreaElement }): void {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -178,6 +196,7 @@
   onMount(async () => {
     try {
       models = await api.models();
+      chosen = restorePicks(savedPicks, pickable);
     } catch (loadError) {
       error = errorMessage(loadError);
     }
