@@ -6,12 +6,12 @@
   import Notice from '../Notice.svelte';
   import CheckGroup from './CheckGroup.svelte';
   import { api, errorMessage } from '../../lib/api';
-  import type { Case, CasesResponse, Estimate, Models, Selection } from '../../lib/api';
+  import type { CasesResponse, Estimate, Models, Selection } from '../../lib/api';
   import { refreshCampaigns } from '../../lib/campaigns.svelte';
   import { categoryLabel, estimateLabel } from '../../lib/format';
   import { launch } from '../../lib/live.svelte';
 
-  let { category, onclose }: { category: string; onclose: () => void } = $props();
+  let { onclose }: { onclose: () => void } = $props();
 
   let catalog = $state<CasesResponse | null>(null);
   let models = $state<Models | null>(null);
@@ -22,8 +22,6 @@
   let error = $state('');
   let estimate = $state<Estimate | null>(null);
   let closeButton: HTMLButtonElement;
-  // Groups mount once the saved picks are in: they open on what is checked at mount.
-  let ready = $state(false);
 
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
   // Offline connections stay listed, empty, so a missing model reads as a state rather than an absence.
@@ -46,14 +44,10 @@
     })),
   );
 
-  /** Loads what the form offers; the saved models come checked, and the filtered theme's scenarios if any */
+  /** Loads what the form offers, nothing checked */
   async function load(): Promise<void> {
     try {
       [catalog, models] = await Promise.all([api.cases(), api.models()]);
-      const saved = new Set(catalog.selections.map((selection) => `${selection.provider_id}|${selection.model}`));
-      chosenModels = available.filter((model) => saved.has(model.key)).map((model) => model.key);
-      chosenCases = catalog.cases.filter((item: Case) => !category || item.category === category).map((item: Case) => item.id);
-      ready = true;
     } catch (loadError) {
       error = errorMessage(loadError);
     }
@@ -124,7 +118,7 @@
 
       <fieldset>
         <legend>Modèles</legend>
-        {#if ready}
+        {#if models}
           {#each connections as connection (connection.provider.id)}
             <CheckGroup title={connection.provider.name} items={connection.models} bind:chosen={chosenModels} note={connection.online ? (connection.models.length ? '' : 'Aucun modèle') : 'Hors ligne'}>
               {#snippet row(model)}<ModelName name={model.label} />{/snippet}
@@ -142,13 +136,11 @@
           <button class="link" type="button" onclick={() => (chosenCases = (catalog?.cases ?? []).map((item) => item.id))}>Tous</button>
           <button class="link" type="button" onclick={() => (chosenCases = [])}>Aucun</button>
         </legend>
-        {#if ready}
-          {#each themes as theme (theme.category)}
-            <CheckGroup title={categoryLabel(theme.category)} items={theme.cases} bind:chosen={chosenCases}>
-              {#snippet row(item)}<span>{item.title}</span>{/snippet}
-            </CheckGroup>
-          {/each}
-        {/if}
+        {#each themes as theme (theme.category)}
+          <CheckGroup title={categoryLabel(theme.category)} items={theme.cases} bind:chosen={chosenCases}>
+            {#snippet row(item)}<span>{item.title}</span>{/snippet}
+          </CheckGroup>
+        {/each}
       </fieldset>
     </div>
 
