@@ -76,9 +76,11 @@ func (b *bridge) listModels(w http.ResponseWriter, _ *http.Request) {
 }
 
 // chatRequest is the part of /v1/chat/completions the CLI can honour: temperature and max_tokens have no CLI option.
+// Tools are read only to be refused: ignored, they would score Claude as never calling them.
 type chatRequest struct {
-	Model          string        `json:"model"`
-	Messages       []chatMessage `json:"messages"`
+	Model          string            `json:"model"`
+	Messages       []chatMessage     `json:"messages"`
+	Tools          []json.RawMessage `json:"tools"`
 	ResponseFormat struct {
 		JSONSchema struct {
 			Schema json.RawMessage `json:"schema"`
@@ -108,6 +110,10 @@ func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 	}
 	if !slices.Contains(models, body.Model) {
 		writeError(w, http.StatusNotFound, "unknown model "+body.Model)
+		return
+	}
+	if len(body.Tools) > 0 {
+		writeError(w, http.StatusBadRequest, "tools are not supported")
 		return
 	}
 	system, prompt, err := splitMessages(body.Messages)
