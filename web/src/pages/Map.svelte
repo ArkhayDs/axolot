@@ -194,7 +194,7 @@
     {#if running}
       <LivePanel {catalog} {following} onfollow={() => (following = !following)} />
     {:else if launching}
-      <BenchmarkLauncher category={filter.category} onclose={closeLauncher} />
+      <BenchmarkLauncher onclose={closeLauncher} />
     {:else if content}
       {#if focus}
         <NodeDetail {focus} {content} {items} {filter} onclose={() => (focus = null)} />
