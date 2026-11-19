@@ -6,9 +6,10 @@
   import Notice from '../components/Notice.svelte';
   import ChatOptions from '../components/ChatOptions.svelte';
   import ChatSources from '../components/ChatSources.svelte';
+  import ChatModels from '../components/ChatModels.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { duration, number, seriesColor } from '../lib/format';
+  import { connectionTypeOf, duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
   interface Answer {
@@ -54,10 +55,18 @@
       .flatMap((connection) =>
         connection.models
           .filter((model) => !embedding.has(model.name) && !embedding.has(model.name.split(':')[0]))
-          .map((model) => ({ key: `${connection.provider.id}|${model.name}`, providerId: connection.provider.id, name: model.name, vision: model.vision })),
+          .map((model) => ({
+            key: `${connection.provider.id}|${model.name}`,
+            providerId: connection.provider.id,
+            type: connectionTypeOf(connection.provider.kind),
+            name: model.name,
+            label: model.label,
+            vision: model.vision,
+          })),
       ),
   );
   const colorOrder = $derived(available.map((model) => model.name).sort());
+  const pickable = $derived(available.map((model) => ({ key: model.key, label: model.label, type: model.type, color: seriesColor(model.name, colorOrder) })));
   const blocked = $derived(live.campaign !== '');
   const imagesReadable = $derived(available.some((model) => model.vision !== false));
 
@@ -85,7 +94,7 @@
   async function send(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const text = question.trim();
-    const picks = available.filter((model) => chosen.includes(model.key));
+    const picks = chosen.map((key) => available.find((model) => model.key === key)).filter((model) => model !== undefined);
     if (!text || picks.length === 0) return;
     turns.push({
       question: text,
@@ -169,7 +178,6 @@
   onMount(async () => {
     try {
       models = await api.models();
-      chosen = available.map((model) => model.key);
     } catch (loadError) {
       error = errorMessage(loadError);
     }
@@ -180,18 +188,15 @@
   <div class="page-head">
     <div>
       <h1>Chat</h1>
-      <p>Une question, chaque modèle coché répond à son tour. Aucune instruction cachée, sauf la consigne documentaire si vous activez les documents.</p>
+      <p>Une question, chaque modèle choisi répond à son tour, dans sa colonne. Aucune instruction cachée, sauf la consigne documentaire si vous activez les documents.</p>
     </div>
     <fieldset class="models">
-      <legend>Modèles</legend>
-      {#each available as model (model.key)}
-        <label class="chip" class:on={chosen.includes(model.key)}>
-          <input type="checkbox" bind:group={chosen} value={model.key} />
-          <ModelName name={model.name} color={seriesColor(model.name, colorOrder)} />
-        </label>
-      {:else}
-        {#if models}<p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>{/if}
-      {/each}
+      <legend>Modèles comparés</legend>
+      {#if available.length > 0}
+        <ChatModels models={pickable} bind:chosen />
+      {:else if models}
+        <p class="muted">Aucun modèle en ligne. <a href="#/reglages">Ouvrir les réglages</a></p>
+      {/if}
     </fieldset>
   </div>
 
@@ -269,10 +274,7 @@
 
 <style>
   .models {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s2);
+    flex-basis: 100%;
     min-width: 0;
     margin: 0;
     padding: 0;
@@ -284,22 +286,6 @@
     padding: 0;
     color: var(--ink-2);
     font-size: var(--text-sm);
-  }
-
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s2);
-    min-height: 40px;
-    padding: var(--s1) var(--s3);
-    border: 1px solid var(--axis);
-    border-radius: var(--radius);
-    cursor: pointer;
-  }
-
-  .chip.on {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
   .thread {
