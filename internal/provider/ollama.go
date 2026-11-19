@@ -94,11 +94,10 @@ func (o *Ollama) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		if chunk.Error != "" {
 			return errors.New(chunk.Error)
 		}
+		if chunk.Message.Content != "" || len(chunk.Message.ToolCalls) > 0 {
+			setTTFT(&result, start)
+		}
 		if chunk.Message.Content != "" {
-			if result.TTFTMs == nil {
-				ttft := msSince(start)
-				result.TTFTMs = &ttft
-			}
 			output.WriteString(chunk.Message.Content)
 			onDelta(chunk.Message.Content)
 		}

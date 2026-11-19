@@ -122,6 +122,15 @@ func wireTools(tools []Tool) []map[string]any {
 	return out
 }
 
+// setTTFT records the time to the first text or tool call, both being what the model starts answering with.
+// @param start - request start
+func setTTFT(result *ChatResult, start time.Time) {
+	if result.TTFTMs == nil {
+		ttft := msSince(start)
+		result.TTFTMs = &ttft
+	}
+}
+
 // postJSON sends body and returns the response once its status is checked; caller closes the body.
 // No client timeout: generations stream for minutes, so callers bound them through ctx.
 func postJSON(ctx context.Context, url, apiKey string, body any) (*http.Response, error) {
