@@ -390,13 +390,13 @@ func TestOpenAIChatJoinsStreamedToolCalls(t *testing.T) {
 }
 
 func TestOpenAIChatRejectsToolCallIndexOutOfOrder(t *testing.T) {
-	for _, index := range []int{5, -1} {
+	for index, want := range map[int]string{5: "streamed before call 0", -1: "invalid tool call index -1"} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":%d,\"id\":\"c1\",\"function\":{\"name\":\"weather\"}}]}}]}\n\n", index)
 		}))
 
-		if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil {
-			t.Errorf("index %d accepted", index)
+		if _, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {}); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("index %d: err = %v", index, err)
 		}
 		srv.Close()
 	}
