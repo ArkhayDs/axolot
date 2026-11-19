@@ -229,7 +229,10 @@
   <section class="thread" style:padding-bottom="calc({composerHeight}px + 6rem)" bind:this={thread} aria-label="Conversation" aria-live="polite">
     {#each turns as turn, index (index)}
       <article class="turn">
-        <p class="question">{turn.question}</p>
+        <div class="question">
+          <span class="who">Vous</span>
+          <p>{turn.question}</p>
+        </div>
         {#if turn.searching}
           <p class="muted">Recherche dans les documents...</p>
         {/if}
@@ -341,10 +344,23 @@
   }
 
   .question {
-    max-width: 75ch;
-    font-size: var(--text-lg);
-    font-weight: 550;
+    justify-self: end;
+    display: grid;
+    gap: var(--s1);
+    max-width: min(75ch, 85%);
+    padding: var(--s3) var(--s4);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+    background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  }
+
+  .question p {
+    overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  .who {
+    color: var(--ink-3);
+    font-size: var(--text-sm);
   }
 
   .answers {
