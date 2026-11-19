@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { cubicOut } from 'svelte/easing';
+  import { slide } from 'svelte/transition';
+
   import Icon from './Icon.svelte';
   import ModelName from './ModelName.svelte';
   import type { ConnectionType } from '../lib/api';
@@ -15,10 +18,14 @@
   let { models, chosen = $bindable() }: { models: Pickable[]; chosen: string[] } = $props();
 
   let open = $state(false);
+  // Key of the slot being changed, '' when the menu adds a model.
+  let target = $state('');
+  let picker: HTMLElement | undefined = $state();
+  // Svelte transitions run in JS, out of reach of the global reduced-motion CSS rule.
+  const menuMotion = { duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180, easing: cubicOut };
 
   // A picked model gone offline drops out of the slots without losing its key.
   const picks = $derived(chosen.map((key) => models.find((model) => model.key === key)).filter((model) => model !== undefined));
-  const types = $derived(picks.map((model) => model.type));
   const columns = $derived(
     CONNECTIONS.map((option) => ({ type: option.value, title: option.label, models: models.filter((model) => model.type === option.value) })).filter(
       (column) => column.models.length > 0,
@@ -41,22 +48,71 @@
     chosen = chosen.includes(key) ? chosen.filter((item) => item !== key) : [...chosen, key];
     if (picks.length >= MAX_MODELS) open = false;
   }
+
+  /**
+   * Opens the menu to add a model or change a slot's, closes it on a second click
+   * @param {string} key - slot's model key, '' to add
+   */
+  function openMenu(key: string): void {
+    open = !(open && target === key);
+    target = key;
+  }
+
+  /**
+   * Adds or removes in add mode, swaps the target slot's model in change mode
+   * @param {string} key - model clicked in the menu
+   */
+  function choose(key: string): void {
+    if (target === '') return toggle(key);
+    chosen = chosen.map((item) => (item === target ? key : item));
+    open = false;
+  }
+
+  /**
+   * @param {string} key - model key
+   */
+  function remove(key: string): void {
+    if (key === target) open = false;
+    toggle(key);
+  }
+
+  /**
+   * Whether a menu option cannot be clicked: in another slot while changing one, or over the caps
+   * @param {Pickable} model - menu option
+   * @returns {boolean} - true when disabled
+   */
+  function unavailable(model: Pickable): boolean {
+    if (chosen.includes(model.key)) return target !== '' && model.key !== target;
+    const others = picks.filter((pick) => pick.key !== target).map((pick) => pick.type);
+    return pickBlock(others, model.type) !== '';
+  }
+
+  /**
+   * Closes the menu on a press outside the slots and the menu
+   * @param {PointerEvent} event - window pointer down
+   */
+  function closeOutside(event: PointerEvent): void {
+    if (open && event.target instanceof Node && !picker?.contains(event.target)) open = false;
+  }
 </script>
 
-<svelte:window onkeydown={(event) => event.key === 'Escape' && (open = false)} />
+<svelte:window onkeydown={(event) => event.key === 'Escape' && (open = false)} onpointerdown={closeOutside} />
 
-<div class="picker">
+<div class="picker" bind:this={picker}>
   <div class="slots">
     {#each picks as model (model.key)}
-      <div class="slot filled" style:--model={model.color}>
-        <ModelName name={model.label} color={model.color} />
-        <span class="via">{typeLabel(model.type)}</span>
-        <button class="remove" type="button" aria-label="Retirer {model.label}" onclick={() => toggle(model.key)}><Icon name="cross" size={14} /></button>
+      {@const changing = open && target === model.key}
+      <div class="slot filled" class:changing style:--model={model.color}>
+        <button class="change" type="button" aria-expanded={changing} onclick={() => openMenu(model.key)}>
+          <ModelName name={model.label} color={model.color} />
+          <span class="via">{typeLabel(model.type)}</span>
+        </button>
+        <button class="remove" type="button" aria-label="Retirer {model.label}" onclick={() => remove(model.key)}><Icon name="cross" size={14} /></button>
       </div>
     {/each}
     {#each { length: MAX_MODELS - picks.length } as _, index (index)}
       {#if index === 0}
-        <button class="slot empty" type="button" aria-expanded={open} onclick={() => (open = !open)}><Icon name="plus" size={16} /> Ajouter</button>
+        <button class="slot empty" type="button" aria-expanded={open && target === ''} onclick={() => openMenu('')}><Icon name="plus" size={16} /> Ajouter</button>
       {:else}
         <div class="slot empty" aria-hidden="true"></div>
       {/if}
@@ -64,14 +120,14 @@
   </div>
 
   {#if open}
-    <div class="menu" role="group" aria-label="Modèles disponibles">
+    <div class="menu" role="group" aria-label="Modèles disponibles" transition:slide={menuMotion}>
       {#each columns as column (column.type)}
         <section style:flex-grow={column.models.length}>
           <h3>{column.title}{#if column.type === 'local'}<span class="note">&ensp;·&ensp;{MAX_LOCAL} au plus</span>{/if}</h3>
           <div class="options">
             {#each column.models as model (model.key)}
               {@const on = chosen.includes(model.key)}
-              <button class="option" type="button" aria-pressed={on} disabled={!on && pickBlock(types, model.type) !== ''} onclick={() => toggle(model.key)}>
+              <button class="option" type="button" aria-pressed={on} disabled={unavailable(model)} onclick={() => choose(model.key)}>
                 <span class="tick"><Icon name="check" size={14} /></span>
                 <ModelName name={model.label} color={model.color} />
               </button>
@@ -107,10 +163,29 @@
   /* The color bar matches the model's answer card and dot. */
   .filled {
     position: relative;
-    gap: 2px;
-    padding-right: 36px;
+    padding: 0;
     background: var(--panel);
     box-shadow: inset 3px 0 0 var(--model);
+  }
+
+  .filled:hover,
+  .changing {
+    border-color: var(--accent);
+  }
+
+  .change {
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    min-height: 54px;
+    padding: var(--s2) 36px var(--s2) var(--s3);
+    border: 0;
+    border-radius: inherit;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
 
   .via {
