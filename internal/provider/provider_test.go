@@ -445,6 +445,15 @@ func TestOpenAISendsToolHistory(t *testing.T) {
 	}
 }
 
+func TestOpenAISendsEmptyToolArgumentsAsAnEmptyObject(t *testing.T) {
+	history := []Message{toolHistory[0], {Role: "assistant", ToolCalls: []ToolCall{{ID: "c1", Name: "now"}}}, toolHistory[2]}
+	got := captureChat(t, func(url string) Provider { return &OpenAI{BaseURL: url} }, history)
+	call := got["messages"].([]any)[1].(map[string]any)["tool_calls"].([]any)[0].(map[string]any)
+	if arguments := call["function"].(map[string]any)["arguments"]; arguments != "{}" {
+		t.Errorf("arguments = %q", arguments)
+	}
+}
+
 func TestOllamaModelsReportVision(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/tags" {
