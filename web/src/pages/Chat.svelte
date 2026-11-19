@@ -210,7 +210,12 @@
       <p>Une question, chaque modèle choisi répond à son tour, dans sa colonne. Aucune instruction cachée, sauf la consigne documentaire si vous activez les documents.</p>
     </div>
     <fieldset class="models">
-      <legend>Modèles comparés</legend>
+      <legend>
+        Modèles comparés
+        {#if chosen.length > 1}
+          <button class="link" type="button" onclick={() => (chosen = [])}>Tout retirer</button>
+        {/if}
+      </legend>
       {#if available.length > 0}
         <ChatModels models={pickable} bind:chosen />
       {:else if models}
@@ -305,6 +310,23 @@
     padding: 0;
     color: var(--ink-2);
     font-size: var(--text-sm);
+  }
+
+  .link {
+    margin-left: var(--s2);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    text-decoration: underline;
+    text-decoration-color: var(--axis);
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  .link:hover {
+    text-decoration-color: var(--accent);
   }
 
   .thread {
