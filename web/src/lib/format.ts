@@ -253,7 +253,7 @@ export function when(iso: string): string {
 
 /**
  * @param {string} model - model tag
- * @param {string[]} all - every model of the view, sorted, so a model keeps its color when a filter hides another
+ * @param {string[]} all - every model of the view, in a stable order, so a model keeps its color when a filter hides another
  * @returns {string} - CSS color token
  */
 export function seriesColor(model: string, all: string[]): string {
