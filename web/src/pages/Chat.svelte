@@ -76,10 +76,8 @@
       ),
   );
   // Colors go to answered then picked models only, so 4 picks never run out of the 8 colors; first seen keeps its color.
-  const colorOrder = $derived([
-    ...new Set([...turns.flatMap((turn) => turn.answers.map((answer) => answer.model)), ...chosen.flatMap((key) => available.find((model) => model.key === key)?.name ?? [])]),
-  ]);
-  const pickable = $derived(available.map((model) => ({ key: model.key, label: model.label, type: model.type, color: seriesColor(model.name, colorOrder) })));
+  const colorOrder = $derived([...new Set([...turns.flatMap((turn) => turn.answers.map((answer) => answer.key)), ...chosen])]);
+  const pickable = $derived(available.map((model) => ({ key: model.key, label: model.label, type: model.type, color: seriesColor(model.key, colorOrder) })));
   const blocked = $derived(live.campaign !== '');
   const imagesReadable = $derived(available.some((model) => model.vision !== false));
 
@@ -252,7 +250,7 @@
         <div class="answers">
           {#each turn.answers as answer (answer.key)}
             <div class="answer">
-              <ModelName name={answer.model} color={seriesColor(answer.model, colorOrder)} />
+              <ModelName name={answer.model} color={seriesColor(answer.key, colorOrder)} />
               {#if turn.image && answer.vision === undefined}
                 <p class="muted">Ce serveur n'indique pas si le modèle lit les images : réponse à vérifier.</p>
               {/if}
