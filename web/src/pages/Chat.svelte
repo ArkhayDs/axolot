@@ -9,7 +9,7 @@
   import ChatModels from '../components/ChatModels.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { askAll, restorePicks } from '../lib/chat';
+  import { askAll, picksToSave, restorePicks } from '../lib/chat';
   import { duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -186,7 +186,7 @@
   $effect(() => {
     if (!models) return;
     try {
-      localStorage.setItem(PICKS_KEY, JSON.stringify(chosen));
+      localStorage.setItem(PICKS_KEY, JSON.stringify(picksToSave(chosen, savedPicks, available.map((model) => model.key))));
     } catch {
       // Storage blocked: the picks only last for this visit.
     }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { askAll, pickBlock, restorePicks } from '../src/lib/chat.ts';
+import { askAll, pickBlock, picksToSave, restorePicks } from '../src/lib/chat.ts';
 import type { ConnectionType } from '../src/lib/api.ts';
 
 const online: { key: string; type: ConnectionType }[] = [
@@ -44,6 +44,12 @@ test('a malformed saved value picks nothing', () => {
   assert.deepEqual(restorePicks(null, online), []);
   assert.deepEqual(restorePicks({ key: '1|llama' }, online), []);
   assert.deepEqual(restorePicks(['1|llama', '1|llama', 7], online), ['1|llama']);
+});
+
+test('a saved model offline for this visit stays stored', () => {
+  assert.deepEqual(picksToSave(['1|llama'], ['2|claude', '1|llama'], ['1|llama', '3|gpt']), ['1|llama', '2|claude']);
+  assert.deepEqual(picksToSave(['1|llama'], ['3|gpt', 7], ['1|llama', '3|gpt']), ['1|llama']);
+  assert.deepEqual(picksToSave(['1|llama'], null, ['1|llama']), ['1|llama']);
 });
 
 test('local models answer one after another, cloud ones alongside them', async () => {

@@ -45,3 +45,15 @@ export function restorePicks(saved: unknown, models: { key: string; type: Connec
   }
   return picks.map((model) => model.key);
 }
+
+/**
+ * Picks to store: current ones, then saved ones offline this visit, so a model down at load is not forgotten
+ * @param {string[]} chosen - current picks
+ * @param {unknown} saved - parsed stored value, untrusted
+ * @param {string[]} online - keys of the models online
+ * @returns {string[]} - keys to store
+ */
+export function picksToSave(chosen: string[], saved: unknown, online: string[]): string[] {
+  if (!Array.isArray(saved)) return chosen;
+  return [...chosen, ...saved.filter((key) => typeof key === 'string' && !online.includes(key) && !chosen.includes(key))];
+}
