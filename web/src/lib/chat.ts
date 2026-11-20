@@ -18,6 +18,19 @@ export function pickBlock(picked: ConnectionType[], type: ConnectionType): strin
 }
 
 /**
+ * Asks every model: local ones in turn (one GPU, sharing it would falsify their timings), the others alongside
+ * @param {T[]} models - picked models, in answer order
+ * @param {(model: T) => boolean} local - whether a model runs on the local GPU
+ * @param {(model: T) => Promise<void>} ask - gets one answer, never rejects
+ */
+export async function askAll<T>(models: T[], local: (model: T) => boolean, ask: (model: T) => Promise<void>): Promise<void> {
+  const chain = async (): Promise<void> => {
+    for (const model of models.filter(local)) await ask(model);
+  };
+  await Promise.all([chain(), ...models.filter((model) => !local(model)).map(ask)]);
+}
+
+/**
  * Brings back the last picks, keeping those still online and within the caps
  * @param {unknown} saved - parsed stored value, untrusted
  * @param {{ key: string; type: ConnectionType }[]} models - models online

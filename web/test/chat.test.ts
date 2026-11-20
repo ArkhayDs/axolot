@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { pickBlock, restorePicks } from '../src/lib/chat.ts';
+import { askAll, pickBlock, restorePicks } from '../src/lib/chat.ts';
 import type { ConnectionType } from '../src/lib/api.ts';
 
 const online: { key: string; type: ConnectionType }[] = [
@@ -44,4 +44,16 @@ test('a malformed saved value picks nothing', () => {
   assert.deepEqual(restorePicks(null, online), []);
   assert.deepEqual(restorePicks({ key: '1|llama' }, online), []);
   assert.deepEqual(restorePicks(['1|llama', '1|llama', 7], online), ['1|llama']);
+});
+
+test('local models answer one after another, cloud ones alongside them', async () => {
+  const log: string[] = [];
+  await askAll(['local-1', 'cloud-1', 'local-2', 'cloud-2'], (model) => model.startsWith('local'), async (model) => {
+    log.push(`start ${model}`);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    log.push(`end ${model}`);
+  });
+  assert.deepEqual(log.slice(0, 3), ['start local-1', 'start cloud-1', 'start cloud-2']);
+  assert.ok(log.indexOf('start local-2') > log.indexOf('end local-1'));
+  assert.equal(log.length, 8);
 });
