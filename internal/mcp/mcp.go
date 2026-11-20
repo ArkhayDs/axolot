@@ -1,0 +1,65 @@
+// Package mcp reaches MCP servers over streamable HTTP and turns their tools into tools a model can be offered.
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/arkhayds/axolot/internal/provider"
+)
+
+// client identifies Axolot to every server.
+var client = sdk.NewClient(&sdk.Implementation{Name: "axolot", Version: "1"}, nil)
+
+// Tools connects to a server, lists all its tools, then closes the session.
+// @param token - plain bearer token, empty when the server needs none
+func Tools(ctx context.Context, url, token string) ([]provider.Tool, error) {
+	session, err := connect(ctx, url, token)
+	if err != nil {
+		return nil, err
+	}
+	defer session.Close()
+	tools := []provider.Tool{}
+	for tool, err := range session.Tools(ctx, nil) {
+		if err != nil {
+			return nil, fmt.Errorf("list tools: %w", err)
+		}
+		schema, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			return nil, fmt.Errorf("schema of %s: %w", tool.Name, err)
+		}
+		tools = append(tools, provider.Tool{Name: tool.Name, Description: tool.Description, Parameters: schema})
+	}
+	return tools, nil
+}
+
+// connect opens a request-response session: no standing SSE stream, no reconnect, the caller's context bounds it.
+func connect(ctx context.Context, url, token string) (*sdk.ClientSession, error) {
+	httpClient := http.DefaultClient
+	if token != "" {
+		httpClient = &http.Client{Transport: bearer{token: token, next: http.DefaultTransport}}
+	}
+	transport := &sdk.StreamableClientTransport{Endpoint: url, HTTPClient: httpClient, DisableStandaloneSSE: true, MaxRetries: -1}
+	session, err := client.Connect(ctx, transport, nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect %s: %w", url, err)
+	}
+	return session, nil
+}
+
+// bearer adds the server token to every request.
+type bearer struct {
+	token string
+	next  http.RoundTripper
+}
+
+// RoundTrip sends a copy of the request carrying the token.
+func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.Header.Set("Authorization", "Bearer "+b.token)
+	return b.next.RoundTrip(r)
+}
