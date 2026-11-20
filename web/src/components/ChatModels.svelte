@@ -24,7 +24,6 @@
   // Svelte transitions run in JS, out of reach of the global reduced-motion CSS rule.
   const menuMotion = { duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180, easing: cubicOut };
 
-  // A picked model gone offline drops out of the slots without losing its key.
   const picks = $derived(chosen.map((key) => models.find((model) => model.key === key)).filter((model) => model !== undefined));
   const columns = $derived(
     CONNECTIONS.map((option) => ({ type: option.value, title: option.label, models: models.filter((model) => model.type === option.value) })).filter(
