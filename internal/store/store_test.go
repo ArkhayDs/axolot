@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -90,6 +91,31 @@ func TestProviderSelectionCascade(t *testing.T) {
 	}
 	if selections, _ := s.Selections(ctx); len(selections) != 0 {
 		t.Fatalf("selection survived: %v", selections)
+	}
+}
+
+func TestMcpServerLifecycle(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	id, err := s.CreateMcpServer(ctx, "sentinelle", "https://x/mcp", []byte("sealed"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateMcpServer(ctx, "sentinelle", "https://y/mcp", nil); !errors.Is(err, ErrNameTaken) {
+		t.Fatalf("duplicate name: err=%v", err)
+	}
+	if err := s.SetMcpServerEnabled(ctx, id, false); err != nil {
+		t.Fatal(err)
+	}
+	servers, err := s.McpServers(ctx)
+	if err != nil || len(servers) != 1 || servers[0].Enabled || !servers[0].HasToken {
+		t.Fatalf("servers=%+v err=%v", servers, err)
+	}
+	if err := s.DeleteMcpServer(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if servers, _ := s.McpServers(ctx); len(servers) != 0 {
+		t.Fatalf("server survived: %v", servers)
 	}
 }
 
