@@ -9,7 +9,7 @@
   import ChatModels from '../components/ChatModels.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { restorePicks } from '../lib/chat';
+  import { askAll, restorePicks } from '../lib/chat';
   import { connectionTypeOf, duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -17,6 +17,7 @@
     key: string;
     model: string;
     providerId: number;
+    local: boolean;
     vision: boolean | undefined;
     text: string;
     state: 'waiting' | 'streaming' | 'done' | 'failed' | 'stopped' | 'no-image';
@@ -97,7 +98,7 @@
   }
 
   /**
-   * Asks each chosen model in turn: one GPU, so answering together would falsify the timings
+   * Asks each chosen model, local ones in turn
    * @param {SubmitEvent} event - form submit
    */
   async function send(event: SubmitEvent): Promise<void> {
@@ -107,7 +108,7 @@
     if (!text || picks.length === 0) return;
     turns.push({
       question: text,
-      answers: picks.map((model) => ({ key: model.key, model: model.name, providerId: model.providerId, vision: model.vision, text: '', state: 'waiting', error: '', metrics: null })),
+      answers: picks.map((model) => ({ key: model.key, model: model.name, providerId: model.providerId, local: model.type === 'local', vision: model.vision, text: '', state: 'waiting', error: '', metrics: null })),
       searching: useDocuments,
       searchError: '',
       searchMs: null,
@@ -145,34 +146,39 @@
       }
       turn.searching = false;
     }
-    for (const answer of answers) {
-      if (controller.signal.aborted) {
-        answer.state = 'stopped';
-        continue;
-      }
-      if (turn.image && answer.vision === false) {
-        answer.state = 'no-image';
-        continue;
-      }
-      answer.state = 'streaming';
-      try {
-        answer.metrics = await streamChat(
-          { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages), document: sentDocument, image: turn.image?.data },
-          (delta) => {
-            answer.text += delta;
-          },
-          controller.signal,
-        );
-        answer.state = 'done';
-      } catch (streamError) {
-        if (controller.signal.aborted) {
+    const signal = controller.signal;
+    await askAll(
+      answers,
+      (answer) => answer.local,
+      async (answer) => {
+        if (signal.aborted) {
           answer.state = 'stopped';
-        } else {
-          answer.state = 'failed';
-          answer.error = errorMessage(streamError);
+          return;
         }
-      }
-    }
+        if (turn.image && answer.vision === false) {
+          answer.state = 'no-image';
+          return;
+        }
+        answer.state = 'streaming';
+        try {
+          answer.metrics = await streamChat(
+            { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages), document: sentDocument, image: turn.image?.data },
+            (delta) => {
+              answer.text += delta;
+            },
+            signal,
+          );
+          answer.state = 'done';
+        } catch (streamError) {
+          if (signal.aborted) {
+            answer.state = 'stopped';
+          } else {
+            answer.state = 'failed';
+            answer.error = errorMessage(streamError);
+          }
+        }
+      },
+    );
     sending = false;
   }
 
