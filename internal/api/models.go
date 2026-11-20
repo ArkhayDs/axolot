@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -52,8 +51,7 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	parsed, err := url.Parse(body.BaseURL)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+	if !httpURL(body.BaseURL) {
 		writeError(w, http.StatusBadRequest, "URL invalide")
 		return
 	}
@@ -63,6 +61,7 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 	}
 	var sealed []byte
 	if body.APIKey != "" {
+		var err error
 		if sealed, err = s.cfg.Box.Seal(body.APIKey); err != nil {
 			internalError(w, r, err)
 			return

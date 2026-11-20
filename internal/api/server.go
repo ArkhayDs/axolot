@@ -64,6 +64,10 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/providers", s.createProvider)
 	mux.HandleFunc("POST /api/providers/bridge", s.createBridge)
 	mux.HandleFunc("DELETE /api/providers/{id}", s.deleteProvider)
+	mux.HandleFunc("GET /api/mcp", s.listMcpServers)
+	mux.HandleFunc("POST /api/mcp", s.createMcpServer)
+	mux.HandleFunc("PUT /api/mcp/{id}", s.setMcpServerEnabled)
+	mux.HandleFunc("DELETE /api/mcp/{id}", s.deleteMcpServer)
 	mux.HandleFunc("GET /api/models", s.listModels)
 	mux.HandleFunc("POST /api/models/pull", s.pullModel)
 	mux.HandleFunc("GET /api/cases", s.listCases)
@@ -301,6 +305,12 @@ func pathID(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+// httpURL accepts an absolute http or https URL.
+func httpURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
 // readJSON decodes a bounded body, answering 400 on failure.
