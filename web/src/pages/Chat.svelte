@@ -75,7 +75,10 @@
           })),
       ),
   );
-  const colorOrder = $derived(available.map((model) => model.name).sort());
+  // Colors go to answered then picked models only, so 4 picks never run out of the 8 colors; first seen keeps its color.
+  const colorOrder = $derived([
+    ...new Set([...turns.flatMap((turn) => turn.answers.map((answer) => answer.model)), ...chosen.flatMap((key) => available.find((model) => model.key === key)?.name ?? [])]),
+  ]);
   const pickable = $derived(available.map((model) => ({ key: model.key, label: model.label, type: model.type, color: seriesColor(model.name, colorOrder) })));
   const blocked = $derived(live.campaign !== '');
   const imagesReadable = $derived(available.some((model) => model.vision !== false));
