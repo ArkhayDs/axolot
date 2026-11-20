@@ -105,7 +105,7 @@
     event.preventDefault();
     const text = question.trim();
     const picks = chosen.map((key) => available.find((model) => model.key === key)).filter((model) => model !== undefined);
-    if (!text || picks.length === 0) return;
+    if (sending || !text || picks.length === 0) return;
     turns.push({
       question: text,
       answers: picks.map((model) => ({ key: model.key, model: model.name, providerId: model.providerId, local: model.type === 'local', vision: model.vision, text: '', state: 'waiting', error: '', metrics: null })),
