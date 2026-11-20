@@ -32,6 +32,7 @@
   );
 
   /**
+   * Label of a connection type, as the menu columns name it
    * @param {ConnectionType} type - connection type
    * @returns {string} - its display label
    */
@@ -68,6 +69,7 @@
   }
 
   /**
+   * Removes a slot's model, closing the menu if it was changing that slot
    * @param {string} key - model key
    */
   function remove(key: string): void {
@@ -98,7 +100,7 @@
 <svelte:window onkeydown={(event) => event.key === 'Escape' && (open = false)} onpointerdown={closeOutside} />
 
 <div class="picker" bind:this={picker}>
-  <div class="slots">
+  <div class="slots" style:--slots={MAX_MODELS}>
     {#each picks as model (model.key)}
       {@const changing = open && target === model.key}
       <div class="slot filled" class:changing style:--model={model.color}>
@@ -146,7 +148,7 @@
 
   .slots {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--slots), minmax(0, 1fr));
     gap: var(--s2);
   }
 
