@@ -148,39 +148,42 @@
       turn.searching = false;
     }
     const signal = controller.signal;
-    await askAll(
-      answers,
-      (answer) => answer.local,
-      async (answer) => {
-        if (signal.aborted) {
-          answer.state = 'stopped';
-          return;
-        }
-        if (turn.image && answer.vision === false) {
-          answer.state = 'no-image';
-          return;
-        }
-        answer.state = 'streaming';
-        try {
-          answer.metrics = await streamChat(
-            { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages), document: sentDocument, image: turn.image?.data },
-            (delta) => {
-              answer.text += delta;
-            },
-            signal,
-          );
-          answer.state = 'done';
-        } catch (streamError) {
+    try {
+      await askAll(
+        answers,
+        (answer) => answer.local,
+        async (answer) => {
           if (signal.aborted) {
             answer.state = 'stopped';
-          } else {
-            answer.state = 'failed';
-            answer.error = errorMessage(streamError);
+            return;
           }
-        }
-      },
-    );
-    sending = false;
+          if (turn.image && answer.vision === false) {
+            answer.state = 'no-image';
+            return;
+          }
+          answer.state = 'streaming';
+          try {
+            answer.metrics = await streamChat(
+              { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages), document: sentDocument, image: turn.image?.data },
+              (delta) => {
+                answer.text += delta;
+              },
+              signal,
+            );
+            answer.state = 'done';
+          } catch (streamError) {
+            if (signal.aborted) {
+              answer.state = 'stopped';
+            } else {
+              answer.state = 'failed';
+              answer.error = errorMessage(streamError);
+            }
+          }
+        },
+      );
+    } finally {
+      sending = false;
+    }
   }
 
   $effect(() => {
