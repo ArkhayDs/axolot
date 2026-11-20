@@ -213,7 +213,7 @@
   <div class="page-head">
     <div>
       <h1>Chat</h1>
-      <p>Une question, chaque modèle choisi répond à son tour, dans sa colonne. Aucune instruction cachée, sauf la consigne documentaire si vous activez les documents.</p>
+      <p>Une question, chaque modèle choisi répond dans sa colonne : les modèles locaux à tour de rôle, ceux du cloud en même temps. Aucune instruction cachée, sauf la consigne documentaire si vous activez les documents.</p>
     </div>
     <fieldset class="models">
       <legend>
