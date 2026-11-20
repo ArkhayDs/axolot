@@ -64,7 +64,7 @@ Pendant un Benchmark, ce qu'il ne touche pas s'estompe. Suivre, dans le panneau 
 
 ### Chat
 
-Poser une question aux modèles cochés et comparer les réponses. Options : documents du corpus (RAG), document ou image joints.
+Poser une question à plusieurs modèles et comparer les réponses. Jusqu'à 4 modèles, dont 2 locaux, choisis dans les cases du haut de page et retenus d'une visite à l'autre. Les modèles locaux répondent à tour de rôle (un seul GPU), ceux du cloud en même temps. Options : documents du corpus (RAG), document ou image joints.
 
 ![Chat](docs/captures/chat-desktop.png)
 
