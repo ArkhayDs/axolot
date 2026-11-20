@@ -274,6 +274,17 @@ export interface Estimate {
   known: boolean;
 }
 
+export interface McpServer {
+  id: number;
+  name: string;
+  url: string;
+  enabled: boolean;
+  has_token: boolean;
+  // Names listed live, empty when the server could not be reached.
+  tools: string[];
+  error?: string;
+}
+
 export interface CorpusResponse {
   folders: { name: string; files: string[] }[];
   indexes: { corpus: string; embed_model: string; chunks: number; files: number }[];
@@ -424,6 +435,10 @@ export const api = {
     write('POST', '/providers', body),
   createBridge: (): Promise<{ id: number }> => write('POST', '/providers/bridge'),
   deleteProvider: (id: number): Promise<void> => write('DELETE', `/providers/${id}`),
+  mcpServers: (): Promise<McpServer[]> => get('/mcp'),
+  createMcpServer: (body: { name: string; url: string; token: string }): Promise<{ id: number }> => write('POST', '/mcp', body),
+  setMcpServerEnabled: (id: number, enabled: boolean): Promise<void> => write('PUT', `/mcp/${id}`, { enabled }),
+  deleteMcpServer: (id: number): Promise<void> => write('DELETE', `/mcp/${id}`),
   models: (): Promise<Models> => get('/models'),
   pullModel: (provider_id: number, name: string): Promise<void> => write('POST', '/models/pull', { provider_id, name }),
   cases: (): Promise<CasesResponse> => get('/cases'),
