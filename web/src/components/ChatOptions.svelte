@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import McpPanel from './McpPanel.svelte';
   import { api, errorMessage } from '../lib/api';
   import type { ChatDocument, ChatImage } from '../lib/api';
   import { number } from '../lib/format';
@@ -21,6 +22,7 @@
   } = $props();
 
   let error = $state('');
+  let mcpOpen = $state(false);
   let documentInput: HTMLInputElement | undefined = $state();
   let imageInput: HTMLInputElement | undefined = $state();
 
@@ -84,6 +86,8 @@
   {#if !imagesReadable}
     <span class="muted reason">Aucun modèle installé ne lit les images</span>
   {/if}
+  <button class="btn attach" type="button" onclick={() => (mcpOpen = true)}><Icon name="plug" size={16} /> Serveurs MCP</button>
+  <McpPanel open={mcpOpen} onclose={() => (mcpOpen = false)} />
   {#if image}
     <span class="pill">
       <img src="data:{image.media_type};base64,{image.data}" alt="" />
