@@ -10,7 +10,7 @@
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
   import { askAll, restorePicks } from '../lib/chat';
-  import { connectionTypeOf, duration, number, seriesColor } from '../lib/format';
+  import { duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
   interface Answer {
@@ -68,7 +68,7 @@
           .map((model) => ({
             key: `${connection.provider.id}|${model.name}`,
             providerId: connection.provider.id,
-            type: connectionTypeOf(connection.provider.kind),
+            type: connection.connection_type,
             name: model.name,
             label: model.label,
             vision: model.vision,

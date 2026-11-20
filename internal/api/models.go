@@ -104,6 +104,8 @@ func (s *Server) deleteProvider(w http.ResponseWriter, r *http.Request) {
 type connectionModels struct {
 	Provider store.Provider `json:"provider"`
 	Online   bool           `json:"online"`
+	// ConnectionType spares the page a copy of connectionType.
+	ConnectionType string `json:"connection_type"`
 	// Bridge marks the Claude bridge, whose command the page gives when it is down.
 	Bridge bool        `json:"bridge"`
 	Error  string      `json:"error,omitempty"`
@@ -154,7 +156,7 @@ func (s *Server) listModels(w http.ResponseWriter, r *http.Request) {
 
 // probe asks one server for its models; a failure is data for the UI, not an error.
 func (s *Server) probe(ctx context.Context, p store.Provider, reservedGB int) connectionModels {
-	view := connectionModels{Provider: p, Bridge: p.Kind == "bridge", Models: []modelView{}}
+	view := connectionModels{Provider: p, ConnectionType: connectionType(p), Bridge: p.Kind == "bridge", Models: []modelView{}}
 	client, err := s.client(p)
 	if err != nil {
 		view.Error = err.Error()
@@ -168,11 +170,10 @@ func (s *Server) probe(ctx context.Context, p store.Provider, reservedGB int) co
 		return view
 	}
 	view.Online = true
-	connection := connectionType(p)
 	for _, m := range models {
 		view.Models = append(view.Models, modelView{
 			Model: m,
-			Label: store.ModelLabel(m.Name, connection, p.Name),
+			Label: store.ModelLabel(m.Name, view.ConnectionType, p.Name),
 			Fit:   hardware.FitFor(s.cfg.Hardware, m.SizeBytes, reservedGB),
 		})
 	}

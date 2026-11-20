@@ -40,6 +40,7 @@ export type Fit = 'ok' | 'tight' | 'too_big' | 'unknown';
 export interface Connection {
   provider: Provider;
   online: boolean;
+  connection_type: Exclude<ConnectionType, ''>;
   bridge: boolean;
   error?: string;
   // vision is absent when the server cannot tell whether the model reads images.

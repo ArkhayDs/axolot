@@ -1,6 +1,6 @@
 // French display helpers for figures, statuses and scoring labels.
 
-import type { Answer, Campaign, Check, ConnectionType, Estimate, Fit, Item, ModelStats, Provider } from './api';
+import type { Answer, Campaign, Check, ConnectionType, Estimate, Fit, Item, ModelStats } from './api';
 
 const CATEGORIES: Record<string, string> = {
   '': 'Tous les thèmes',
@@ -66,15 +66,6 @@ export const CONNECTIONS: { value: ConnectionType; label: string }[] = [
   { value: 'api', label: 'Cloud par API' },
   { value: 'subscription', label: 'Cloud par abonnement' },
 ];
-
-/**
- * Classifies a connection; must match connectionType in internal/api/server.go
- * @param {Provider['kind']} kind - connection kind
- * @returns {ConnectionType} - how its models are served
- */
-export function connectionTypeOf(kind: Provider['kind']): Exclude<ConnectionType, ''> {
-  return kind === 'ollama' ? 'local' : kind === 'bridge' ? 'subscription' : 'api';
-}
 
 export const DEFAULT_TEMPERATURE_HINT =
   "Température par défaut du modèle : il ignore le réglage de la campagne, ses réponses peuvent varier d'un passage à l'autre.";
