@@ -81,9 +81,13 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 }
 
 // createBridge saves the Claude bridge connection without a key: client reads the token from the environment.
-// shortcut: no uniqueness check, the page locks the button until the reloaded list hides it; check kind in SQL if another client calls this.
+// shortcut: only the fixed name is unique, not the kind; the page locks the button until the reloaded list hides it; check kind in SQL if another client calls this.
 func (s *Server) createBridge(w http.ResponseWriter, r *http.Request) {
 	id, err := s.cfg.Store.CreateProvider(r.Context(), "Claude (abonnement)", "bridge", s.cfg.BridgeURL, nil)
+	if errors.Is(err, store.ErrNameTaken) {
+		writeError(w, http.StatusConflict, "Ce nom est déjà pris")
+		return
+	}
 	if err != nil {
 		internalError(w, r, err)
 		return
