@@ -23,7 +23,7 @@
     }
   }
 
-  /** Saves the bridge connection, locked until the reloaded list hides the button */
+  /** Saves the bridge connection, locked until the reloaded list hides the button; reloads on refusal too, another tab may have added it */
   async function add(): Promise<void> {
     adding = true;
     try {
@@ -32,6 +32,7 @@
       await onadded();
     } catch (saveError) {
       error = errorMessage(saveError);
+      await onadded();
     } finally {
       adding = false;
     }
