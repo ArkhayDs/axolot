@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -68,6 +69,10 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	id, err := s.cfg.Store.CreateProvider(r.Context(), body.Name, body.Kind, strings.TrimRight(body.BaseURL, "/"), sealed)
+	if errors.Is(err, store.ErrNameTaken) {
+		writeError(w, http.StatusConflict, "Ce nom est déjà pris")
+		return
+	}
 	if err != nil {
 		internalError(w, r, err)
 		return

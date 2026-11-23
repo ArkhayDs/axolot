@@ -75,6 +75,9 @@ func TestProviderSelectionCascade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.CreateProvider(ctx, "local", "openai", "http://y", nil); !errors.Is(err, ErrNameTaken) {
+		t.Fatalf("duplicate name: err=%v", err)
+	}
 	if err := s.SetCaseModels(ctx, "c", []Selection{{CaseID: "c", ProviderID: id, Model: "m"}}); err != nil {
 		t.Fatal(err)
 	}
