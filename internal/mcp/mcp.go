@@ -1,41 +1,34 @@
-// Package mcp reaches MCP servers over streamable HTTP and turns their tools into tools a model can be offered.
+// Package mcp reaches MCP servers over streamable HTTP and lists their tools.
 package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
-
-	"github.com/arkhayds/axolot/internal/provider"
 )
 
 // client identifies Axolot to every server.
 var client = sdk.NewClient(&sdk.Implementation{Name: "axolot", Version: "1"}, nil)
 
-// Tools connects to a server, lists all its tools, then closes the session.
+// ToolNames connects to a server, lists the names of all its tools, then closes the session.
 // @param token - plain bearer token, empty when the server needs none
-func Tools(ctx context.Context, url, token string) ([]provider.Tool, error) {
-	session, err := connect(ctx, url, token)
+func ToolNames(ctx context.Context, endpoint, token string) ([]string, error) {
+	session, err := connect(ctx, endpoint, token)
 	if err != nil {
 		return nil, err
 	}
 	defer session.Close()
-	tools := []provider.Tool{}
+	names := []string{}
 	for tool, err := range session.Tools(ctx, nil) {
 		if err != nil {
 			return nil, fmt.Errorf("list tools: %w", err)
 		}
-		schema, err := json.Marshal(tool.InputSchema)
-		if err != nil {
-			return nil, fmt.Errorf("schema of %s: %w", tool.Name, err)
-		}
-		tools = append(tools, provider.Tool{Name: tool.Name, Description: tool.Description, Parameters: schema})
+		names = append(names, tool.Name)
 	}
-	return tools, nil
+	return names, nil
 }
 
 // connect opens a request-response session: no standing SSE stream, no reconnect, the caller's context bounds it.

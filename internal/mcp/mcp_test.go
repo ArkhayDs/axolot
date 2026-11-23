@@ -33,29 +33,25 @@ func newServer(t *testing.T) *httptest.Server {
 	return ts
 }
 
-func TestToolsListsWithTheBearerToken(t *testing.T) {
+func TestToolNamesListsWithTheBearerToken(t *testing.T) {
 	ts := newServer(t)
-	tools, err := Tools(context.Background(), ts.URL, "secret")
+	names, err := ToolNames(context.Background(), ts.URL, "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tools) != 1 || tools[0].Name != "get_kpis" || tools[0].Description != "KPIs of a scope" {
-		t.Fatalf("tools=%+v", tools)
-	}
-	var schema map[string]any
-	if err := json.Unmarshal(tools[0].Parameters, &schema); err != nil || schema["type"] != "object" {
-		t.Fatalf("schema=%s err=%v", tools[0].Parameters, err)
+	if len(names) != 1 || names[0] != "get_kpis" {
+		t.Fatalf("names=%v", names)
 	}
 }
 
-func TestToolsFailsWithoutTheToken(t *testing.T) {
+func TestToolNamesFailsWithoutTheToken(t *testing.T) {
 	ts := newServer(t)
-	if _, err := Tools(context.Background(), ts.URL, ""); err == nil {
+	if _, err := ToolNames(context.Background(), ts.URL, ""); err == nil {
 		t.Fatal("expected an error on 401")
 	}
 }
 
-func TestToolsKeepsTheTokenFromAnotherHost(t *testing.T) {
+func TestToolNamesKeepsTheTokenFromAnotherHost(t *testing.T) {
 	var leaked string
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		leaked = r.Header.Get("Authorization")
@@ -66,7 +62,7 @@ func TestToolsKeepsTheTokenFromAnotherHost(t *testing.T) {
 		http.Redirect(w, r, other.URL, http.StatusTemporaryRedirect)
 	}))
 	t.Cleanup(redirect.Close)
-	if _, err := Tools(context.Background(), redirect.URL, "secret"); err == nil {
+	if _, err := ToolNames(context.Background(), redirect.URL, "secret"); err == nil {
 		t.Fatal("expected an error from the other host")
 	}
 	if leaked != "" {
