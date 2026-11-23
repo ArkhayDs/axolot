@@ -12,19 +12,24 @@
   let url = $state('');
   let token = $state('');
   let error = $state('');
+  let saving = $state(false);
+  let lastLoad = 0;
 
-  /** Lists the servers, each asked for its tools: an unreachable one waits out its timeout */
+  /** Lists the servers, each asked for its tools; only the latest call writes, a slower earlier one is dropped */
   async function load(): Promise<void> {
+    const current = ++lastLoad;
     try {
-      servers = await api.mcpServers();
+      const list = await api.mcpServers();
+      if (current === lastLoad) servers = list;
     } catch (loadError) {
-      error = errorMessage(loadError);
+      if (current === lastLoad) error = errorMessage(loadError);
     }
   }
 
   /** Saves the server and clears the form, the token never stays in the page */
   async function add(event: SubmitEvent): Promise<void> {
     event.preventDefault();
+    saving = true;
     try {
       await api.createMcpServer({ name, url, token });
       name = url = token = '';
@@ -32,6 +37,8 @@
       await load();
     } catch (saveError) {
       error = errorMessage(saveError);
+    } finally {
+      saving = false;
     }
   }
 
@@ -110,7 +117,7 @@
     <label class="field">Nom<input class="input" bind:value={name} required pattern={'[a-z0-9_\\-]{1,32}'} title="Minuscules, chiffres, - et _" placeholder="sentinelle" /></label>
     <label class="field">URL<input class="input" type="url" bind:value={url} required placeholder="https://exemple.fr/mcp" /></label>
     <label class="field">Jeton (facultatif)<input class="input" type="password" bind:value={token} autocomplete="off" /></label>
-    <button class="btn" type="submit"><Icon name="plug" /> Ajouter</button>
+    <button class="btn" type="submit" disabled={saving}><Icon name="plug" /> {saving ? 'Ajout...' : 'Ajouter'}</button>
   </form>
   <p class="warning">Tous les outils du serveur sont transmis aux modèles, y compris ceux qui modifient des données : n'ajoutez qu'un serveur de confiance.</p>
 </dialog>
