@@ -75,9 +75,6 @@ func TestProviderSelectionCascade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CreateProvider(ctx, "local", "openai", "http://y", nil); !errors.Is(err, ErrNameTaken) {
-		t.Fatalf("duplicate name: err=%v", err)
-	}
 	if err := s.SetCaseModels(ctx, "c", []Selection{{CaseID: "c", ProviderID: id, Model: "m"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -97,15 +94,23 @@ func TestProviderSelectionCascade(t *testing.T) {
 	}
 }
 
+func TestCreateProviderRefusesTakenName(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	if _, err := s.CreateProvider(ctx, "local", "ollama", "http://x", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateProvider(ctx, "local", "openai", "http://y", nil); !errors.Is(err, ErrNameTaken) {
+		t.Fatalf("duplicate name: err=%v", err)
+	}
+}
+
 func TestMcpServerLifecycle(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
 	id, err := s.CreateMcpServer(ctx, "sentinelle", "https://x/mcp", []byte("sealed"))
 	if err != nil {
 		t.Fatal(err)
-	}
-	if _, err := s.CreateMcpServer(ctx, "sentinelle", "https://y/mcp", nil); !errors.Is(err, ErrNameTaken) {
-		t.Fatalf("duplicate name: err=%v", err)
 	}
 	if err := s.SetMcpServerEnabled(ctx, id, false); err != nil {
 		t.Fatal(err)
@@ -125,6 +130,17 @@ func TestMcpServerLifecycle(t *testing.T) {
 	}
 	if err := s.DeleteMcpServer(ctx, id); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("delete deleted server: err=%v", err)
+	}
+}
+
+func TestCreateMcpServerRefusesTakenName(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	if _, err := s.CreateMcpServer(ctx, "sentinelle", "https://x/mcp", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateMcpServer(ctx, "sentinelle", "https://y/mcp", nil); !errors.Is(err, ErrNameTaken) {
+		t.Fatalf("duplicate name: err=%v", err)
 	}
 }
 
