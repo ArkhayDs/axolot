@@ -52,14 +52,12 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpServerView 
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, mcpProbeTimeout)
 	defer cancel()
-	tools, err := mcp.Tools(probeCtx, m.URL, token)
+	names, err := mcp.ToolNames(probeCtx, m.URL, token)
 	if err != nil {
 		view.Error = err.Error()
 		return view
 	}
-	for _, tool := range tools {
-		view.Tools = append(view.Tools, tool.Name)
-	}
+	view.Tools = names
 	return view
 }
 
