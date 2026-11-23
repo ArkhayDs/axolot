@@ -187,10 +187,11 @@ func (s *Store) Providers(ctx context.Context) ([]Provider, error) {
 // ErrNameTaken reports a name already used by another row of the same table.
 var ErrNameTaken = errors.New("name already taken")
 
-// nameTaken tells whether an insert failed on a unique constraint (only `name` is unique where it is used)
-func nameTaken(err error) bool {
+// nameTaken tells whether an insert failed on the table's unique name
+// @param table - table inserted into, its constraint is Postgres' default `<table>_name_key`
+func nameTaken(err error, table string) bool {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == table+"_name_key"
 }
 
 // CreateProvider saves a connection.
@@ -200,7 +201,7 @@ func (s *Store) CreateProvider(ctx context.Context, name, kind, baseURL string, 
 	var id int64
 	err := s.pool.QueryRow(ctx, `INSERT INTO providers (name, kind, base_url, api_key_enc)
 		VALUES ($1, $2, $3, $4) RETURNING id`, name, kind, baseURL, apiKeyEnc).Scan(&id)
-	if nameTaken(err) {
+	if nameTaken(err, "providers") {
 		return 0, ErrNameTaken
 	}
 	if err != nil {
