@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -38,27 +39,36 @@ func Tools(ctx context.Context, url, token string) ([]provider.Tool, error) {
 }
 
 // connect opens a request-response session: no standing SSE stream, no reconnect, the caller's context bounds it.
-func connect(ctx context.Context, url, token string) (*sdk.ClientSession, error) {
+func connect(ctx context.Context, endpoint, token string) (*sdk.ClientSession, error) {
 	httpClient := http.DefaultClient
 	if token != "" {
-		httpClient = &http.Client{Transport: bearer{token: token, next: http.DefaultTransport}}
+		parsed, err := url.Parse(endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", endpoint, err)
+		}
+		httpClient = &http.Client{Transport: bearer{token: token, host: parsed.Host, next: http.DefaultTransport}}
 	}
-	transport := &sdk.StreamableClientTransport{Endpoint: url, HTTPClient: httpClient, DisableStandaloneSSE: true, MaxRetries: -1}
+	transport := &sdk.StreamableClientTransport{Endpoint: endpoint, HTTPClient: httpClient, DisableStandaloneSSE: true, MaxRetries: -1}
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("connect %s: %w", url, err)
+		return nil, fmt.Errorf("connect %s: %w", endpoint, err)
 	}
 	return session, nil
 }
 
-// bearer adds the server token to every request.
+// bearer adds the server token to requests for the server's own host.
+// The transport sees every redirect hop, so http.Client's own cross-host header stripping never applies here.
 type bearer struct {
 	token string
+	host  string
 	next  http.RoundTripper
 }
 
-// RoundTrip sends a copy of the request carrying the token.
+// RoundTrip sends a copy of the request carrying the token, or the request untouched when it left the host.
 func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Host != b.host {
+		return b.next.RoundTrip(r)
+	}
 	r = r.Clone(r.Context())
 	r.Header.Set("Authorization", "Bearer "+b.token)
 	return b.next.RoundTrip(r)
