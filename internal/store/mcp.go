@@ -52,17 +52,27 @@ func (s *Store) CreateMcpServer(ctx context.Context, name, url string, tokenEnc 
 }
 
 // SetMcpServerEnabled turns a server's tools on or off for the Chat.
+// @returns ErrNotFound when no server has this id
 func (s *Store) SetMcpServerEnabled(ctx context.Context, id int64, enabled bool) error {
-	if _, err := s.pool.Exec(ctx, `UPDATE mcp_servers SET enabled = $2 WHERE id = $1`, id, enabled); err != nil {
+	tag, err := s.pool.Exec(ctx, `UPDATE mcp_servers SET enabled = $2 WHERE id = $1`, id, enabled)
+	if err != nil {
 		return fmt.Errorf("set mcp server enabled: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
 	}
 	return nil
 }
 
 // DeleteMcpServer removes an MCP server.
+// @returns ErrNotFound when no server has this id
 func (s *Store) DeleteMcpServer(ctx context.Context, id int64) error {
-	if _, err := s.pool.Exec(ctx, `DELETE FROM mcp_servers WHERE id = $1`, id); err != nil {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM mcp_servers WHERE id = $1`, id)
+	if err != nil {
 		return fmt.Errorf("delete mcp server: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
 	}
 	return nil
 }
