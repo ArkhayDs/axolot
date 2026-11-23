@@ -3,6 +3,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,16 +32,16 @@ func ToolNames(ctx context.Context, endpoint, token string) ([]string, error) {
 	return names, nil
 }
 
+// ErrUnauthorized reports a server refusing the token, or asking for one.
+var ErrUnauthorized = errors.New("unauthorized")
+
 // connect opens a request-response session: no standing SSE stream, no reconnect, the caller's context bounds it.
 func connect(ctx context.Context, endpoint, token string) (*sdk.ClientSession, error) {
-	httpClient := http.DefaultClient
-	if token != "" {
-		parsed, err := url.Parse(endpoint)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", endpoint, err)
-		}
-		httpClient = &http.Client{Transport: bearer{token: token, host: parsed.Host, next: http.DefaultTransport}}
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", endpoint, err)
 	}
+	httpClient := &http.Client{Transport: auth{token: token, host: parsed.Host, next: http.DefaultTransport}}
 	transport := &sdk.StreamableClientTransport{Endpoint: endpoint, HTTPClient: httpClient, DisableStandaloneSSE: true, MaxRetries: -1}
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
@@ -49,20 +50,24 @@ func connect(ctx context.Context, endpoint, token string) (*sdk.ClientSession, e
 	return session, nil
 }
 
-// bearer adds the server token to requests for the server's own host.
+// auth adds the token to requests for the server's own host and turns a 401 or 403 into ErrUnauthorized.
 // The transport sees every redirect hop, so http.Client's own cross-host header stripping never applies here.
-type bearer struct {
+type auth struct {
 	token string
 	host  string
 	next  http.RoundTripper
 }
 
-// RoundTrip sends a copy of the request carrying the token, or the request untouched when it left the host.
-func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
-	if r.URL.Host != b.host {
-		return b.next.RoundTrip(r)
+// RoundTrip sends the request, carrying the token only while it stays on the server's host.
+func (a auth) RoundTrip(r *http.Request) (*http.Response, error) {
+	if a.token != "" && r.URL.Host == a.host {
+		r = r.Clone(r.Context())
+		r.Header.Set("Authorization", "Bearer "+a.token)
 	}
-	r = r.Clone(r.Context())
-	r.Header.Set("Authorization", "Bearer "+b.token)
-	return b.next.RoundTrip(r)
+	resp, err := a.next.RoundTrip(r)
+	if err == nil && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
+		resp.Body.Close()
+		return nil, ErrUnauthorized
+	}
+	return resp, err
 }
