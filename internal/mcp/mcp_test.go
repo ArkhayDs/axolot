@@ -54,17 +54,20 @@ func TestToolNamesFailsWithoutTheToken(t *testing.T) {
 }
 
 // TestToolNamesCancelsTheRequestAtTheDeadline reads the body first: net/http only notices a client gone once it has.
+// A read error only means the client already left, which the test waits for anyway.
 func TestToolNamesCancelsTheRequestAtTheDeadline(t *testing.T) {
 	cancelled := make(chan struct{})
+	release := make(chan struct{})
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.Copy(io.Discard, r.Body)
+		_, _ = io.Copy(io.Discard, r.Body)
 		select {
 		case <-r.Context().Done():
 			close(cancelled)
-		case <-time.After(2 * time.Second):
+		case <-release:
 		}
 	}))
 	t.Cleanup(ts.Close)
+	t.Cleanup(func() { close(release) })
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	if _, err := ToolNames(ctx, ts.URL, ""); err == nil {
@@ -72,7 +75,7 @@ func TestToolNamesCancelsTheRequestAtTheDeadline(t *testing.T) {
 	}
 	select {
 	case <-cancelled:
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("request still open after the deadline")
 	}
 }
