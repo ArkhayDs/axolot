@@ -95,8 +95,10 @@
           {#if server.error}
             <p class="state state-critical detail"><Icon name="cross" size={16} /> Injoignable</p>
             <p class="muted detail">{server.error}</p>
+          {:else if server.tools.length === 0}
+            <p class="muted detail">Aucun outil</p>
           {:else}
-            <p class="muted detail">{server.tools.length} outils : {server.tools.join(', ')}</p>
+            <p class="muted detail">{server.tools.length} outil{server.tools.length > 1 ? 's' : ''} : {server.tools.join(', ')}</p>
           {/if}
         </li>
       {:else}
