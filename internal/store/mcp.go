@@ -18,7 +18,7 @@ type McpServer struct {
 	Name     string `json:"name"`
 	URL      string `json:"url"`
 	Enabled  bool   `json:"enabled"`
-	HasToken bool   `json:"has_token"`
+	HasToken bool   `json:"-"`
 	TokenEnc []byte `json:"-"`
 }
 

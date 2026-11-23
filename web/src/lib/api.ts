@@ -279,7 +279,6 @@ export interface McpServer {
   name: string;
   url: string;
   enabled: boolean;
-  has_token: boolean;
   // Names listed live, empty when the server could not be reached.
   tools: string[];
   error?: string;
