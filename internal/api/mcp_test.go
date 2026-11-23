@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/arkhayds/axolot/internal/mcp"
 	"github.com/arkhayds/axolot/internal/secret"
 	"github.com/arkhayds/axolot/internal/store"
 )
@@ -85,6 +87,37 @@ func TestProbeMcpReportsFailures(t *testing.T) {
 		view := s.probeMcp(context.Background(), m)
 		if view.Error == "" || view.Tools == nil || len(view.Tools) != 0 {
 			t.Errorf("%s: view=%+v", name, view)
+		}
+	}
+}
+
+func TestMcpFailureExplainsCommonCauses(t *testing.T) {
+	ts := mcpServerWithToken(t)
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(500 * time.Millisecond):
+		}
+	}))
+	t.Cleanup(slow.Close)
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+
+	for name, tc := range map[string]struct {
+		url     string
+		timeout time.Duration
+		want    string
+	}{
+		"no token":    {ts.URL, time.Second, "Jeton refusé ou manquant"},
+		"timeout":     {slow.URL, 50 * time.Millisecond, "Pas de réponse en 5s"},
+		"refused":     {closed.URL, time.Second, "Connexion refusée, rien n'écoute à cette adresse"},
+		"no such dns": {"http://axolot-nowhere.invalid/mcp", time.Second, "Adresse introuvable"},
+	} {
+		ctx, cancel := context.WithTimeout(context.Background(), tc.timeout)
+		_, err := mcp.ToolNames(ctx, tc.url, "")
+		cancel()
+		if got := mcpFailure(err); got != tc.want {
+			t.Errorf("%s: got %q for %v", name, got, err)
 		}
 	}
 }

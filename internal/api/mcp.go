@@ -3,10 +3,14 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/arkhayds/axolot/internal/mcp"
@@ -57,11 +61,28 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpServerView 
 	defer cancel()
 	names, err := mcp.ToolNames(probeCtx, m.URL, token)
 	if err != nil {
-		view.Error = err.Error()
+		slog.Warn("mcp probe failed", "server", m.Name, "err", err)
+		view.Error = mcpFailure(err)
 		return view
 	}
 	view.Tools = names
 	return view
+}
+
+// mcpFailure words a probe error for the panel; the full error goes to the log.
+func mcpFailure(err error) string {
+	var dnsErr *net.DNSError
+	switch {
+	case errors.Is(err, mcp.ErrUnauthorized):
+		return "Jeton refusé ou manquant"
+	case errors.Is(err, context.DeadlineExceeded):
+		return fmt.Sprintf("Pas de réponse en %v", mcpProbeTimeout)
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "Connexion refusée, rien n'écoute à cette adresse"
+	case errors.As(err, &dnsErr):
+		return "Adresse introuvable"
+	}
+	return "Réponse inattendue, détail dans les journaux de l'application"
 }
 
 // createMcpServer saves an enabled server, encrypting its token.
