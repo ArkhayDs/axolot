@@ -36,7 +36,7 @@ func (s *Store) CreateMcpServer(ctx context.Context, name, url string, tokenEnc 
 	var id int64
 	err := s.pool.QueryRow(ctx, `INSERT INTO mcp_servers (name, url, token_enc) VALUES ($1, $2, $3) RETURNING id`,
 		name, url, tokenEnc).Scan(&id)
-	if nameTaken(err) {
+	if nameTaken(err, "mcp_servers") {
 		return 0, ErrNameTaken
 	}
 	if err != nil {
