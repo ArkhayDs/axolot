@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/arkhayds/axolot/internal/mcp"
@@ -25,17 +26,19 @@ type mcpServerView struct {
 	Error string   `json:"error,omitempty"`
 }
 
-// listMcpServers returns each server with its live tool names.
+// listMcpServers returns each server with its live tool names, probed in parallel so unreachable servers wait out one timeout together.
 func (s *Server) listMcpServers(w http.ResponseWriter, r *http.Request) {
 	servers, err := s.cfg.Store.McpServers(r.Context())
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	views := make([]mcpServerView, 0, len(servers))
-	for _, m := range servers {
-		views = append(views, s.probeMcp(r.Context(), m))
+	views := make([]mcpServerView, len(servers))
+	var wg sync.WaitGroup
+	for i, m := range servers {
+		wg.Go(func() { views[i] = s.probeMcp(r.Context(), m) })
 	}
+	wg.Wait()
 	writeJSON(w, http.StatusOK, views)
 }
 
