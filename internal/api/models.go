@@ -61,6 +61,10 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Nom ou type de connexion invalide")
 		return
 	}
+	if body.Name == bridgeName {
+		writeError(w, http.StatusConflict, "Nom réservé au compte Claude")
+		return
+	}
 	var sealed []byte
 	if body.APIKey != "" {
 		var err error
@@ -81,12 +85,14 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
 }
 
+// bridgeName is the bridge connection's fixed name, reserved so the unique name allows a single bridge.
+const bridgeName = "Claude (abonnement)"
+
 // createBridge saves the Claude bridge connection without a key: client reads the token from the environment.
-// shortcut: only the fixed name is unique, not the kind; the page locks the button until the reloaded list hides it; check kind in SQL if another client calls this.
 func (s *Server) createBridge(w http.ResponseWriter, r *http.Request) {
-	id, err := s.cfg.Store.CreateProvider(r.Context(), "Claude (abonnement)", "bridge", s.cfg.BridgeURL, nil)
+	id, err := s.cfg.Store.CreateProvider(r.Context(), bridgeName, "bridge", s.cfg.BridgeURL, nil)
 	if errors.Is(err, store.ErrNameTaken) {
-		writeError(w, http.StatusConflict, "Ce nom est déjà pris")
+		writeError(w, http.StatusConflict, "Le compte Claude est déjà connecté")
 		return
 	}
 	if err != nil {
