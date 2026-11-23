@@ -54,3 +54,22 @@ func TestToolsFailsWithoutTheToken(t *testing.T) {
 		t.Fatal("expected an error on 401")
 	}
 }
+
+func TestToolsKeepsTheTokenFromAnotherHost(t *testing.T) {
+	var leaked string
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	t.Cleanup(other.Close)
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL, http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(redirect.Close)
+	if _, err := Tools(context.Background(), redirect.URL, "secret"); err == nil {
+		t.Fatal("expected an error from the other host")
+	}
+	if leaked != "" {
+		t.Fatalf("token sent to another host: %q", leaked)
+	}
+}
