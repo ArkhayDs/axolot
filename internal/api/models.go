@@ -56,7 +56,8 @@ func (s *Server) createProvider(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "URL invalide")
 		return
 	}
-	if strings.TrimSpace(body.Name) == "" || (body.Kind != "ollama" && body.Kind != "openai") {
+	body.Name = strings.TrimSpace(body.Name)
+	if body.Name == "" || (body.Kind != "ollama" && body.Kind != "openai") {
 		writeError(w, http.StatusBadRequest, "Nom ou type de connexion invalide")
 		return
 	}
