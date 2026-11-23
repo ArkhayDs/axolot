@@ -2,7 +2,8 @@
 
 ## Project Config
 - `branch_prefix`: AXO
-- **Linear**: N/A pendant le POC (suivi dans `docs/poc.md`)
+- **Linear**: équipe Dust Factory (DSFY), projets `Axolot - …`, label `Axolot`
+- **Records**: `docs/records/`
 
 ## Overview
 Labo de comparaison de modèles IA (locaux, cloud, modèles de décision) sur des cas d'usage à résultat attendu. Chiffres pour le dev, vue de synthèse pour un public non technique. L'outil ne dépend d'aucune IA autre que les modèles testés : la notation est déterministe.
