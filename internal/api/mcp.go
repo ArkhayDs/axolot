@@ -142,7 +142,12 @@ func (s *Server) setMcpServerEnabled(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
-	if err := s.cfg.Store.SetMcpServerEnabled(r.Context(), id, body.Enabled); err != nil {
+	err := s.cfg.Store.SetMcpServerEnabled(r.Context(), id, body.Enabled)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
+		return
+	}
+	if err != nil {
 		internalError(w, r, err)
 		return
 	}
@@ -155,7 +160,12 @@ func (s *Server) deleteMcpServer(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.cfg.Store.DeleteMcpServer(r.Context(), id); err != nil {
+	err := s.cfg.Store.DeleteMcpServer(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
+		return
+	}
+	if err != nil {
 		internalError(w, r, err)
 		return
 	}

@@ -117,6 +117,12 @@ func TestMcpServerLifecycle(t *testing.T) {
 	if servers, _ := s.McpServers(ctx); len(servers) != 0 {
 		t.Fatalf("server survived: %v", servers)
 	}
+	if err := s.SetMcpServerEnabled(ctx, id, true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("toggle deleted server: err=%v", err)
+	}
+	if err := s.DeleteMcpServer(ctx, id); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("delete deleted server: err=%v", err)
+	}
 }
 
 func TestChunkSearchRanksAndIsolatesModels(t *testing.T) {
