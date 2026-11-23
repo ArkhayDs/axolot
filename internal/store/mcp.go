@@ -14,19 +14,34 @@ type McpServer struct {
 	URL      string `json:"url"`
 	Enabled  bool   `json:"enabled"`
 	TokenEnc []byte `json:"-"`
+	OAuthEnc []byte `json:"-"`
 }
 
 // McpServers lists MCP servers, oldest first.
 func (s *Store) McpServers(ctx context.Context) ([]McpServer, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, name, url, enabled, token_enc FROM mcp_servers ORDER BY id`)
+	rows, err := s.pool.Query(ctx, `SELECT id, name, url, enabled, token_enc, oauth_enc FROM mcp_servers ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("list mcp servers: %w", err)
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (McpServer, error) {
 		var m McpServer
-		err := row.Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc)
+		err := row.Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc)
 		return m, err
 	})
+}
+
+// SetMcpServerOAuth saves the OAuth credentials of a server, replacing previous ones.
+// @param oauthEnc - already encrypted credentials
+// @returns ErrNotFound when no server has this id
+func (s *Store) SetMcpServerOAuth(ctx context.Context, id int64, oauthEnc []byte) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE mcp_servers SET oauth_enc = $2 WHERE id = $1`, id, oauthEnc)
+	if err != nil {
+		return fmt.Errorf("set mcp server oauth: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // CreateMcpServer saves an enabled MCP server.
