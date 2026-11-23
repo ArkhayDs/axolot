@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/arkhayds/axolot/internal/rag"
@@ -183,12 +184,25 @@ func (s *Store) Providers(ctx context.Context) ([]Provider, error) {
 	})
 }
 
+// ErrNameTaken reports a name already used by another row of the same table.
+var ErrNameTaken = errors.New("name already taken")
+
+// nameTaken tells whether an insert failed on a unique constraint (only `name` is unique where it is used)
+func nameTaken(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+}
+
 // CreateProvider saves a connection.
 // @param apiKeyEnc - already encrypted key, nil when none
+// @returns ErrNameTaken when the name exists
 func (s *Store) CreateProvider(ctx context.Context, name, kind, baseURL string, apiKeyEnc []byte) (int64, error) {
 	var id int64
 	err := s.pool.QueryRow(ctx, `INSERT INTO providers (name, kind, base_url, api_key_enc)
 		VALUES ($1, $2, $3, $4) RETURNING id`, name, kind, baseURL, apiKeyEnc).Scan(&id)
+	if nameTaken(err) {
+		return 0, ErrNameTaken
+	}
 	if err != nil {
 		return 0, fmt.Errorf("create provider: %w", err)
 	}

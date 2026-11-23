@@ -2,15 +2,10 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
-
-// ErrNameTaken reports a name already used by another row of the same table.
-var ErrNameTaken = errors.New("name already taken")
 
 // McpServer is a saved MCP server.
 type McpServer struct {
@@ -41,8 +36,7 @@ func (s *Store) CreateMcpServer(ctx context.Context, name, url string, tokenEnc 
 	var id int64
 	err := s.pool.QueryRow(ctx, `INSERT INTO mcp_servers (name, url, token_enc) VALUES ($1, $2, $3) RETURNING id`,
 		name, url, tokenEnc).Scan(&id)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if nameTaken(err) {
 		return 0, ErrNameTaken
 	}
 	if err != nil {
