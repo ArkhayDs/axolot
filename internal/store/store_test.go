@@ -133,6 +133,27 @@ func TestMcpServerLifecycle(t *testing.T) {
 	}
 }
 
+func TestSetMcpServerOAuthReplacesSavedCredentials(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	id, err := s.CreateMcpServer(ctx, "sentinelle", "https://x/mcp", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sealed := range []string{"first", "rotated"} {
+		if err := s.SetMcpServerOAuth(ctx, id, []byte(sealed)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	servers, err := s.McpServers(ctx)
+	if err != nil || len(servers) != 1 || string(servers[0].OAuthEnc) != "rotated" {
+		t.Fatalf("servers=%+v err=%v", servers, err)
+	}
+	if err := s.SetMcpServerOAuth(ctx, id+1, []byte("x")); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown server: err=%v", err)
+	}
+}
+
 func TestCreateMcpServerRefusesTakenName(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
