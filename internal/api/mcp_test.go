@@ -64,7 +64,7 @@ func TestProbeMcpOpensTheSealedToken(t *testing.T) {
 	}
 	s := &Server{cfg: Config{Box: box}}
 
-	view := s.probeMcp(context.Background(), store.McpServer{URL: ts.URL, HasToken: true, TokenEnc: sealed})
+	view := s.probeMcp(context.Background(), store.McpServer{URL: ts.URL, TokenEnc: sealed})
 	if view.Error != "" || len(view.Tools) != 1 || view.Tools[0] != "get_kpis" {
 		t.Fatalf("view=%+v", view)
 	}
@@ -80,7 +80,7 @@ func TestProbeMcpReportsFailures(t *testing.T) {
 
 	for name, m := range map[string]store.McpServer{
 		"no token":         {URL: ts.URL},
-		"unreadable token": {URL: ts.URL, HasToken: true, TokenEnc: []byte("garbage")},
+		"unreadable token": {URL: ts.URL, TokenEnc: []byte("garbage")},
 	} {
 		view := s.probeMcp(context.Background(), m)
 		if view.Error == "" || view.Tools == nil || len(view.Tools) != 0 {

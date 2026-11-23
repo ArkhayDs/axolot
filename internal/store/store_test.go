@@ -108,7 +108,7 @@ func TestMcpServerLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	servers, err := s.McpServers(ctx)
-	if err != nil || len(servers) != 1 || servers[0].Enabled || !servers[0].HasToken {
+	if err != nil || len(servers) != 1 || servers[0].Enabled || len(servers[0].TokenEnc) == 0 {
 		t.Fatalf("servers=%+v err=%v", servers, err)
 	}
 	if err := s.DeleteMcpServer(ctx, id); err != nil {

@@ -18,7 +18,6 @@ type McpServer struct {
 	Name     string `json:"name"`
 	URL      string `json:"url"`
 	Enabled  bool   `json:"enabled"`
-	HasToken bool   `json:"-"`
 	TokenEnc []byte `json:"-"`
 }
 
@@ -31,7 +30,6 @@ func (s *Store) McpServers(ctx context.Context) ([]McpServer, error) {
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (McpServer, error) {
 		var m McpServer
 		err := row.Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc)
-		m.HasToken = len(m.TokenEnc) > 0
 		return m, err
 	})
 }

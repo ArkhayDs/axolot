@@ -43,7 +43,7 @@ func (s *Server) listMcpServers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpServerView {
 	view := mcpServerView{McpServer: m, Tools: []string{}}
 	token := ""
-	if m.HasToken {
+	if len(m.TokenEnc) > 0 {
 		var err error
 		if token, err = s.cfg.Box.Open(m.TokenEnc); err != nil {
 			view.Error = "Jeton illisible, supprimer et recréer le serveur"
