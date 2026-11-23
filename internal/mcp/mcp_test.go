@@ -3,9 +3,11 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -48,6 +50,30 @@ func TestToolNamesFailsWithoutTheToken(t *testing.T) {
 	ts := newServer(t)
 	if _, err := ToolNames(context.Background(), ts.URL, ""); err == nil {
 		t.Fatal("expected an error on 401")
+	}
+}
+
+// TestToolNamesCancelsTheRequestAtTheDeadline reads the body first: net/http only notices a client gone once it has.
+func TestToolNamesCancelsTheRequestAtTheDeadline(t *testing.T) {
+	cancelled := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		select {
+		case <-r.Context().Done():
+			close(cancelled)
+		case <-time.After(2 * time.Second):
+		}
+	}))
+	t.Cleanup(ts.Close)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if _, err := ToolNames(ctx, ts.URL, ""); err == nil {
+		t.Fatal("expected an error past the deadline")
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("request still open after the deadline")
 	}
 }
 
