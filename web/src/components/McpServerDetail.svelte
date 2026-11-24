@@ -82,71 +82,73 @@
     </button>
   {/each}
 </div>
-<div id="mcp-tabpanel" class="tabpanel" role="tabpanel" aria-labelledby="mcp-tab-{tab}" tabindex="0">
-  {#if tab === 'connection'}
-    <dl class="card">
-      <div class="fact">
-        <dt>URL</dt>
-        <dd>{server.url}</dd>
+{#key tab}
+  <div id="mcp-tabpanel" class="tabpanel" role="tabpanel" aria-labelledby="mcp-tab-{tab}" tabindex="0" in:fade={motion}>
+    {#if tab === 'connection'}
+      <dl class="card">
+        <div class="fact">
+          <dt>URL</dt>
+          <dd>{server.url}</dd>
+        </div>
+        <div class="fact">
+          <dt>État</dt>
+          <dd>
+            <span class={status.tone}>{status.label}</span>
+            {#if probe?.error && !probe.login}<span class="muted error">{probe.error}</span>{/if}
+          </dd>
+        </div>
+        <div class="fact">
+          <dt>Outils</dt>
+          <dd>
+            {#if probe && probe.tools.length > 0}
+              {probe.tools.map((tool) => tool.name).join(', ')}
+            {:else}
+              <span class="muted">{noTools}</span>
+            {/if}
+          </dd>
+        </div>
+      </dl>
+      <div class="notes">
+        <div>
+          <h4 class="label">Sécurité et accès</h4>
+          <p>Les modèles peuvent envoyer des données à {host}</p>
+        </div>
+        <div>
+          <h4 class="label">Dans le Chat</h4>
+          <p>{server.enabled ? 'Outils prêtés aux modèles' : 'Désactivé'}</p>
+        </div>
       </div>
-      <div class="fact">
-        <dt>État</dt>
-        <dd>
-          <span class={status.tone}>{status.label}</span>
-          {#if probe?.error && !probe.login}<span class="muted error">{probe.error}</span>{/if}
-        </dd>
-      </div>
-      <div class="fact">
-        <dt>Outils</dt>
-        <dd>
-          {#if probe && probe.tools.length > 0}
-            {probe.tools.map((tool) => tool.name).join(', ')}
-          {:else}
-            <span class="muted">{noTools}</span>
-          {/if}
-        </dd>
-      </div>
-    </dl>
-    <div class="notes">
-      <div>
-        <h4 class="label">Sécurité et accès</h4>
-        <p>Les modèles peuvent envoyer des données à {host}</p>
-      </div>
-      <div>
-        <h4 class="label">Dans le Chat</h4>
-        <p>{server.enabled ? 'Outils prêtés aux modèles' : 'Désactivé'}</p>
-      </div>
-    </div>
-  {:else}
-    <p class="muted">
-      Autorisé : appelé sans demander. Validation requise : le Chat attend votre accord à chaque appel. Bloqué : jamais proposé aux modèles. Vaut pour tous les modèles.
-    </p>
-    {#if probe && probe.tools.length > 0}
-      <ul class="card tools">
-        {#each probe.tools as tool (tool.name)}
-          <li class="tool">
-            <div class="tool-text">
-              <span class="tool-name">{tool.name}</span>
-              {#if tool.description}<p class="muted description" title={tool.description}>{tool.description}</p>{/if}
-            </div>
-            <select
-              class="input mode"
-              value={tool.mode}
-              aria-label="Permission de {tool.name}"
-              onchange={(event) => onmode(server, tool, event.currentTarget.value as McpToolMode)}
-            >
-              {#each MODES as mode (mode.value)}
-                <option value={mode.value}>{mode.label}</option>
-              {/each}
-            </select>
-          </li>
-        {/each}
-      </ul>
     {:else}
-      <p class="muted">{noTools}</p>
+      <p class="muted">
+        Autorisé : appelé sans demander. Validation requise : le Chat attend votre accord à chaque appel. Bloqué : jamais proposé aux modèles. Vaut pour tous les modèles.
+      </p>
+      {#if probe && probe.tools.length > 0}
+        <ul class="card tools">
+          {#each probe.tools as tool (tool.name)}
+            <li class="tool">
+              <div class="tool-text">
+                <span class="tool-name">{tool.name}</span>
+                {#if tool.description}<p class="muted description" title={tool.description}>{tool.description}</p>{/if}
+              </div>
+              <select
+                class="input mode"
+                value={tool.mode}
+                aria-label="Permission de {tool.name}"
+                onchange={(event) => onmode(server, tool, event.currentTarget.value as McpToolMode)}
+              >
+                {#each MODES as mode (mode.value)}
+                  <option value={mode.value}>{mode.label}</option>
+                {/each}
+              </select>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="muted">{noTools}</p>
+      {/if}
     {/if}
-  {/if}
-</div>
+  </div>
+{/key}
 
 <style>
   .detail-head p,
