@@ -33,7 +33,7 @@ Montrer quel modèle local convient à quelle tâche, à quelle vitesse et avec 
 - **Style** : sombre, liquid glass limité à la navigation et aux panneaux flottants, jamais sur les tableaux ni les chiffres. Axolotl gravé, vue de dessus, comme icône (`web/public/logo.png`, `favicon.png`). `prefers-reduced-motion` respecté. CSS selon `css-conventions.md`.
 
 ## API
-`GET /api/status` | `GET /api/events` (SSE : `item_start`, `delta`, `item_end`, `campaign_end`, `pull`, `ingest`) | `GET,PUT /api/settings` | `GET,POST /api/providers`, `DELETE /api/providers/{id}` | `GET,POST /api/mcp`, `PUT,DELETE /api/mcp/{id}` | `GET /api/models`, `POST /api/models/pull` | `GET /api/cases`, `PUT /api/cases/{id}/models` | `GET,POST /api/corpus`, `GET /api/corpus/{name}/files/{file}`, `POST /api/corpus/{name}/files`, `POST /api/corpus/ingest` | `GET,POST /api/campaigns`, `GET /api/campaigns/{id}`, `POST /api/campaigns/{id}/cancel`.
+`GET /api/status` | `GET /api/events` (SSE : `item_start`, `delta`, `item_end`, `campaign_end`, `pull`, `ingest`) | `GET,PUT /api/settings` | `GET,POST /api/providers`, `DELETE /api/providers/{id}` | `GET,POST /api/mcp`, `PUT,DELETE /api/mcp/{id}`, `GET /api/mcp/{id}/tools`, `POST /api/mcp/{id}/login`, `GET /api/mcp/callback` | `GET /api/models`, `POST /api/models/pull` | `GET /api/cases`, `PUT /api/cases/{id}/models` | `GET,POST /api/corpus`, `GET /api/corpus/{name}/files/{file}`, `POST /api/corpus/{name}/files`, `POST /api/corpus/ingest` | `GET,POST /api/campaigns`, `GET /api/campaigns/{id}`, `POST /api/campaigns/{id}/cancel`.
 
 ## Modèles de la démo
 `gemma4:e4b-it-q4_K_M` (6,6 Go), `qwen3.6:27b-q4_K_M` (17 Go), `bge-m3` (1,2 Go, embeddings). `qwen3.6:35b-a3b` (23 Go) est juste en RAM avec Colima.
