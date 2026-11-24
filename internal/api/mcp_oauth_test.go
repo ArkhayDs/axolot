@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -118,20 +119,27 @@ func TestOAuthSourceSavesTheRotatedToken(t *testing.T) {
 		Config: oauth2.Config{ClientID: "c1", Endpoint: oauth2.Endpoint{TokenURL: ts.URL + "/token"}},
 		Token:  &oauth2.Token{AccessToken: "access-1", RefreshToken: "refresh-1", Expiry: time.Now().Add(-time.Minute)},
 	})
+	attempts := 0
 	var saved []mcp.Creds
-	save := func(_ context.Context, creds mcp.Creds) error {
+	save := func(ctx context.Context, creds mcp.Creds) error {
+		attempts++
+		if ctx.Err() != nil || attempts == 1 {
+			return errors.New("database down")
+		}
 		saved = append(saved, creds)
 		return nil
 	}
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
 
-	for range 2 {
-		token, err := source.token(context.Background(), save)
+	for _, ctx := range []context.Context{context.Background(), gone, context.Background()} {
+		token, err := source.token(ctx, save)
 		if err != nil || token != "access-2" {
 			t.Fatalf("token=%q err=%v", token, err)
 		}
 	}
-	if len(saved) != 1 || saved[0].Token.RefreshToken != "refresh-2" {
-		t.Fatalf("saved=%+v", saved)
+	if attempts != 2 || len(saved) != 1 || saved[0].Token.RefreshToken != "refresh-2" {
+		t.Fatalf("attempts=%d saved=%+v", attempts, saved)
 	}
 }
 
@@ -142,7 +150,7 @@ func TestProbeMcpAsksToSignIn(t *testing.T) {
 	for name, m := range map[string]store.McpServer{
 		"never signed in":       {URL: ts.URL + "/mcp"},
 		"unreadable sign-in":    {ID: 1, URL: ts.URL + "/mcp", OAuthEnc: []byte("garbage")},
-		"refresh token refused": {ID: 2, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, ts, revoked)},
+		"refresh token refused": {ID: 2, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, ts.URL+"/token", revoked)},
 	} {
 		view := s.probeMcp(context.Background(), m)
 		if !view.Login || view.Error != "Connexion requise" {
@@ -151,20 +159,31 @@ func TestProbeMcpAsksToSignIn(t *testing.T) {
 	}
 }
 
+func TestProbeMcpKeepsTheSignInWhenTheTokenServerIsDown(t *testing.T) {
+	ts := mcptest.NewOAuthServer(t)
+	s := newOAuthTestServer(t)
+	expired := &oauth2.Token{AccessToken: "old", RefreshToken: "refresh-1", Expiry: time.Now().Add(-time.Minute)}
+	sealed := sealCreds(t, s, "http://127.0.0.1:1/token", expired)
+	view := s.probeMcp(context.Background(), store.McpServer{ID: 1, URL: ts.URL + "/mcp", OAuthEnc: sealed})
+	if view.Login || view.Error == "" {
+		t.Fatalf("view=%+v", view)
+	}
+}
+
 func TestProbeMcpUsesTheSavedSignIn(t *testing.T) {
 	ts := mcptest.NewOAuthServer(t)
 	s := newOAuthTestServer(t)
 	valid := &oauth2.Token{AccessToken: "access-1", RefreshToken: "refresh-1", Expiry: time.Now().Add(time.Hour)}
-	view := s.probeMcp(context.Background(), store.McpServer{ID: 1, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, ts, valid)})
+	view := s.probeMcp(context.Background(), store.McpServer{ID: 1, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, ts.URL+"/token", valid)})
 	if view.Error != "" || view.Login || len(view.Tools) != 1 {
 		t.Fatalf("view=%+v", view)
 	}
 }
 
-// sealCreds seals a sign-in against the fake server's token endpoint.
-func sealCreds(t *testing.T, s *Server, ts *httptest.Server, token *oauth2.Token) []byte {
+// sealCreds seals a sign-in that refreshes at tokenURL.
+func sealCreds(t *testing.T, s *Server, tokenURL string, token *oauth2.Token) []byte {
 	t.Helper()
-	plain, err := json.Marshal(mcp.Creds{Config: oauth2.Config{ClientID: "c1", Endpoint: oauth2.Endpoint{TokenURL: ts.URL + "/token"}}, Token: token})
+	plain, err := json.Marshal(mcp.Creds{Config: oauth2.Config{ClientID: "c1", Endpoint: oauth2.Endpoint{TokenURL: tokenURL}}, Token: token})
 	if err != nil {
 		t.Fatal(err)
 	}

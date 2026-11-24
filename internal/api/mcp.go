@@ -82,8 +82,11 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
 		}
 	case len(m.OAuthEnc) > 0:
 		if token, err = s.oauthToken(ctx, m); err != nil {
-			slog.Warn("mcp sign-in unusable", "server", m.Name, "err", err)
-			view.Error, view.Login = "Connexion requise", true
+			slog.Warn("mcp sign-in token failed", "server", m.Name, "err", err)
+			view.Error = mcpFailure(err)
+			if errors.Is(err, errSignInLost) {
+				view.Error, view.Login = "Connexion requise", true
+			}
 			return view
 		}
 	}

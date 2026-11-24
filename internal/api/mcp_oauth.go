@@ -47,10 +47,11 @@ func (s *Server) loginMcpServer(w http.ResponseWriter, r *http.Request) {
 		s.oauthMu.Lock()
 		s.oauthSources[m.ID] = newOAuthSource(*creds)
 		s.oauthMu.Unlock()
+		slog.Info("mcp signed in", "server", m.Name, "client", creds.Config.ClientID)
 		return nil
 	})
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "Ce serveur ne propose pas de connexion, détail dans les journaux de l'application")
+		writeError(w, http.StatusBadGateway, "Connexion impossible, détail dans les journaux de l'application")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"url": pageURL})
@@ -64,7 +65,6 @@ func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Co
 	ctx, cancel := context.WithTimeout(s.cfg.BaseContext, loginTimeout)
 	login := &mcpLogin{code: make(chan *sdkauth.AuthorizationResult, 1), finished: make(chan struct{})}
 	pageURL := make(chan string, 1)
-	failed := make(chan error, 1)
 	fetch := func(ctx context.Context, args *sdkauth.AuthorizationArgs) (*sdkauth.AuthorizationResult, error) {
 		parsed, err := url.Parse(args.URL)
 		if err != nil {
@@ -103,13 +103,12 @@ func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Co
 		}
 		login.err = err
 		close(login.finished)
-		failed <- err
 	}()
 	select {
 	case page := <-pageURL:
 		return page, nil
-	case err := <-failed:
-		return "", err
+	case <-login.finished:
+		return "", login.err
 	case <-time.After(loginStartTimeout):
 		cancel()
 		return "", fmt.Errorf("no sign-in page within %v", loginStartTimeout)
@@ -222,7 +221,7 @@ func (s *Server) oauthToken(ctx context.Context, m store.McpServer) (string, err
 		}
 		if err != nil {
 			s.oauthMu.Unlock()
-			return "", fmt.Errorf("open oauth creds: %w", err)
+			return "", fmt.Errorf("%w: open oauth creds: %v", errSignInLost, err)
 		}
 		source = newOAuthSource(creds)
 		s.oauthSources[m.ID] = source
@@ -230,6 +229,9 @@ func (s *Server) oauthToken(ctx context.Context, m store.McpServer) (string, err
 	s.oauthMu.Unlock()
 	return source.token(ctx, func(ctx context.Context, creds mcp.Creds) error { return s.saveOAuth(ctx, m.ID, creds) })
 }
+
+// errSignInLost means only a new browser sign-in can bring the server back; any other token error may pass on its own.
+var errSignInLost = errors.New("saved sign-in unusable")
 
 // oauthSource is the one refreshing token source of a server: some servers rotate the refresh token,
 // so two refreshes at once would leave one of them with a dead token.
@@ -246,18 +248,26 @@ func newOAuthSource(creds mcp.Creds) *oauthSource {
 }
 
 // token returns a valid access token, saving it after a refresh so a restart keeps the rotated refresh token.
+// A failed save is retried on the next call; the save outlives ctx, since the refresh already spent the old refresh token.
 func (o *oauthSource) token(ctx context.Context, save func(context.Context, mcp.Creds) error) (string, error) {
 	tok, err := o.tokens.Token()
+	var refused *oauth2.RetrieveError
+	if errors.As(err, &refused) && refused.Response != nil && refused.Response.StatusCode < http.StatusInternalServerError {
+		return "", fmt.Errorf("%w: refresh refused: %v", errSignInLost, err)
+	}
 	if err != nil {
 		return "", fmt.Errorf("refresh token: %w", err)
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if tok.AccessToken != o.creds.Token.AccessToken {
-		o.creds.Token = tok
-		if err := save(ctx, o.creds); err != nil {
-			slog.Error("save refreshed mcp token, sign-in needed again after a restart", "err", err)
+		creds := o.creds
+		creds.Token = tok
+		if err := save(context.WithoutCancel(ctx), creds); err != nil {
+			slog.Error("save refreshed mcp token, retried on next use", "err", err)
+			return tok.AccessToken, nil
 		}
+		o.creds = creds
 	}
 	return tok.AccessToken, nil
 }
