@@ -66,7 +66,7 @@ Pendant un Benchmark, ce qu'il ne touche pas s'estompe. Suivre, dans le panneau 
 
 Poser une question à plusieurs modèles et comparer les réponses. Jusqu'à 4 modèles, dont 2 locaux, choisis dans les cases du haut de page et retenus d'une visite à l'autre. Les modèles locaux répondent à tour de rôle (un seul GPU), ceux du cloud en même temps. Options : documents du corpus (RAG), document ou image joints.
 
-Serveurs MCP : bouton du même nom, serveurs HTTP ajoutés par nom, URL et jeton facultatif (chiffré comme les clés API), outils de chaque serveur listés à l'ouverture.
+Serveurs MCP : bouton du même nom, serveurs HTTP ajoutés par nom, URL et jeton facultatif (chiffré comme les clés API). Un serveur qui demande une connexion (OAuth) affiche "Connexion requise" : "Se connecter" ouvre sa page dans un nouvel onglet, la connexion est gardée chiffrée. Chaque ligne affiche l'état de son serveur dès qu'il répond, ses outils sont dans le détail.
 
 ![Chat](docs/captures/chat-desktop.png)
 
