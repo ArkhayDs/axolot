@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -26,9 +26,12 @@ const loginTimeout = 5 * time.Minute
 const loginStartTimeout = 15 * time.Second
 
 // mcpLogin is a sign-in waiting for the browser to come back to the callback.
+// It stays known for loginTimeout after that return, so a repeated hit of the callback shows the same outcome.
 type mcpLogin struct {
-	code chan *sdkauth.AuthorizationResult // nil = sign-in refused on the server's page
-	done chan error
+	code     chan *sdkauth.AuthorizationResult // nil = sign-in refused on the server's page
+	answered sync.Once
+	finished chan struct{} // closed once err is set
+	err      error
 }
 
 // loginMcpServer starts a browser sign-in and answers the page to open in a new tab.
@@ -59,7 +62,7 @@ func (s *Server) loginMcpServer(w http.ResponseWriter, r *http.Request) {
 // @returns sign-in page URL
 func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Context, *mcp.Creds) error) (string, error) {
 	ctx, cancel := context.WithTimeout(s.cfg.BaseContext, loginTimeout)
-	login := &mcpLogin{code: make(chan *sdkauth.AuthorizationResult, 1), done: make(chan error, 1)}
+	login := &mcpLogin{code: make(chan *sdkauth.AuthorizationResult, 1), finished: make(chan struct{})}
 	pageURL := make(chan string, 1)
 	failed := make(chan error, 1)
 	fetch := func(ctx context.Context, args *sdkauth.AuthorizationArgs) (*sdkauth.AuthorizationResult, error) {
@@ -68,22 +71,24 @@ func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Co
 			return nil, fmt.Errorf("parse sign-in url: %w", err)
 		}
 		state := parsed.Query().Get("state")
-		s.oauthMu.Lock()
-		s.logins[state] = login
-		s.oauthMu.Unlock()
-		defer func() {
+		forget := func() {
 			s.oauthMu.Lock()
 			delete(s.logins, state)
 			s.oauthMu.Unlock()
-		}()
+		}
+		s.oauthMu.Lock()
+		s.logins[state] = login
+		s.oauthMu.Unlock()
 		pageURL <- args.URL
 		select {
 		case result := <-login.code:
+			time.AfterFunc(loginTimeout, forget)
 			if result == nil {
 				return nil, errors.New("sign-in refused on the server's page")
 			}
 			return result, nil
 		case <-ctx.Done():
+			forget()
 			return nil, ctx.Err()
 		}
 	}
@@ -96,7 +101,8 @@ func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Co
 		if err != nil {
 			slog.Warn("mcp login failed", "endpoint", endpoint, "err", err)
 		}
-		login.done <- err
+		login.err = err
+		close(login.finished)
 		failed <- err
 	}()
 	select {
@@ -110,46 +116,82 @@ func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Co
 	}
 }
 
-// mcpCallback is where the server's sign-in page sends the browser back; it hands the code to the waiting login.
+// mcpCallback is where the server's sign-in page sends the browser back; the first hit hands the code to the waiting login,
+// every hit waits for its outcome.
 func (s *Server) mcpCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	s.oauthMu.Lock()
 	login := s.logins[q.Get("state")]
-	delete(s.logins, q.Get("state"))
 	s.oauthMu.Unlock()
 	if login == nil {
-		callbackPage(w, http.StatusBadRequest, "Connexion expirée ou déjà terminée. La relancer depuis le panneau Serveurs MCP.", false)
+		callbackPage(w, expiredPage)
 		return
 	}
-	var result *sdkauth.AuthorizationResult
-	if q.Get("error") == "" {
-		result = &sdkauth.AuthorizationResult{Code: q.Get("code"), State: q.Get("state"), Iss: q.Get("iss")}
-	}
-	login.code <- result
-	var err error
+	login.answered.Do(func() {
+		var result *sdkauth.AuthorizationResult
+		if q.Get("error") == "" {
+			result = &sdkauth.AuthorizationResult{Code: q.Get("code"), State: q.Get("state"), Iss: q.Get("iss")}
+		}
+		login.code <- result
+	})
 	select {
-	case err = <-login.done:
+	case <-login.finished:
 	case <-time.After(loginStartTimeout):
-		err = errors.New("no token in time")
+		callbackPage(w, failedPage)
+		return
 	case <-r.Context().Done():
 		return
 	}
-	if err != nil {
-		callbackPage(w, http.StatusBadGateway, "Connexion échouée, détail dans les journaux de l'application.", false)
+	if login.err != nil {
+		callbackPage(w, failedPage)
 		return
 	}
-	callbackPage(w, http.StatusOK, "Connecté. Cet onglet va se fermer.", true)
+	callbackPage(w, signedInPage)
 }
 
-// callbackPage tells the user how the sign-in ended; on success it tells the Chat tab and closes itself.
-func callbackPage(w http.ResponseWriter, status int, message string, ok bool) {
-	script := ""
-	if ok {
-		script = `<script>new BroadcastChannel("axolot-mcp").postMessage("login");window.close()</script>`
-	}
+// callbackView is one outcome of a sign-in, as the callback page shows it.
+type callbackView struct {
+	status                    int
+	Tone, Icon, Title, Detail string // Tone: good, warning or critical
+}
+
+var (
+	signedInPage = callbackView{http.StatusOK, "good", "✓", "Connecté", "Cet onglet va se fermer."}
+	expiredPage  = callbackView{http.StatusBadRequest, "warning", "!", "Connexion expirée", "La relancer depuis le panneau Serveurs MCP."}
+	failedPage   = callbackView{http.StatusBadGateway, "critical", "✕", "Connexion échouée", "Détail dans les journaux de l'application."}
+)
+
+// callbackTmpl closes the tab on success, after telling the Chat tab to reload its servers.
+// shortcut: colors and font copied from web/src/styles/01-tokens.css (the page is outside the front bundle), update both if the palette changes.
+var callbackTmpl = template.Must(template.New("callback").Parse(`<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Axolot</title>
+<style>
+html{color-scheme:dark;background:#060a12}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:1rem;box-sizing:border-box;color:#ecf4f2;font:400 .9375rem/1.5 -apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:26rem;padding:2rem;background:#0f1720;border:1px solid #25313e;border-radius:18px}
+small{color:#8c9dac;font-size:.8125rem}
+h1{margin:.5rem 0 .25rem;font-size:1.125rem;font-weight:650}
+.good{color:#55ad6e}.warning{color:#d9ab4e}.critical{color:#e27a76}
+p{margin:0;color:#b5c3cf}
+</style>
+<main>
+<small>Axolot · Serveurs MCP</small>
+<h1 class="{{.Tone}}"><span aria-hidden="true">{{.Icon}}</span> {{.Title}}</h1>
+<p>{{.Detail}}</p>
+</main>
+{{if eq .Tone "good"}}<script>new BroadcastChannel("axolot-mcp").postMessage("login");window.close()</script>{{end}}
+`))
+
+// callbackPage writes the page of a sign-in outcome.
+func callbackPage(w http.ResponseWriter, v callbackView) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>Axolot</title><p>%s</p>%s`, html.EscapeString(message), script)
+	w.WriteHeader(v.status)
+	if err := callbackTmpl.Execute(w, v); err != nil {
+		slog.Warn("write mcp callback page", "err", err)
+	}
 }
 
 // saveOAuth seals and stores a server's OAuth credentials.

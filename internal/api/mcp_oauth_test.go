@@ -65,15 +65,18 @@ func TestMcpLoginEndsOnTheCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rec := callback(s, signInPage(t, pageURL))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "BroadcastChannel") {
-		t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+	back := signInPage(t, pageURL)
+	recs := make(chan *httptest.ResponseRecorder, 2)
+	for range 2 {
+		go func() { recs <- callback(s, back) }()
+	}
+	for range 2 {
+		if rec := <-recs; rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "BroadcastChannel") {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body)
+		}
 	}
 	if creds := <-kept; creds.Token.AccessToken != "access-1" {
 		t.Fatalf("token=%+v", creds.Token)
-	}
-	if again := callback(s, signInPage(t, pageURL)); again.Code != http.StatusBadRequest {
-		t.Fatalf("second callback status=%d", again.Code)
 	}
 }
 
