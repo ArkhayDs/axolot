@@ -212,26 +212,40 @@ func TestApprovalTakesOneClick(t *testing.T) {
 	ids := make(chan string, 1)
 	allowed := make(chan bool, 1)
 	go func() {
-		allow, _ := s.approvals.wait(context.Background(), func(id string) { ids <- id })
+		allow, _ := s.approvals.wait(context.Background(), 7, "get_kpis", func(id string) { ids <- id })
 		allowed <- allow
 	}()
 	id := <-ids
-	post := func(id string) int {
-		req := httptest.NewRequest(http.MethodPost, "/api/chat/approvals/"+id, strings.NewReader(`{"allow":true}`))
+	post := func(id, body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/chat/approvals/"+id, strings.NewReader(body))
 		req.SetPathValue("id", id)
 		rec := httptest.NewRecorder()
 		s.answerApproval(rec, req)
 		return rec.Code
 	}
 
-	if code := post("unknown"); code != http.StatusNotFound {
+	if code := post("unknown", `{"allow":true}`); code != http.StatusNotFound {
 		t.Fatalf("unknown id: %d", code)
 	}
-	if code := post(id); code != http.StatusNoContent || !<-allowed {
+	if code := post(id, `{"allow":false,"always":true}`); code != http.StatusBadRequest {
+		t.Fatalf("always with a refusal: %d", code)
+	}
+	if code := post(id, `{"allow":true}`); code != http.StatusNoContent || !<-allowed {
 		t.Fatalf("first click: %d", code)
 	}
-	if code := post(id); code != http.StatusNotFound {
+	if code := post(id, `{"allow":true}`); code != http.StatusNotFound {
 		t.Fatalf("second click: %d", code)
+	}
+}
+
+func TestApprovalNamesTheToolToAlwaysAllow(t *testing.T) {
+	var a approvals
+	ids := make(chan string, 1)
+	go a.wait(context.Background(), 7, "get_kpis", func(id string) { ids <- id })
+
+	call, ok := a.answer(<-ids, true)
+	if !ok || call.server != 7 || call.tool != "get_kpis" {
+		t.Fatalf("call=%+v ok=%v", call, ok)
 	}
 }
 
