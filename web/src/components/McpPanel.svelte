@@ -184,10 +184,10 @@
 </dialog>
 
 <style>
-  /* Compound selector: must beat the shared .sheet padding and width. */
+  /* Compound selector: must beat the shared .sheet padding and width. Fixed height: views and tabs scroll inside, the dialog never jumps. */
   .sheet.mcp {
     width: min(760px, calc(100vw - 2 * var(--s4)));
-    min-height: min(560px, calc(100dvh - 2 * var(--s5)));
+    height: min(680px, calc(100dvh - 2 * var(--s5)));
     margin: auto;
     padding: 0;
     opacity: 0;
