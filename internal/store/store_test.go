@@ -159,6 +159,30 @@ func TestSetMcpServerOAuthReplacesSavedCredentials(t *testing.T) {
 	}
 }
 
+func TestSetMcpToolModeKeepsOtherTools(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	id, err := s.CreateMcpServer(ctx, "sentinelle", "https://x/mcp", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m, err := s.McpServer(ctx, id); err != nil || len(m.ToolModes) != 0 {
+		t.Fatalf("new server: modes=%v err=%v", m.ToolModes, err)
+	}
+	for _, set := range [][2]string{{"get_prism", "ask"}, {"run_sql", "block"}, {"get_prism", "allow"}} {
+		if err := s.SetMcpToolMode(ctx, id, set[0], set[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	servers, err := s.McpServers(ctx)
+	if err != nil || len(servers) != 1 || servers[0].ToolModes["get_prism"] != "allow" || servers[0].ToolModes["run_sql"] != "block" {
+		t.Fatalf("servers=%+v err=%v", servers, err)
+	}
+	if err := s.SetMcpToolMode(ctx, id+1, "get_prism", "ask"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown server: err=%v", err)
+	}
+}
+
 func TestCreateMcpServerRefusesTakenName(t *testing.T) {
 	s := openTestStore(t)
 	ctx := context.Background()
