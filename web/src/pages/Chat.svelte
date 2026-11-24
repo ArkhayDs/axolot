@@ -7,9 +7,11 @@
   import ChatOptions from '../components/ChatOptions.svelte';
   import ChatSources from '../components/ChatSources.svelte';
   import ChatModels from '../components/ChatModels.svelte';
+  import ChatToolStep from '../components/ChatToolStep.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { askAll, picksToSave, restorePicks } from '../lib/chat';
+  import { addEvent, answerText, askAll, picksToSave, restorePicks, toolSummary } from '../lib/chat';
+  import type { AnswerPart } from '../lib/chat';
   import { duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -19,7 +21,8 @@
     providerId: number;
     local: boolean;
     vision: boolean | undefined;
-    text: string;
+    parts: AnswerPart[];
+    notices: string[];
     state: 'waiting' | 'streaming' | 'done' | 'failed' | 'stopped' | 'no-image';
     error: string;
     metrics: ChatMetrics | null;
@@ -92,7 +95,7 @@
       return answer && answer.state === 'done'
         ? [
             { role: 'user', content: turn.question },
-            { role: 'assistant', content: answer.text },
+            { role: 'assistant', content: answerText(answer.parts) },
           ]
         : [];
     });
@@ -109,7 +112,7 @@
     if (sending || !text || picks.length === 0) return;
     turns.push({
       question: text,
-      answers: picks.map((model) => ({ key: model.key, model: model.name, providerId: model.providerId, local: model.type === 'local', vision: model.vision, text: '', state: 'waiting', error: '', metrics: null })),
+      answers: picks.map((model) => ({ key: model.key, model: model.name, providerId: model.providerId, local: model.type === 'local', vision: model.vision, parts: [], notices: [], state: 'waiting', error: '', metrics: null })),
       searching: useDocuments,
       searchError: '',
       searchMs: null,
@@ -165,8 +168,9 @@
           try {
             answer.metrics = await streamChat(
               { provider_id: answer.providerId, model: answer.model, messages: [...history(answer.key), { role: 'user', content: text }], passages: $state.snapshot(turn.passages), document: sentDocument, image: turn.image?.data },
-              (delta) => {
-                answer.text += delta;
+              (event) => {
+                if (event.type === 'notice') answer.notices.push(event.text);
+                else addEvent(answer.parts, event);
               },
               signal,
             );
@@ -257,21 +261,31 @@
               {#if turn.image && answer.vision === undefined}
                 <p class="muted">Ce serveur n'indique pas si le modèle lit les images : réponse à vérifier.</p>
               {/if}
+              {#each answer.notices as notice, index (index)}
+                <p class="state state-warning"><Icon name="alert" size={16} /> {notice}</p>
+              {/each}
               {#if answer.state === 'no-image'}
                 <p class="state state-warning"><Icon name="alert" size={16} /> Ce modèle ne lit pas les images</p>
-              {:else if answer.state === 'failed'}
-                <p class="state state-critical"><Icon name="cross" size={16} /> {answer.error}</p>
               {:else if answer.state === 'waiting'}
                 <p class="muted">En attente de l'autre modèle...</p>
-              {:else if answer.state === 'streaming' && !answer.text}
+              {:else if answer.state === 'streaming' && answer.parts.length === 0}
                 <p class="muted">Chargement du modèle...</p>
-              {:else}
-                <div class="text">{answer.text}</div>
+              {/if}
+              {#each answer.parts as part, index (index)}
+                {#if part.kind === 'text'}
+                  <div class="text">{part.text}</div>
+                {:else}
+                  <ChatToolStep step={part} />
+                {/if}
+              {/each}
+              {#if answer.state === 'failed'}
+                <p class="state state-critical"><Icon name="cross" size={16} /> {answer.error}</p>
               {/if}
               {#if answer.state === 'stopped'}
                 <p class="muted">Arrêté.</p>
               {/if}
               {#if answer.metrics}
+                {@const tools = toolSummary(answer.parts)}
                 <dl class="metrics">
                   {#if turn.searchMs !== null}
                     <div><dt>Recherche</dt><dd>{duration(turn.searchMs)}</dd></div>
@@ -281,6 +295,9 @@
                   <div><dt>t/s</dt><dd>{number(answer.metrics.tok_per_sec)}</dd></div>
                   {#if answer.metrics.load_ms && answer.metrics.load_ms >= 500}
                     <div><dt>Chargement</dt><dd>{duration(answer.metrics.load_ms)}</dd></div>
+                  {/if}
+                  {#if tools.calls > 0}
+                    <div><dt>Outils</dt><dd>{tools.calls} {tools.calls > 1 ? 'appels' : 'appel'} · {duration(tools.ms)}</dd></div>
                   {/if}
                 </dl>
               {/if}

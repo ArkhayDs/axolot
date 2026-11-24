@@ -393,18 +393,21 @@ export interface ChatBody {
   image?: string;
 }
 
+// A tool_result always follows its tool_call: the server runs tool calls one by one.
+export type ChatEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'notice'; text: string }
+  | { type: 'tool_call'; name: string; arguments: string }
+  | { type: 'tool_result'; result: string; error: boolean; ms: number };
+
 /**
  * Streams one chat answer
- * @param {{ provider_id: number; model: string; messages: { role: string; content: string }[] }} body - question and history
- * @param {(text: string) => void} onDelta - called on each fragment
+ * @param {ChatBody} body - question and history
+ * @param {(event: ChatEvent) => void} onEvent - called on each text fragment, notice and tool step
  * @param {AbortSignal} signal - cancels the generation on the server too
  * @returns {Promise<ChatMetrics>} - timings of the finished answer
  */
-export async function streamChat(
-  body: ChatBody,
-  onDelta: (text: string) => void,
-  signal: AbortSignal,
-): Promise<ChatMetrics> {
+export async function streamChat(body: ChatBody, onEvent: (event: ChatEvent) => void, signal: AbortSignal): Promise<ChatMetrics> {
   const response = await send('/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -422,10 +425,10 @@ export async function streamChat(
     buffer = lines.pop() ?? '';
     for (const line of lines) {
       if (!line) continue;
-      const event = JSON.parse(line) as { type: string; text?: string; error?: string } & ChatMetrics;
-      if (event.type === 'delta') onDelta(event.text ?? '');
+      const event = JSON.parse(line) as ChatEvent | { type: 'error'; error?: string } | ({ type: 'done' } & ChatMetrics);
       if (event.type === 'error') throw new Error(event.error ?? 'Erreur du modèle');
       if (event.type === 'done') return event;
+      onEvent(event);
     }
   }
 }

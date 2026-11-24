@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { askAll, pickBlock, picksToSave, restorePicks } from '../src/lib/chat.ts';
+import { addEvent, answerText, askAll, pickBlock, picksToSave, prettyJson, restorePicks, toolSummary } from '../src/lib/chat.ts';
+import type { AnswerPart } from '../src/lib/chat.ts';
 import type { ConnectionType } from '../src/lib/api.ts';
 
 const online: { key: string; type: ConnectionType }[] = [
@@ -62,4 +63,37 @@ test('local models answer one after another, cloud ones alongside them', async (
   assert.deepEqual(log.slice(0, 3), ['start local-1', 'start cloud-1', 'start cloud-2']);
   assert.ok(log.indexOf('start local-2') > log.indexOf('end local-1'));
   assert.equal(log.length, 8);
+});
+
+test('text around tool calls stays in order, each result joins its call', () => {
+  const parts: AnswerPart[] = [];
+  addEvent(parts, { type: 'delta', text: 'Je ' });
+  addEvent(parts, { type: 'delta', text: 'cherche.' });
+  addEvent(parts, { type: 'tool_call', name: 'sentinelle__kpis', arguments: '{}' });
+  addEvent(parts, { type: 'tool_result', result: '42', error: false, ms: 300 });
+  addEvent(parts, { type: 'delta', text: 'Réponse : 42' });
+  assert.deepEqual(parts, [
+    { kind: 'text', text: 'Je cherche.' },
+    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300 },
+    { kind: 'text', text: 'Réponse : 42' },
+  ]);
+  assert.equal(answerText(parts), 'Je cherche.\n\nRéponse : 42');
+});
+
+test('a tool result without its call fails loudly', () => {
+  assert.throws(() => addEvent([], { type: 'tool_result', result: '42', error: false, ms: 300 }));
+});
+
+test('the tool summary counts calls and their time, a running call adds none', () => {
+  const parts: AnswerPart[] = [];
+  assert.deepEqual(toolSummary(parts), { calls: 0, ms: 0 });
+  addEvent(parts, { type: 'tool_call', name: 'a', arguments: '{}' });
+  addEvent(parts, { type: 'tool_result', result: 'Error: boom', error: true, ms: 120 });
+  addEvent(parts, { type: 'tool_call', name: 'b', arguments: '{}' });
+  assert.deepEqual(toolSummary(parts), { calls: 2, ms: 120 });
+});
+
+test('valid arguments are indented, invalid ones shown as the model wrote them', () => {
+  assert.equal(prettyJson('{"scope":"mdm"}'), '{\n  "scope": "mdm"\n}');
+  assert.equal(prettyJson('{scope:'), '{scope:');
 });

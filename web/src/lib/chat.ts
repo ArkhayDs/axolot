@@ -1,9 +1,66 @@
 // Chat model picks: each model gets its own answer column.
 
-import type { ConnectionType } from './api';
+import type { ChatEvent, ConnectionType } from './api';
 
 export const MAX_MODELS = 4;
 export const MAX_LOCAL = 2;
+
+// A tool part's result is null while the call runs.
+export type AnswerPart =
+  | { kind: 'text'; text: string }
+  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null };
+
+/**
+ * Adds one streamed event to an answer, text and tool steps kept in the order the model produced them
+ * @param {AnswerPart[]} parts - answer so far, changed in place
+ * @param {ChatEvent} event - delta or tool step; notices are not parts
+ */
+export function addEvent(parts: AnswerPart[], event: ChatEvent): void {
+  const last = parts.at(-1);
+  if (event.type === 'delta') {
+    if (last?.kind === 'text') last.text += event.text;
+    else parts.push({ kind: 'text', text: event.text });
+  } else if (event.type === 'tool_call') {
+    parts.push({ kind: 'tool', name: event.name, arguments: event.arguments, result: null, error: false, ms: null });
+  } else if (event.type === 'tool_result') {
+    if (last?.kind !== 'tool' || last.result !== null) throw new Error("Résultat d'outil reçu sans son appel");
+    last.result = event.result;
+    last.error = event.error;
+    last.ms = event.ms;
+  }
+}
+
+/**
+ * What the model wrote, tool steps left out, for the next turn's history
+ * @param {AnswerPart[]} parts - finished answer
+ * @returns {string} - text parts joined by a blank line
+ */
+export function answerText(parts: AnswerPart[]): string {
+  return parts.flatMap((part) => (part.kind === 'text' ? [part.text] : [])).join('\n\n');
+}
+
+/**
+ * Tool calls of an answer and the time spent in them
+ * @param {AnswerPart[]} parts - answer so far
+ * @returns {{ calls: number; ms: number }} - calls made, finished ones' total duration
+ */
+export function toolSummary(parts: AnswerPart[]): { calls: number; ms: number } {
+  const tools = parts.filter((part) => part.kind === 'tool');
+  return { calls: tools.length, ms: tools.reduce((sum, part) => sum + (part.ms ?? 0), 0) };
+}
+
+/**
+ * Indents tool arguments for reading
+ * @param {string} text - model's raw JSON, possibly invalid
+ * @returns {string} - indented JSON, or the text as is
+ */
+export function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
 
 /**
  * Why one more model cannot join the picks
