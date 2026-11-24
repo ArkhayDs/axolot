@@ -70,17 +70,7 @@ func (s *Server) mcpServerByID(w http.ResponseWriter, r *http.Request) (store.Mc
 // probeMcp lists a server's tools; a failure is data for the panel, not an error.
 func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
 	view := mcpProbe{Tools: []string{}}
-	token := ""
-	var err error
-	switch {
-	case len(m.TokenEnc) > 0:
-		if token, err = s.cfg.Box.Open(m.TokenEnc); err != nil {
-			view.Error = "Jeton illisible, supprimer et recréer le serveur"
-			return view
-		}
-	case len(m.OAuthEnc) > 0:
-		token, err = s.oauthToken(ctx, m)
-	}
+	token, err := s.mcpToken(ctx, m)
 	var names []string
 	if err == nil {
 		probeCtx, cancel := context.WithTimeout(ctx, mcpProbeTimeout)
@@ -99,6 +89,24 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
 	return view
 }
 
+// mcpToken gives the bearer for a server: its fixed token first, else its browser sign-in, else none.
+func (s *Server) mcpToken(ctx context.Context, m store.McpServer) (string, error) {
+	switch {
+	case len(m.TokenEnc) > 0:
+		token, err := s.cfg.Box.Open(m.TokenEnc)
+		if err != nil {
+			return "", fmt.Errorf("%w: %v", errTokenUnreadable, err)
+		}
+		return token, nil
+	case len(m.OAuthEnc) > 0:
+		return s.oauthToken(ctx, m)
+	}
+	return "", nil
+}
+
+// errTokenUnreadable means the fixed token was sealed with another AXOLOT_SECRET.
+var errTokenUnreadable = errors.New("token unreadable")
+
 // signInNeeded tells whether only a browser sign-in can make the server answer; a fixed token is fixed by hand.
 func signInNeeded(err error, m store.McpServer) bool {
 	return errors.Is(err, errSignInLost) || (errors.Is(err, mcp.ErrSignInOffered) && len(m.TokenEnc) == 0)
@@ -108,6 +116,8 @@ func signInNeeded(err error, m store.McpServer) bool {
 func mcpFailure(err error) string {
 	var dnsErr *net.DNSError
 	switch {
+	case errors.Is(err, errTokenUnreadable):
+		return "Jeton illisible, supprimer et recréer le serveur"
 	case errors.Is(err, mcp.ErrUnauthorized):
 		return "Jeton refusé ou manquant"
 	case errors.Is(err, context.DeadlineExceeded):
