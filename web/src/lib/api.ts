@@ -460,6 +460,8 @@ export const api = {
   probeMcpServer: (id: number): Promise<McpProbe> => get(`/mcp/${id}/tools`),
   createMcpServer: (body: { name: string; url: string; token: string }): Promise<{ id: number }> => write('POST', '/mcp', body),
   setMcpServerEnabled: (id: number, enabled: boolean): Promise<void> => write('PUT', `/mcp/${id}`, { enabled }),
+  setMcpToolMode: (id: number, tool: string, mode: McpToolMode): Promise<void> =>
+    write('PUT', `/mcp/${id}/tools/${encodeURIComponent(tool)}`, { mode }),
   deleteMcpServer: (id: number): Promise<void> => write('DELETE', `/mcp/${id}`),
   loginMcpServer: (id: number): Promise<{ url: string }> => write('POST', `/mcp/${id}/login`),
   models: (): Promise<Models> => get('/models'),
