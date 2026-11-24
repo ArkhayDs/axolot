@@ -18,7 +18,7 @@ import (
 	"github.com/arkhayds/axolot/internal/provider"
 )
 
-// newServer serves get_kpis, which echoes its arguments, and broken, which always fails;
+// newServer serves get_kpis, which echoes its arguments, broken, which always fails, and mute, which fails with no text;
 // it answers 401 to requests without the bearer token "secret".
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -33,6 +33,10 @@ func newServer(t *testing.T) *httptest.Server {
 	server.AddTool(&sdk.Tool{Name: "broken", InputSchema: json.RawMessage(`{"type":"object"}`)},
 		func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
 			return &sdk.CallToolResult{IsError: true, Content: []sdk.Content{&sdk.TextContent{Text: "scope unknown"}}}, nil
+		})
+	server.AddTool(&sdk.Tool{Name: "mute", InputSchema: json.RawMessage(`{"type":"object"}`)},
+		func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+			return &sdk.CallToolResult{IsError: true, Content: []sdk.Content{}}, nil
 		})
 	handler := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return server }, nil)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +56,7 @@ func TestToolNamesListsWithTheBearerToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(names, []string{"broken", "get_kpis"}) {
+	if !slices.Equal(names, []string{"broken", "get_kpis", "mute"}) {
 		t.Fatalf("names=%v", names)
 	}
 }
@@ -97,6 +101,7 @@ func TestCallReportsFailures(t *testing.T) {
 	session := openSession(t)
 	for name, tc := range map[string]struct{ tool, arguments, want string }{
 		"tool failure":    {"broken", "", "scope unknown"},
+		"silent failure":  {"mute", "", "without saying why"},
 		"invalid JSON":    {"get_kpis", `{"scope":`, "not a JSON object"},
 		"not an object":   {"get_kpis", `["store-12"]`, "not a JSON object"},
 		"unknown to them": {"missing", "", "missing"},

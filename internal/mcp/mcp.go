@@ -2,6 +2,7 @@
 package mcp
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -107,7 +108,7 @@ func (s *Session) Call(ctx context.Context, name, arguments string) (string, err
 	}
 	text := strings.Join(texts, "\n")
 	if result.IsError {
-		return "", errors.New(text)
+		return "", errors.New(cmp.Or(text, "the tool failed without saying why"))
 	}
 	return text, nil
 }
