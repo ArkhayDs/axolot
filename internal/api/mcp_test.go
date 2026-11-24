@@ -34,13 +34,13 @@ func TestValidateMcpServer(t *testing.T) {
 	}
 }
 
-// mcpServerWithToken serves one tool to requests carrying the bearer token "secret".
+// mcpServerWithToken serves one tool, answering "kpis", to requests carrying the bearer token "secret".
 func mcpServerWithToken(t *testing.T) *httptest.Server {
 	t.Helper()
 	server := sdk.NewServer(&sdk.Implementation{Name: "test", Version: "1"}, nil)
 	server.AddTool(&sdk.Tool{Name: "get_kpis", InputSchema: json.RawMessage(`{"type":"object"}`)},
 		func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
-			return &sdk.CallToolResult{}, nil
+			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: "kpis"}}}, nil
 		})
 	handler := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return server }, nil)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
