@@ -146,6 +146,10 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 		}
 		return nil
 	})
+	// Some local servers stream calls without an id; strict ones then refuse the reply's empty tool_call_id.
+	for i := range result.ToolCalls {
+		result.ToolCalls[i].ID = cmp.Or(result.ToolCalls[i].ID, fmt.Sprintf("call_%d", i))
+	}
 	result.Output = output.String()
 	result.TotalMs = msSince(start)
 	setOpenAIRate(&result)
