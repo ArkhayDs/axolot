@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -28,6 +29,21 @@ func (s *Store) McpServers(ctx context.Context) ([]McpServer, error) {
 		err := row.Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc)
 		return m, err
 	})
+}
+
+// McpServer loads one MCP server.
+// @returns ErrNotFound when no server has this id
+func (s *Store) McpServer(ctx context.Context, id int64) (McpServer, error) {
+	var m McpServer
+	err := s.pool.QueryRow(ctx, `SELECT id, name, url, enabled, token_enc, oauth_enc FROM mcp_servers WHERE id = $1`, id).
+		Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return McpServer{}, ErrNotFound
+	}
+	if err != nil {
+		return McpServer{}, fmt.Errorf("load mcp server: %w", err)
+	}
+	return m, nil
 }
 
 // SetMcpServerOAuth saves the OAuth credentials of a server, replacing previous ones.

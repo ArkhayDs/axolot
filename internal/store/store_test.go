@@ -119,11 +119,17 @@ func TestMcpServerLifecycle(t *testing.T) {
 	if err != nil || len(servers) != 1 || servers[0].Enabled || len(servers[0].TokenEnc) == 0 {
 		t.Fatalf("servers=%+v err=%v", servers, err)
 	}
+	if m, err := s.McpServer(ctx, id); err != nil || m.Name != "sentinelle" || m.Enabled {
+		t.Fatalf("server=%+v err=%v", m, err)
+	}
 	if err := s.DeleteMcpServer(ctx, id); err != nil {
 		t.Fatal(err)
 	}
 	if servers, _ := s.McpServers(ctx); len(servers) != 0 {
 		t.Fatalf("server survived: %v", servers)
+	}
+	if _, err := s.McpServer(ctx, id); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("load deleted server: err=%v", err)
 	}
 	if err := s.SetMcpServerEnabled(ctx, id, true); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("toggle deleted server: err=%v", err)
@@ -145,9 +151,8 @@ func TestSetMcpServerOAuthReplacesSavedCredentials(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	servers, err := s.McpServers(ctx)
-	if err != nil || len(servers) != 1 || string(servers[0].OAuthEnc) != "rotated" {
-		t.Fatalf("servers=%+v err=%v", servers, err)
+	if m, err := s.McpServer(ctx, id); err != nil || string(m.OAuthEnc) != "rotated" {
+		t.Fatalf("server=%+v err=%v", m, err)
 	}
 	if err := s.SetMcpServerOAuth(ctx, id+1, []byte("x")); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unknown server: err=%v", err)
