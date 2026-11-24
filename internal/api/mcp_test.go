@@ -85,7 +85,7 @@ func TestProbeMcpReportsFailures(t *testing.T) {
 		"unreadable token": {URL: ts.URL, TokenEnc: []byte("garbage")},
 	} {
 		view := s.probeMcp(context.Background(), m)
-		if view.Error == "" || view.Tools == nil || len(view.Tools) != 0 {
+		if view.Error == "" || view.Login || view.Tools == nil || len(view.Tools) != 0 {
 			t.Errorf("%s: view=%+v", name, view)
 		}
 	}

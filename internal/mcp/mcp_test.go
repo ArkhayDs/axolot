@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/arkhayds/axolot/internal/mcp/mcptest"
 )
 
 // newServer serves one tool, answering 401 to requests without the bearer token "secret".
@@ -46,10 +49,24 @@ func TestToolNamesListsWithTheBearerToken(t *testing.T) {
 	}
 }
 
-func TestToolNamesFailsWithoutTheToken(t *testing.T) {
-	ts := newServer(t)
-	if _, err := ToolNames(context.Background(), ts.URL, ""); err == nil {
-		t.Fatal("expected an error on 401")
+func TestToolNamesTellsWhetherASignInWouldHelp(t *testing.T) {
+	forbidden := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_scope", resource_metadata="https://x/meta"`)
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	t.Cleanup(forbidden.Close)
+	for name, tc := range map[string]struct {
+		url     string
+		offered bool
+	}{
+		"fixed token missing":         {newServer(t).URL, false},
+		"oauth server":                {mcptest.NewOAuthServer(t).URL + "/mcp", true},
+		"signed in, scope too narrow": {forbidden.URL, false},
+	} {
+		_, err := ToolNames(context.Background(), tc.url, "")
+		if !errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrSignInOffered) != tc.offered {
+			t.Errorf("%s: err=%v", name, err)
+		}
 	}
 }
 

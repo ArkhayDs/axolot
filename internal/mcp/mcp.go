@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/modelcontextprotocol/go-sdk/oauthex"
 )
 
 // client identifies Axolot to every server.
@@ -34,6 +36,10 @@ func ToolNames(ctx context.Context, endpoint, token string) ([]string, error) {
 
 // ErrUnauthorized reports a server refusing the token, or asking for one.
 var ErrUnauthorized = errors.New("unauthorized")
+
+// ErrSignInOffered is a 401 naming the server's OAuth metadata: a browser sign-in could get a token.
+// shortcut: servers publishing their metadata only at the well-known URL, without the header, are missed; probe it if one shows up.
+var ErrSignInOffered = fmt.Errorf("%w: browser sign-in offered", ErrUnauthorized)
 
 // connect opens a request-response session: no standing SSE stream, no reconnect, the caller's context bounds it.
 func connect(ctx context.Context, endpoint, token string) (*sdk.ClientSession, error) {
@@ -65,9 +71,18 @@ func (a auth) RoundTrip(r *http.Request) (*http.Response, error) {
 		r.Header.Set("Authorization", "Bearer "+a.token)
 	}
 	resp, err := a.next.RoundTrip(r)
-	if err == nil && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) {
-		resp.Body.Close()
-		return nil, ErrUnauthorized
+	if err != nil || (resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden) {
+		return resp, err
 	}
-	return resp, err
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized && offersSignIn(resp.Header) {
+		return nil, ErrSignInOffered
+	}
+	return nil, ErrUnauthorized
+}
+
+// offersSignIn tells whether a 401 points to the server's OAuth metadata.
+func offersSignIn(h http.Header) bool {
+	challenges, err := oauthex.ParseWWWAuthenticate(h.Values("WWW-Authenticate"))
+	return err == nil && slices.ContainsFunc(challenges, func(c oauthex.Challenge) bool { return c.Params["resource_metadata"] != "" })
 }
