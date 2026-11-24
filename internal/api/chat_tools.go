@@ -4,12 +4,86 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
+	"time"
+	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/mcp"
 	"github.com/arkhayds/axolot/internal/provider"
 	"github.com/arkhayds/axolot/internal/store"
 )
+
+const (
+	chatMaxRounds = 10
+	toolTimeout   = 30 * time.Second
+	// toolResultMax counts characters: a large result would crowd the model's context out.
+	toolResultMax = 20000
+	toolCutNotice = "\n\n[Résultat tronqué : la suite n'a pas été transmise.]"
+)
+
+// errTooManyRounds is shown as is in the answer card.
+var errTooManyRounds = fmt.Errorf("Arrêté après %d tours d'appels d'outils, sans réponse", chatMaxRounds)
+
+// answer runs one chat turn: the model, then each tool it asks for, until it answers in text.
+// TTFT runs from the turn start to the final answer's first token, tools included; TotalMs is the whole turn;
+// tokens and speed are the last model call's.
+func answer(ctx context.Context, client provider.Provider, req provider.ChatRequest, tools *toolbox, send func(map[string]any)) (provider.ChatResult, error) {
+	start := time.Now()
+	req.Tools = tools.tools
+	onDelta := func(text string) { send(map[string]any{"type": "delta", "text": text}) }
+	for range chatMaxRounds {
+		offset := time.Since(start).Milliseconds()
+		result, err := client.Chat(ctx, req, onDelta)
+		if err != nil && len(req.Tools) > 0 && strings.Contains(err.Error(), "does not support tools") {
+			send(map[string]any{"type": "notice", "text": "Ce modèle n'appelle pas d'outils"})
+			req.Tools = nil
+			offset = time.Since(start).Milliseconds()
+			result, err = client.Chat(ctx, req, onDelta)
+		}
+		if err != nil {
+			return result, err
+		}
+		if len(result.ToolCalls) == 0 {
+			if result.TTFTMs != nil {
+				ttft := offset + *result.TTFTMs
+				result.TTFTMs = &ttft
+			}
+			result.TotalMs = time.Since(start).Milliseconds()
+			return result, nil
+		}
+		req.Messages = append(req.Messages, provider.Message{Role: "assistant", Content: result.Output, ToolCalls: result.ToolCalls})
+		for _, call := range result.ToolCalls {
+			req.Messages = append(req.Messages, tools.run(ctx, call, send))
+		}
+	}
+	return provider.ChatResult{}, errTooManyRounds
+}
+
+// run calls one tool for the model and streams the step; a failure becomes the tool's reply, for the model to correct.
+// Steps run one after the other, so the client pairs each tool_result with the tool_call just before it.
+func (t *toolbox) run(ctx context.Context, call provider.ToolCall, send func(map[string]any)) provider.Message {
+	send(map[string]any{"type": "tool_call", "name": call.Name, "arguments": call.Arguments})
+	ctx, cancel := context.WithTimeout(ctx, toolTimeout)
+	defer cancel()
+	start := time.Now()
+	text, err := t.call(ctx, call.Name, call.Arguments)
+	if err != nil {
+		slog.Warn("tool call failed", "tool", call.Name, "err", err)
+		text = "Error: " + err.Error()
+	}
+	text = cutToolResult(text)
+	send(map[string]any{"type": "tool_result", "result": text, "error": err != nil, "ms": time.Since(start).Milliseconds()})
+	return provider.Message{Role: "tool", Content: text, ToolCallID: call.ID, ToolName: call.Name}
+}
+
+// cutToolResult keeps the first toolResultMax characters and says the rest was dropped.
+func cutToolResult(text string) string {
+	if utf8.RuneCountInString(text) <= toolResultMax {
+		return text
+	}
+	return string([]rune(text)[:toolResultMax]) + toolCutNotice
+}
 
 // toolbox is what one chat turn may call: the enabled servers' tools, named "<server>__<tool>",
 // each routed to its server's open session.
