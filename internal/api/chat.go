@@ -177,5 +177,6 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	send(map[string]any{
 		"type": "done", "ttft_ms": result.TTFTMs, "total_ms": result.TotalMs, "load_ms": result.LoadMs,
 		"prompt_tokens": result.PromptTokens, "output_tokens": result.OutputTokens, "tok_per_sec": result.TokPerSec,
+		"approval_ms": tools.waited.Milliseconds(),
 	})
 }

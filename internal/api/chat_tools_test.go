@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
@@ -99,10 +102,145 @@ func recorder() (*[]map[string]any, func(map[string]any)) {
 // question is a turn with a single user message.
 var question = provider.ChatRequest{Model: "m", Messages: []provider.Message{{Role: "user", Content: "KPIs ?"}}}
 
-func TestAnswerRunsToolsThenAnswers(t *testing.T) {
+func TestToolboxLeavesBlockedToolsOut(t *testing.T) {
+	ts := mcpServerWithToken(t)
+	s, sealed := toolboxServer(t)
+
+	tools := s.openToolbox(context.Background(), []store.McpServer{
+		{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed, ToolModes: map[string]string{"get_kpis": "block"}},
+	})
+	defer tools.close()
+
+	if len(tools.tools) != 0 {
+		t.Fatalf("tools=%+v", tools.tools)
+	}
+	if _, err := tools.call(context.Background(), "sentinelle__get_kpis", `{}`); err == nil {
+		t.Fatal("blocked tool called")
+	}
+}
+
+// askedTool is a toolbox whose only tool, sentinelle__get_kpis, waits for the user's click,
+// and a model that calls it once then answers "42".
+func askedTool(t *testing.T) (*Server, *toolbox, *scripted) {
+	t.Helper()
 	ts := mcpServerWithToken(t)
 	s, sealed := toolboxServer(t)
 	tools := s.openToolbox(context.Background(), []store.McpServer{{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed}})
+	t.Cleanup(tools.close)
+	model := &scripted{results: []provider.ChatResult{
+		{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "sentinelle__get_kpis", Arguments: `{}`}}},
+		{Output: "42"},
+	}}
+	return s, tools, model
+}
+
+// clicking answers each approval event after a pause, as the user would.
+func clicking(s *Server, allow bool, pause time.Duration, send func(map[string]any)) func(map[string]any) {
+	return func(e map[string]any) {
+		send(e)
+		if e["type"] == "approval" {
+			go func() {
+				time.Sleep(pause)
+				s.approvals.answer(e["id"].(string), allow)
+			}()
+		}
+	}
+}
+
+func TestAnswerRunsAnAskedToolOnceAllowed(t *testing.T) {
+	s, tools, model := askedTool(t)
+	events, send := recorder()
+	pause := 200 * time.Millisecond
+
+	result, err := answer(context.Background(), model, question, tools, clicking(s, true, pause, send))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var types []string
+	for _, e := range *events {
+		types = append(types, e["type"].(string))
+	}
+	if !slices.Equal(types, []string{"tool_call", "approval", "tool_result", "delta"}) || (*events)[2]["result"] != "kpis" {
+		t.Fatalf("events=%v", *events)
+	}
+	if tools.waited < pause || result.TotalMs >= pause.Milliseconds() {
+		t.Fatalf("waited=%v total=%dms: the wait must be counted apart", tools.waited, result.TotalMs)
+	}
+}
+
+func TestAnswerTellsTheModelTheUserRefused(t *testing.T) {
+	s, tools, model := askedTool(t)
+	events, send := recorder()
+
+	if _, err := answer(context.Background(), model, question, tools, clicking(s, false, 0, send)); err != nil {
+		t.Fatal(err)
+	}
+	sent := model.reqs[1].Messages
+	if reply := sent[len(sent)-1]; reply.Role != "tool" || reply.Content != "Error: "+errRefused.Error() {
+		t.Fatalf("reply=%+v", reply)
+	}
+	if (*events)[2]["error"] != true {
+		t.Fatalf("events=%v", *events)
+	}
+}
+
+func TestAnswerStopsWaitingWhenTheTurnEnds(t *testing.T) {
+	_, tools, model := askedTool(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	_, send := recorder()
+	leave := func(e map[string]any) {
+		send(e)
+		if e["type"] == "approval" {
+			cancel()
+		}
+	}
+
+	if _, err := answer(ctx, model, question, tools, leave); err != nil {
+		t.Fatal(err)
+	}
+	sent := model.reqs[1].Messages
+	if reply := sent[len(sent)-1]; reply.Content != "Error: "+context.Canceled.Error() {
+		t.Fatalf("reply=%+v", reply)
+	}
+	if len(tools.approvals.pending) != 0 {
+		t.Fatalf("approval left pending: %v", tools.approvals.pending)
+	}
+}
+
+func TestApprovalTakesOneClick(t *testing.T) {
+	s := &Server{}
+	ids := make(chan string, 1)
+	allowed := make(chan bool, 1)
+	go func() {
+		allow, _ := s.approvals.wait(context.Background(), func(id string) { ids <- id })
+		allowed <- allow
+	}()
+	id := <-ids
+	post := func(id string) int {
+		req := httptest.NewRequest(http.MethodPost, "/api/chat/approvals/"+id, strings.NewReader(`{"allow":true}`))
+		req.SetPathValue("id", id)
+		rec := httptest.NewRecorder()
+		s.answerApproval(rec, req)
+		return rec.Code
+	}
+
+	if code := post("unknown"); code != http.StatusNotFound {
+		t.Fatalf("unknown id: %d", code)
+	}
+	if code := post(id); code != http.StatusNoContent || !<-allowed {
+		t.Fatalf("first click: %d", code)
+	}
+	if code := post(id); code != http.StatusNotFound {
+		t.Fatalf("second click: %d", code)
+	}
+}
+
+func TestAnswerRunsToolsThenAnswers(t *testing.T) {
+	ts := mcpServerWithToken(t)
+	s, sealed := toolboxServer(t)
+	tools := s.openToolbox(context.Background(), []store.McpServer{
+		{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed, ToolModes: map[string]string{"get_kpis": "allow"}},
+	})
 	defer tools.close()
 	ttft := int64(5)
 	model := &scripted{results: []provider.ChatResult{

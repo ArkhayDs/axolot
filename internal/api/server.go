@@ -54,6 +54,7 @@ type Server struct {
 	oauthMu      sync.Mutex
 	logins       map[string]*mcpLogin
 	oauthSources map[int64]*oauthSource
+	approvals    approvals
 }
 
 // New wires the routes.
@@ -95,6 +96,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/estimate", s.postEstimate)
 	mux.HandleFunc("GET /api/estimate/remaining", s.getRemaining)
 	mux.HandleFunc("POST /api/chat", s.chat)
+	mux.HandleFunc("POST /api/chat/approvals/{id}", s.answerApproval)
 	mux.HandleFunc("POST /api/chat/search", s.chatSearch)
 	mux.HandleFunc("POST /api/chat/document", s.chatDocument)
 	mux.HandleFunc("POST /api/chat/image", s.chatImage)
