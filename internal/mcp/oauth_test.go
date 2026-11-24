@@ -36,9 +36,9 @@ func TestLoginReturnsCredsThatListTheTools(t *testing.T) {
 	if creds.Config.ClientID != "c1" || creds.Config.Endpoint.TokenURL != ts.URL+"/token" || creds.Token.RefreshToken != "refresh-1" {
 		t.Fatalf("creds=%+v token=%+v", creds.Config, creds.Token)
 	}
-	names, err := ToolNames(context.Background(), ts.URL+"/mcp", creds.Token.AccessToken)
-	if err != nil || len(names) != 1 {
-		t.Fatalf("names=%v err=%v", names, err)
+	tools, err := ListTools(context.Background(), ts.URL+"/mcp", creds.Token.AccessToken)
+	if err != nil || len(tools) != 1 {
+		t.Fatalf("tools=%v err=%v", tools, err)
 	}
 }
 

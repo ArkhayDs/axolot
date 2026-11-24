@@ -72,6 +72,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("POST /api/mcp", s.createMcpServer)
 	mux.HandleFunc("PUT /api/mcp/{id}", s.setMcpServerEnabled)
 	mux.HandleFunc("GET /api/mcp/{id}/tools", notCrossSite(s.probeMcpServer))
+	mux.HandleFunc("PUT /api/mcp/{id}/tools/{tool}", s.setMcpToolMode)
 	mux.HandleFunc("POST /api/mcp/{id}/login", s.loginMcpServer)
 	mux.HandleFunc("GET /api/mcp/callback", s.mcpCallback)
 	mux.HandleFunc("DELETE /api/mcp/{id}", s.deleteMcpServer)

@@ -281,9 +281,18 @@ export interface McpServer {
   enabled: boolean;
 }
 
+// allow: offered to models; ask: offered, each call waits for a click; block: hidden from models.
+export type McpToolMode = 'allow' | 'ask' | 'block';
+
+export interface McpTool {
+  name: string;
+  description: string;
+  mode: McpToolMode;
+}
+
 export interface McpProbe {
-  // Names listed live, empty when the server could not be reached.
-  tools: string[];
+  // Listed live, empty when the server could not be reached.
+  tools: McpTool[];
   error?: string;
   // Signing in from the browser would let the server answer.
   login: boolean;

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -24,10 +25,31 @@ var mcpName = regexp.MustCompile(`^[a-z0-9_-]{1,32}$`)
 
 // mcpProbe is what a server offers right now, or why it could not be reached.
 type mcpProbe struct {
-	Tools []string `json:"tools"`
-	Error string   `json:"error,omitempty"`
+	Tools []mcpTool `json:"tools"`
+	Error string    `json:"error,omitempty"`
 	// Login: signing in from the browser would let the server answer.
 	Login bool `json:"login"`
+}
+
+// mcpTool is a listed tool with its permission in the Chat.
+type mcpTool struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Mode        string `json:"mode"`
+}
+
+// toolModes are the permissions a tool can get: offered, offered after the user's click, or hidden from the model.
+var toolModes = []string{"allow", "ask", "block"}
+
+// toolMode is the saved permission of a tool, else allow when its server declares it read-only, else ask.
+func toolMode(m store.McpServer, tool mcp.Tool) string {
+	if mode, ok := m.ToolModes[tool.Name]; ok {
+		return mode
+	}
+	if tool.ReadOnly {
+		return "allow"
+	}
+	return "ask"
 }
 
 // listMcpServers returns the saved servers without contacting them, so the panel shows at once.
@@ -69,13 +91,13 @@ func (s *Server) mcpServerByID(w http.ResponseWriter, r *http.Request) (store.Mc
 
 // probeMcp lists a server's tools; a failure is data for the panel, not an error.
 func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
-	view := mcpProbe{Tools: []string{}}
+	view := mcpProbe{Tools: []mcpTool{}}
 	token, err := s.mcpToken(ctx, m)
-	var names []string
+	var tools []mcp.Tool
 	if err == nil {
 		probeCtx, cancel := context.WithTimeout(ctx, mcpProbeTimeout)
 		defer cancel()
-		names, err = mcp.ToolNames(probeCtx, m.URL, token)
+		tools, err = mcp.ListTools(probeCtx, m.URL, token)
 	}
 	if err != nil {
 		slog.Warn("mcp probe failed", "server", m.Name, "err", err)
@@ -85,7 +107,9 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
 		}
 		return view
 	}
-	view.Tools = names
+	for _, tool := range tools {
+		view.Tools = append(view.Tools, mcpTool{Name: tool.Name, Description: tool.Description, Mode: toolMode(m, tool)})
+	}
 	return view
 }
 
@@ -188,6 +212,34 @@ func (s *Server) setMcpServerEnabled(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := s.cfg.Store.SetMcpServerEnabled(r.Context(), id, body.Enabled)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
+		return
+	}
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// setMcpToolMode saves the Chat permission of one tool of a server.
+func (s *Server) setMcpToolMode(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "id")
+	if !ok {
+		return
+	}
+	var body struct {
+		Mode string `json:"mode"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	if !slices.Contains(toolModes, body.Mode) {
+		writeError(w, http.StatusBadRequest, "Réglage invalide : allow, ask ou block")
+		return
+	}
+	err := s.cfg.Store.SetMcpToolMode(r.Context(), id, r.PathValue("tool"), body.Mode)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
 		return

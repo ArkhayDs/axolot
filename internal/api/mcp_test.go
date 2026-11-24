@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/arkhayds/axolot/internal/mcp"
+	"github.com/arkhayds/axolot/internal/provider"
 	"github.com/arkhayds/axolot/internal/secret"
 	"github.com/arkhayds/axolot/internal/store"
 )
@@ -38,7 +40,7 @@ func TestValidateMcpServer(t *testing.T) {
 func mcpServerWithToken(t *testing.T) *httptest.Server {
 	t.Helper()
 	server := sdk.NewServer(&sdk.Implementation{Name: "test", Version: "1"}, nil)
-	server.AddTool(&sdk.Tool{Name: "get_kpis", InputSchema: json.RawMessage(`{"type":"object"}`)},
+	server.AddTool(&sdk.Tool{Name: "get_kpis", Description: "KPIs", InputSchema: json.RawMessage(`{"type":"object"}`)},
 		func(context.Context, *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
 			return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: "kpis"}}}, nil
 		})
@@ -67,7 +69,7 @@ func TestProbeMcpOpensTheSealedToken(t *testing.T) {
 	s := &Server{cfg: Config{Box: box}}
 
 	view := s.probeMcp(context.Background(), store.McpServer{URL: ts.URL, TokenEnc: sealed})
-	if view.Error != "" || len(view.Tools) != 1 || view.Tools[0] != "get_kpis" {
+	if view.Error != "" || len(view.Tools) != 1 || view.Tools[0] != (mcpTool{Name: "get_kpis", Description: "KPIs", Mode: "ask"}) {
 		t.Fatalf("view=%+v", view)
 	}
 }
@@ -114,10 +116,39 @@ func TestMcpFailureExplainsCommonCauses(t *testing.T) {
 		"no such dns": {"http://axolot-nowhere.invalid/mcp", time.Second, "Adresse introuvable"},
 	} {
 		ctx, cancel := context.WithTimeout(context.Background(), tc.timeout)
-		_, err := mcp.ToolNames(ctx, tc.url, "")
+		_, err := mcp.ListTools(ctx, tc.url, "")
 		cancel()
 		if got := mcpFailure(err); got != tc.want {
 			t.Errorf("%s: got %q for %v", name, got, err)
+		}
+	}
+}
+
+func TestToolModeDefaultsToTheReadOnlyHint(t *testing.T) {
+	saved := store.McpServer{ToolModes: map[string]string{"run_sql": "block"}}
+	for name, tc := range map[string]struct {
+		tool mcp.Tool
+		want string
+	}{
+		"saved wins over the hint": {mcp.Tool{Tool: provider.Tool{Name: "run_sql"}, ReadOnly: true}, "block"},
+		"read-only, never set":     {mcp.Tool{Tool: provider.Tool{Name: "get_prism"}, ReadOnly: true}, "allow"},
+		"no hint, never set":       {mcp.Tool{Tool: provider.Tool{Name: "write_note"}}, "ask"},
+	} {
+		if got := toolMode(saved, tc.tool); got != tc.want {
+			t.Errorf("%s: got %q, want %q", name, got, tc.want)
+		}
+	}
+}
+
+func TestSetMcpToolModeRefusesUnknownModes(t *testing.T) {
+	for _, body := range []string{`{"mode":"always"}`, `{"mode":""}`, `{}`} {
+		req := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(body))
+		req.SetPathValue("id", "1")
+		req.SetPathValue("tool", "run_sql")
+		rec := httptest.NewRecorder()
+		(&Server{}).setMcpToolMode(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: status %d", body, rec.Code)
 		}
 	}
 }
