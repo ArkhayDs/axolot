@@ -91,7 +91,8 @@
       await api.setMcpToolMode(server.id, tool.name, mode);
       error = '';
     } catch (saveError) {
-      tool.mode = previous;
+      // A later pick may have saved meanwhile: keep it.
+      if (tool.mode === mode) tool.mode = previous;
       error = errorMessage(saveError);
     }
   }
