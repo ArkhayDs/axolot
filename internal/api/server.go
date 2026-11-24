@@ -50,11 +50,15 @@ type Server struct {
 	ingest      bool
 	chats       int
 	pulls       map[string]pullState
+	// MCP sign-ins waiting for the browser, by OAuth state, and the token source of each signed-in server.
+	oauthMu      sync.Mutex
+	logins       map[string]*mcpLogin
+	oauthSources map[int64]*oauthSource
 }
 
 // New wires the routes.
 func New(cfg Config) http.Handler {
-	s := &Server{cfg: cfg, hub: newHub(), pulls: map[string]pullState{}}
+	s := &Server{cfg: cfg, hub: newHub(), pulls: map[string]pullState{}, logins: map[string]*mcpLogin{}, oauthSources: map[int64]*oauthSource{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/status", s.status)
 	mux.HandleFunc("GET /api/events", s.events)
@@ -67,6 +71,8 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("GET /api/mcp", s.listMcpServers)
 	mux.HandleFunc("POST /api/mcp", s.createMcpServer)
 	mux.HandleFunc("PUT /api/mcp/{id}", s.setMcpServerEnabled)
+	mux.HandleFunc("POST /api/mcp/{id}/login", s.loginMcpServer)
+	mux.HandleFunc("GET /api/mcp/callback", s.mcpCallback)
 	mux.HandleFunc("DELETE /api/mcp/{id}", s.deleteMcpServer)
 	mux.HandleFunc("GET /api/models", s.listModels)
 	mux.HandleFunc("POST /api/models/pull", s.pullModel)
