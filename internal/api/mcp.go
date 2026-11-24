@@ -81,28 +81,29 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
 			return view
 		}
 	case len(m.OAuthEnc) > 0:
-		if token, err = s.oauthToken(ctx, m); err != nil {
-			slog.Warn("mcp sign-in token failed", "server", m.Name, "err", err)
-			view.Error = mcpFailure(err)
-			if errors.Is(err, errSignInLost) {
-				view.Error, view.Login = "Connexion requise", true
-			}
-			return view
-		}
+		token, err = s.oauthToken(ctx, m)
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, mcpProbeTimeout)
-	defer cancel()
-	names, err := mcp.ToolNames(probeCtx, m.URL, token)
+	var names []string
+	if err == nil {
+		probeCtx, cancel := context.WithTimeout(ctx, mcpProbeTimeout)
+		defer cancel()
+		names, err = mcp.ToolNames(probeCtx, m.URL, token)
+	}
 	if err != nil {
 		slog.Warn("mcp probe failed", "server", m.Name, "err", err)
 		view.Error = mcpFailure(err)
-		if errors.Is(err, mcp.ErrUnauthorized) && len(m.TokenEnc) == 0 {
+		if signInNeeded(err, m) {
 			view.Error, view.Login = "Connexion requise", true
 		}
 		return view
 	}
 	view.Tools = names
 	return view
+}
+
+// signInNeeded tells whether only a browser sign-in can make the server answer; a fixed token is fixed by hand.
+func signInNeeded(err error, m store.McpServer) bool {
+	return errors.Is(err, errSignInLost) || (errors.Is(err, mcp.ErrSignInOffered) && len(m.TokenEnc) == 0)
 }
 
 // mcpFailure words a probe error for the panel; the full error goes to the log.
