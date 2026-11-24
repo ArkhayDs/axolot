@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { addEvent, answerText, askAll, pickBlock, picksToSave, prettyJson, restorePicks, toolSummary } from '../src/lib/chat.ts';
 import type { AnswerPart } from '../src/lib/chat.ts';
+import { streamChat } from '../src/lib/api.ts';
 import type { ConnectionType } from '../src/lib/api.ts';
 
 const online: { key: string; type: ConnectionType }[] = [
@@ -96,4 +97,22 @@ test('the tool summary counts calls and their time, a running call adds none', (
 test('valid arguments are indented, invalid ones shown as the model wrote them', () => {
   assert.equal(prettyJson('{"scope":"mdm"}'), '{\n  "scope": "mdm"\n}');
   assert.equal(prettyJson('{scope:'), '{scope:');
+});
+
+test('a failing event handler closes the stream', async () => {
+  let closed = false;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"type":"delta","text":"Bonjour"}\n'));
+    },
+    cancel() {
+      closed = true;
+    },
+  });
+  globalThis.fetch = async (): Promise<Response> => new Response(body);
+  const fail = (): void => {
+    throw new Error('handler');
+  };
+  await assert.rejects(streamChat({ provider_id: 1, model: 'llama', messages: [] }, fail, new AbortController().signal), /handler/);
+  assert.ok(closed);
 });
