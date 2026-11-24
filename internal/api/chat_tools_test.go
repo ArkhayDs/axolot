@@ -202,6 +202,23 @@ func TestAnswerAsksAgainWithoutToolsWhenTheModelHasNone(t *testing.T) {
 	}
 }
 
+func TestOfferedName(t *testing.T) {
+	long := strings.Repeat("a", 32)
+	for tool, want := range map[string]string{
+		"get_kpis":              "sentinelle__get_kpis",
+		"kpis.get":              "sentinelle__kpis_get",
+		"météo":                 "sentinelle__m_t_o",
+		strings.Repeat("b", 60): "sentinelle__" + strings.Repeat("b", 52),
+	} {
+		if got := offeredName("sentinelle", tool); got != want {
+			t.Errorf("%q: got %q", tool, got)
+		}
+	}
+	if got := offeredName(long, long); len(got) != 64 {
+		t.Errorf("longest name has %d characters", len(got))
+	}
+}
+
 func TestCutToolResult(t *testing.T) {
 	atLimit := strings.Repeat("é", toolResultMax)
 	if got := cutToolResult(atLimit); got != atLimit {

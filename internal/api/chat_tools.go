@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -102,9 +103,8 @@ func cutToolResult(text string) string {
 	return text
 }
 
-// toolbox is what one chat turn may call: the enabled servers' tools, named "<server>__<tool>",
+// toolbox is what one chat turn may call: the enabled servers' tools, named by offeredName,
 // each routed to its server's open session.
-// shortcut: a tool name outside [a-zA-Z0-9_-] or over 64 characters makes OpenAI refuse the whole request; filter them if a server has some.
 type toolbox struct {
 	tools    []provider.Tool
 	routes   map[string]toolRoute
@@ -154,13 +154,26 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 		}
 		box.sessions = append(box.sessions, o.session)
 		for _, tool := range o.tools {
-			offered := m.Name + "__" + tool.Name
+			offered := offeredName(m.Name, tool.Name)
+			if _, taken := box.routes[offered]; taken {
+				slog.Warn("mcp tool left out, its offered name is taken", "server", m.Name, "tool", tool.Name, "offered", offered)
+				continue
+			}
 			box.routes[offered] = toolRoute{session: o.session, name: tool.Name}
 			tool.Name = offered
 			box.tools = append(box.tools, tool)
 		}
 	}
 	return box
+}
+
+// notToolNameChar is what OpenAI refuses in a tool name; it turns the whole request down for one.
+var notToolNameChar = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+
+// offeredName is "<server>__<tool>" as OpenAI accepts it: other characters become _, cut at 64.
+func offeredName(server, tool string) string {
+	name := server + "__" + notToolNameChar.ReplaceAllString(tool, "_")
+	return name[:min(len(name), 64)]
 }
 
 // openMcp connects to one server and lists its tools within the probe timeout; the session outlives that timeout.
