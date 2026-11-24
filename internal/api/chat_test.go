@@ -2,13 +2,16 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/provider"
@@ -265,5 +268,19 @@ func TestClaimChatRefusedDuringCampaign(t *testing.T) {
 	s.releaseChat()
 	if s.chats != 0 {
 		t.Fatalf("chats = %d after release, want 0", s.chats)
+	}
+}
+
+func TestChatFailureWordsTheTurnTimeout(t *testing.T) {
+	expired, cancel := context.WithDeadline(context.Background(), time.Now())
+	defer cancel()
+	<-expired.Done()
+	if got := chatFailure(expired, expired.Err()); got != "Délai de 5 min dépassé" {
+		t.Fatalf("expired turn = %q", got)
+	}
+	stopped, stop := context.WithCancel(context.Background())
+	stop()
+	if got := chatFailure(stopped, errors.New("model not found")); got != "model not found" {
+		t.Fatalf("other failure = %q, want the raw error", got)
 	}
 }

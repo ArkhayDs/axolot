@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -171,7 +172,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := answer(ctx, client, provider.ChatRequest{Model: body.Model, Messages: chatMessages(body), MaxTokens: chatMaxTokens}, tools, send)
 	if err != nil {
-		send(map[string]any{"type": "error", "error": err.Error()})
+		send(map[string]any{"type": "error", "error": chatFailure(ctx, err)})
 		return
 	}
 	send(map[string]any{
@@ -179,4 +180,12 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		"prompt_tokens": result.PromptTokens, "output_tokens": result.OutputTokens, "tok_per_sec": result.TokPerSec,
 		"approval_ms": tools.waited.Milliseconds(),
 	})
+}
+
+// chatFailure words a failed answer for its card: a turn past chatTimeout says so in French, other errors stay as the provider wrote them.
+func chatFailure(ctx context.Context, err error) string {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return fmt.Sprintf("Délai de %d min dépassé", int(chatTimeout.Minutes()))
+	}
+	return err.Error()
 }
