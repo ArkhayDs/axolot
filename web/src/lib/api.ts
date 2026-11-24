@@ -363,6 +363,8 @@ export interface ChatMetrics {
   load_ms: number | null;
   output_tokens: number | null;
   tok_per_sec: number | null;
+  // Time the turn waited for the user's clicks, left out of ttft_ms and total_ms.
+  approval_ms: number;
 }
 
 export interface ChatPassage {
@@ -407,6 +409,7 @@ export type ChatEvent =
   | { type: 'delta'; text: string }
   | { type: 'notice'; text: string }
   | { type: 'tool_call'; name: string; arguments: string }
+  | { type: 'approval'; id: string }
   | { type: 'tool_result'; result: string; error: boolean; ms: number };
 
 /**
@@ -454,6 +457,7 @@ export const api = {
   providers: (): Promise<Provider[]> => get('/providers'),
   createProvider: (body: { name: string; kind: string; base_url: string; api_key: string }): Promise<{ id: number }> =>
     write('POST', '/providers', body),
+  answerApproval: (id: string, allow: boolean): Promise<void> => write('POST', `/chat/approvals/${encodeURIComponent(id)}`, { allow }),
   createBridge: (): Promise<{ id: number }> => write('POST', '/providers/bridge'),
   deleteProvider: (id: number): Promise<void> => write('DELETE', `/providers/${id}`),
   mcpServers: (): Promise<McpServer[]> => get('/mcp'),

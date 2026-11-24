@@ -275,7 +275,7 @@
                 {#if part.kind === 'text'}
                   <div class="text">{part.text}</div>
                 {:else}
-                  <ChatToolStep step={part} />
+                  <ChatToolStep step={part} live={answer.state === 'streaming'} />
                 {/if}
               {/each}
               {#if answer.state === 'failed'}
@@ -298,6 +298,9 @@
                   {/if}
                   {#if tools.calls > 0}
                     <div><dt>Outils</dt><dd>{tools.calls} {tools.calls > 1 ? 'appels' : 'appel'} · {duration(tools.ms)}</dd></div>
+                  {/if}
+                  {#if answer.metrics.approval_ms > 0}
+                    <div><dt>Validation</dt><dd>{duration(answer.metrics.approval_ms)} en attente</dd></div>
                   {/if}
                 </dl>
               {/if}
