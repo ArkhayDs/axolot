@@ -71,7 +71,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("GET /api/mcp", s.listMcpServers)
 	mux.HandleFunc("POST /api/mcp", s.createMcpServer)
 	mux.HandleFunc("PUT /api/mcp/{id}", s.setMcpServerEnabled)
-	mux.HandleFunc("GET /api/mcp/{id}/tools", s.probeMcpServer)
+	mux.HandleFunc("GET /api/mcp/{id}/tools", notCrossSite(s.probeMcpServer))
 	mux.HandleFunc("POST /api/mcp/{id}/login", s.loginMcpServer)
 	mux.HandleFunc("GET /api/mcp/callback", s.mcpCallback)
 	mux.HandleFunc("DELETE /api/mcp/{id}", s.deleteMcpServer)
@@ -116,6 +116,18 @@ func sameOrigin(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// notCrossSite refuses a GET that writes on the side (a probe can refresh and save a token) when another site sends it,
+// e.g. through an <img>. Browsers set Sec-Fetch-Site; without it (curl, tests) the request passes.
+func notCrossSite(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if site := r.Header.Get("Sec-Fetch-Site"); site == "cross-site" || site == "same-site" {
+			writeError(w, http.StatusForbidden, "origine refusée")
+			return
+		}
+		next(w, r)
+	}
 }
 
 // spa serves built assets, falling back to index.html for client-side routes.

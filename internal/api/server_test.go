@@ -58,3 +58,17 @@ func TestConnectionTypeFollowsTheConnection(t *testing.T) {
 		}
 	}
 }
+
+func TestNotCrossSiteRefusesOtherSites(t *testing.T) {
+	for site, want := range map[string]int{"": http.StatusOK, "none": http.StatusOK, "same-origin": http.StatusOK, "same-site": http.StatusForbidden, "cross-site": http.StatusForbidden} {
+		req := httptest.NewRequest(http.MethodGet, "/api/mcp/1/tools", nil)
+		if site != "" {
+			req.Header.Set("Sec-Fetch-Site", site)
+		}
+		rec := httptest.NewRecorder()
+		notCrossSite(func(w http.ResponseWriter, r *http.Request) {})(rec, req)
+		if rec.Code != want {
+			t.Errorf("%q: status=%d, want %d", site, rec.Code, want)
+		}
+	}
+}
