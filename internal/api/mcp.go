@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"regexp"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -56,17 +55,16 @@ func (s *Server) mcpServerByID(w http.ResponseWriter, r *http.Request) (store.Mc
 	if !ok {
 		return store.McpServer{}, false
 	}
-	servers, err := s.cfg.Store.McpServers(r.Context())
+	m, err := s.cfg.Store.McpServer(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
+		return store.McpServer{}, false
+	}
 	if err != nil {
 		internalError(w, r, err)
 		return store.McpServer{}, false
 	}
-	i := slices.IndexFunc(servers, func(m store.McpServer) bool { return m.ID == id })
-	if i < 0 {
-		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
-		return store.McpServer{}, false
-	}
-	return servers[i], true
+	return m, true
 }
 
 // probeMcp lists a server's tools; a failure is data for the panel, not an error.
