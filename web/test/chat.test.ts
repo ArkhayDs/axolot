@@ -75,7 +75,7 @@ test('text around tool calls stays in order, each result joins its call', () => 
   addEvent(parts, { type: 'delta', text: 'Réponse : 42' });
   assert.deepEqual(parts, [
     { kind: 'text', text: 'Je cherche.' },
-    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300 },
+    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300, approval: null },
     { kind: 'text', text: 'Réponse : 42' },
   ]);
   assert.equal(answerText(parts), 'Je cherche.\n\nRéponse : 42');
@@ -83,6 +83,17 @@ test('text around tool calls stays in order, each result joins its call', () => 
 
 test('a tool result without its call fails loudly', () => {
   assert.throws(() => addEvent([], { type: 'tool_result', result: '42', error: false, ms: 300 }));
+});
+
+test('an approval request joins the call just before it', () => {
+  const parts: AnswerPart[] = [];
+  addEvent(parts, { type: 'tool_call', name: 'sentinelle__run_sql', arguments: '{}' });
+  addEvent(parts, { type: 'approval', id: 'abc' });
+  assert.equal(parts[0].kind === 'tool' && parts[0].approval, 'abc');
+});
+
+test('an approval request without its call fails loudly', () => {
+  assert.throws(() => addEvent([], { type: 'approval', id: 'abc' }));
 });
 
 test('the tool summary counts calls and their time, a running call adds none', () => {

@@ -1,21 +1,51 @@
 <script lang="ts">
   import Icon from './Icon.svelte';
+  import { api, errorMessage } from '../lib/api';
   import { prettyJson } from '../lib/chat';
   import type { AnswerPart } from '../lib/chat';
   import { duration } from '../lib/format';
 
-  let { step }: { step: Extract<AnswerPart, { kind: 'tool' }> } = $props();
+  let { step, live }: { step: Extract<AnswerPart, { kind: 'tool' }>; live: boolean } = $props();
+
+  let allowed = $state<boolean | null>(null);
+  let sending = $state(false);
+  let error = $state('');
+
+  // A stopped answer no longer waits: its buttons would answer nothing.
+  let waiting = $derived(live && step.approval !== null && step.result === null && allowed === null);
+
+  /**
+   * Sends the user's click to the call waiting for it
+   * @param {boolean} allow - true for "Autoriser"
+   */
+  async function decide(allow: boolean): Promise<void> {
+    if (step.approval === null) return;
+    sending = true;
+    try {
+      await api.answerApproval(step.approval, allow);
+      allowed = allow;
+      error = '';
+    } catch (sendError) {
+      error = errorMessage(sendError);
+    } finally {
+      sending = false;
+    }
+  }
 </script>
 
-<details class="step">
+<details class="step" open={waiting}>
   <summary>
     <Icon name="plug" size={16} />
     <code>{step.name}</code>
-    {#if step.result === null}
+    {#if waiting}
+      <span class="state-warning">en attente de validation</span>
+    {:else if step.result === null}
       <span class="muted">en cours...</span>
     {:else}
       <span class="muted">{duration(step.ms)}</span>
-      {#if step.error}
+      {#if allowed === false}
+        <span class="muted">refusé</span>
+      {:else if step.error}
         <span class="state-critical">échec</span>
       {/if}
     {/if}
@@ -27,6 +57,13 @@
     <pre>{step.result}</pre>
   {/if}
 </details>
+{#if waiting}
+  <div class="approval">
+    <button class="btn btn-primary" type="button" disabled={sending} onclick={() => decide(true)}>Autoriser</button>
+    <button class="btn" type="button" disabled={sending} onclick={() => decide(false)}>Refuser</button>
+    {#if error}<span class="state-critical">{error}</span>{/if}
+  </div>
+{/if}
 
 <style>
   .step {
@@ -64,5 +101,13 @@
     font-family: var(--mono);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  .approval {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s2);
+    font-size: var(--text-sm);
   }
 </style>

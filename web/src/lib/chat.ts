@@ -5,15 +5,15 @@ import type { ChatEvent, ConnectionType } from './api';
 export const MAX_MODELS = 4;
 export const MAX_LOCAL = 2;
 
-// A tool part's result is null while the call runs.
+// A tool part's result is null while the call runs; approval is the id the user's click answers, null when the tool needs none.
 export type AnswerPart =
   | { kind: 'text'; text: string }
-  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null };
+  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null; approval: string | null };
 
 /**
  * Adds one streamed event to an answer, text and tool steps kept in the order the model produced them
  * @param {AnswerPart[]} parts - answer so far, changed in place
- * @param {ChatEvent} event - delta or tool step; notices are not parts
+ * @param {ChatEvent} event - delta, tool step or its approval request; notices are not parts
  */
 export function addEvent(parts: AnswerPart[], event: ChatEvent): void {
   const last = parts.at(-1);
@@ -21,7 +21,10 @@ export function addEvent(parts: AnswerPart[], event: ChatEvent): void {
     if (last?.kind === 'text') last.text += event.text;
     else parts.push({ kind: 'text', text: event.text });
   } else if (event.type === 'tool_call') {
-    parts.push({ kind: 'tool', name: event.name, arguments: event.arguments, result: null, error: false, ms: null });
+    parts.push({ kind: 'tool', name: event.name, arguments: event.arguments, result: null, error: false, ms: null, approval: null });
+  } else if (event.type === 'approval') {
+    if (last?.kind !== 'tool' || last.result !== null) throw new Error("Demande de validation reçue sans son appel d'outil");
+    last.approval = event.id;
   } else if (event.type === 'tool_result') {
     if (last?.kind !== 'tool' || last.result !== null) throw new Error("Résultat d'outil reçu sans son appel");
     last.result = event.result;
