@@ -1,16 +1,20 @@
-// Package mcp reaches MCP servers over streamable HTTP and lists their tools.
+// Package mcp reaches MCP servers over streamable HTTP, lists their tools and calls them.
 package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
+
+	"github.com/arkhayds/axolot/internal/provider"
 )
 
 // client identifies Axolot to every server.
@@ -19,19 +23,83 @@ var client = sdk.NewClient(&sdk.Implementation{Name: "axolot", Version: "1"}, ni
 // ToolNames connects to a server, lists the names of all its tools, then closes the session.
 // @param token - plain bearer token, empty when the server needs none
 func ToolNames(ctx context.Context, endpoint, token string) ([]string, error) {
-	session, err := connect(ctx, endpoint, token)
+	session, err := Open(ctx, endpoint, token)
 	if err != nil {
 		return nil, err
 	}
 	defer session.Close()
-	names := []string{}
-	for tool, err := range session.Tools(ctx, nil) {
+	tools, err := session.Tools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names, nil
+}
+
+// Session is an open connection to one server; the caller closes it.
+type Session struct {
+	session *sdk.ClientSession
+}
+
+// Open connects to a server.
+// @param token - plain bearer token, empty when the server needs none
+func Open(ctx context.Context, endpoint, token string) (*Session, error) {
+	session, err := connect(ctx, endpoint, token)
+	if err != nil {
+		return nil, err
+	}
+	return &Session{session: session}, nil
+}
+
+// Close ends the session.
+func (s *Session) Close() error {
+	return s.session.Close()
+}
+
+// Tools lists the server's tools as a model is offered them.
+func (s *Session) Tools(ctx context.Context) ([]provider.Tool, error) {
+	tools := []provider.Tool{}
+	for tool, err := range s.session.Tools(ctx, nil) {
 		if err != nil {
 			return nil, fmt.Errorf("list tools: %w", err)
 		}
-		names = append(names, tool.Name)
+		schema, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			return nil, fmt.Errorf("encode schema of %s: %w", tool.Name, err)
+		}
+		tools = append(tools, provider.Tool{Name: tool.Name, Description: tool.Description, Parameters: schema})
 	}
-	return names, nil
+	return tools, nil
+}
+
+// Call runs one tool and returns its text; a tool reporting a failure gives an error carrying that text.
+// shortcut: images and other non-text content are dropped, read them if a server answers with some.
+// @param arguments - JSON object written by the model, empty for none
+func (s *Session) Call(ctx context.Context, name, arguments string) (string, error) {
+	args := map[string]any{}
+	if strings.TrimSpace(arguments) != "" {
+		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+			return "", fmt.Errorf("arguments are not a JSON object: %w", err)
+		}
+	}
+	result, err := s.session.CallTool(ctx, &sdk.CallToolParams{Name: name, Arguments: args})
+	if err != nil {
+		return "", fmt.Errorf("call %s: %w", name, err)
+	}
+	var texts []string
+	for _, content := range result.Content {
+		if text, ok := content.(*sdk.TextContent); ok {
+			texts = append(texts, text.Text)
+		}
+	}
+	text := strings.Join(texts, "\n")
+	if result.IsError {
+		return "", errors.New(text)
+	}
+	return text, nil
 }
 
 // ErrUnauthorized reports a server refusing the token, or asking for one.
