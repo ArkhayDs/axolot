@@ -44,12 +44,18 @@ type Session struct {
 	session *sdk.ClientSession
 }
 
-// Open connects to a server.
+// Open connects to a server in request-response mode: no standing SSE stream, no reconnect, the caller's context bounds it.
 // @param token - plain bearer token, empty when the server needs none
 func Open(ctx context.Context, endpoint, token string) (*Session, error) {
-	session, err := connect(ctx, endpoint, token)
+	parsed, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse %s: %w", endpoint, err)
+	}
+	httpClient := &http.Client{Transport: auth{token: token, host: parsed.Host, next: http.DefaultTransport}}
+	transport := &sdk.StreamableClientTransport{Endpoint: endpoint, HTTPClient: httpClient, DisableStandaloneSSE: true, MaxRetries: -1}
+	session, err := client.Connect(ctx, transport, nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect %s: %w", endpoint, err)
 	}
 	return &Session{session: session}, nil
 }
@@ -108,21 +114,6 @@ var ErrUnauthorized = errors.New("unauthorized")
 // ErrSignInOffered is a 401 naming the server's OAuth metadata: a browser sign-in could get a token.
 // shortcut: servers publishing their metadata only at the well-known URL, without the header, are missed; probe it if one shows up.
 var ErrSignInOffered = fmt.Errorf("%w: browser sign-in offered", ErrUnauthorized)
-
-// connect opens a request-response session: no standing SSE stream, no reconnect, the caller's context bounds it.
-func connect(ctx context.Context, endpoint, token string) (*sdk.ClientSession, error) {
-	parsed, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", endpoint, err)
-	}
-	httpClient := &http.Client{Transport: auth{token: token, host: parsed.Host, next: http.DefaultTransport}}
-	transport := &sdk.StreamableClientTransport{Endpoint: endpoint, HTTPClient: httpClient, DisableStandaloneSSE: true, MaxRetries: -1}
-	session, err := client.Connect(ctx, transport, nil)
-	if err != nil {
-		return nil, fmt.Errorf("connect %s: %w", endpoint, err)
-	}
-	return session, nil
-}
 
 // auth adds the token to requests for the server's own host and turns a 401 or 403 into ErrUnauthorized.
 // The transport sees every redirect hop, so http.Client's own cross-host header stripping never applies here.
