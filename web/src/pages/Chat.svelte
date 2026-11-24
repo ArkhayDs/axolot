@@ -92,7 +92,7 @@
   function history(key: string): { role: string; content: string }[] {
     return turns.slice(0, -1).flatMap((turn) => {
       const answer = turn.answers.find((item) => item.key === key);
-      return answer && answer.state === 'done'
+      return answer && answer.state === 'done' && answerText(answer.parts).trim()
         ? [
             { role: 'user', content: turn.question },
             { role: 'assistant', content: answerText(answer.parts) },
