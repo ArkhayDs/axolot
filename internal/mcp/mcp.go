@@ -21,23 +21,22 @@ import (
 // client identifies Axolot to every server.
 var client = sdk.NewClient(&sdk.Implementation{Name: "axolot", Version: "1"}, nil)
 
-// ToolNames connects to a server, lists the names of all its tools, then closes the session.
+// ListTools connects to a server, lists all its tools, then closes the session.
 // @param token - plain bearer token, empty when the server needs none
-func ToolNames(ctx context.Context, endpoint, token string) ([]string, error) {
+func ListTools(ctx context.Context, endpoint, token string) ([]Tool, error) {
 	session, err := Open(ctx, endpoint, token)
 	if err != nil {
 		return nil, err
 	}
 	defer session.Close()
-	tools, err := session.Tools(ctx)
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, len(tools))
-	for i, tool := range tools {
-		names[i] = tool.Name
-	}
-	return names, nil
+	return session.Tools(ctx)
+}
+
+// Tool is a server's tool as a model is offered it, with what the server says of its effects.
+type Tool struct {
+	provider.Tool
+	// ReadOnly: the server declares the tool changes nothing (readOnlyHint), a claim Axolot cannot check.
+	ReadOnly bool
 }
 
 // Session is an open connection to one server; the caller closes it.
@@ -67,9 +66,9 @@ func (s *Session) Close() error {
 	return s.session.Close()
 }
 
-// Tools lists the server's tools as a model is offered them.
-func (s *Session) Tools(ctx context.Context) ([]provider.Tool, error) {
-	tools := []provider.Tool{}
+// Tools lists the server's tools.
+func (s *Session) Tools(ctx context.Context) ([]Tool, error) {
+	tools := []Tool{}
 	for tool, err := range s.session.Tools(ctx, nil) {
 		if err != nil {
 			return nil, fmt.Errorf("list tools: %w", err)
@@ -78,7 +77,10 @@ func (s *Session) Tools(ctx context.Context) ([]provider.Tool, error) {
 		if err != nil {
 			return nil, fmt.Errorf("encode schema of %s: %w", tool.Name, err)
 		}
-		tools = append(tools, provider.Tool{Name: tool.Name, Description: tool.Description, Parameters: schema})
+		tools = append(tools, Tool{
+			Tool:     provider.Tool{Name: tool.Name, Description: tool.Description, Parameters: schema},
+			ReadOnly: tool.Annotations != nil && tool.Annotations.ReadOnlyHint,
+		})
 	}
 	return tools, nil
 }

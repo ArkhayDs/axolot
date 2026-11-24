@@ -49,7 +49,7 @@
       <dt>Outils</dt>
       <dd>
         {#if probe && probe.tools.length > 0}
-          {probe.tools.join(', ')}
+          {probe.tools.map((tool) => tool.name).join(', ')}
         {:else if probe}
           <span class="muted">{probe.login ? 'Visibles une fois connecté' : 'Aucun outil'}</span>
         {:else}

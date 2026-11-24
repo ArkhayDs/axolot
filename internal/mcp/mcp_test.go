@@ -15,10 +15,9 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/arkhayds/axolot/internal/mcp/mcptest"
-	"github.com/arkhayds/axolot/internal/provider"
 )
 
-// newServer serves get_kpis, which echoes its arguments, broken, which always fails, and mute, which fails with no text;
+// newServer serves get_kpis, read-only, which echoes its arguments, broken, which always fails, and mute, which fails with no text;
 // it answers 401 to requests without the bearer token "secret".
 func newServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -26,6 +25,7 @@ func newServer(t *testing.T) *httptest.Server {
 	server.AddTool(&sdk.Tool{
 		Name:        "get_kpis",
 		Description: "KPIs of a scope",
+		Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true},
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"scope":{"type":"string"}}}`),
 	}, func(_ context.Context, req *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: "kpis for " + string(req.Params.Arguments)}}}, nil
@@ -50,11 +50,15 @@ func newServer(t *testing.T) *httptest.Server {
 	return ts
 }
 
-func TestToolNamesListsWithTheBearerToken(t *testing.T) {
+func TestListToolsWithTheBearerToken(t *testing.T) {
 	ts := newServer(t)
-	names, err := ToolNames(context.Background(), ts.URL, "secret")
+	tools, err := ListTools(context.Background(), ts.URL, "secret")
 	if err != nil {
 		t.Fatal(err)
+	}
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
 	}
 	if !slices.Equal(names, []string{"broken", "get_kpis", "mute"}) {
 		t.Fatalf("names=%v", names)
@@ -72,14 +76,17 @@ func openSession(t *testing.T) *Session {
 	return session
 }
 
-func TestToolsCarryTheirSchema(t *testing.T) {
+func TestToolsCarryTheirSchemaAndReadOnlyHint(t *testing.T) {
 	tools, err := openSession(t).Tools(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	i := slices.IndexFunc(tools, func(tool provider.Tool) bool { return tool.Name == "get_kpis" })
-	if i < 0 || tools[i].Description != "KPIs of a scope" || !strings.Contains(string(tools[i].Parameters), `"scope"`) {
+	i := slices.IndexFunc(tools, func(tool Tool) bool { return tool.Name == "get_kpis" })
+	if i < 0 || tools[i].Description != "KPIs of a scope" || !strings.Contains(string(tools[i].Parameters), `"scope"`) || !tools[i].ReadOnly {
 		t.Fatalf("tools=%+v", tools)
+	}
+	if j := slices.IndexFunc(tools, func(tool Tool) bool { return tool.Name == "broken" }); tools[j].ReadOnly {
+		t.Fatalf("broken declares no hint: %+v", tools[j])
 	}
 }
 
@@ -112,7 +119,7 @@ func TestCallReportsFailures(t *testing.T) {
 	}
 }
 
-func TestToolNamesTellsWhetherASignInWouldHelp(t *testing.T) {
+func TestListToolsTellsWhetherASignInWouldHelp(t *testing.T) {
 	forbidden := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_scope", resource_metadata="https://x/meta"`)
 		w.WriteHeader(http.StatusForbidden)
@@ -126,16 +133,16 @@ func TestToolNamesTellsWhetherASignInWouldHelp(t *testing.T) {
 		"oauth server":                {mcptest.NewOAuthServer(t).URL + "/mcp", true},
 		"signed in, scope too narrow": {forbidden.URL, false},
 	} {
-		_, err := ToolNames(context.Background(), tc.url, "")
+		_, err := ListTools(context.Background(), tc.url, "")
 		if !errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrSignInOffered) != tc.offered {
 			t.Errorf("%s: err=%v", name, err)
 		}
 	}
 }
 
-// TestToolNamesCancelsTheRequestAtTheDeadline reads the body first: net/http only notices a client gone once it has.
+// TestListToolsCancelsTheRequestAtTheDeadline reads the body first: net/http only notices a client gone once it has.
 // A read error only means the client already left, which the test waits for anyway.
-func TestToolNamesCancelsTheRequestAtTheDeadline(t *testing.T) {
+func TestListToolsCancelsTheRequestAtTheDeadline(t *testing.T) {
 	cancelled := make(chan struct{})
 	release := make(chan struct{})
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -150,7 +157,7 @@ func TestToolNamesCancelsTheRequestAtTheDeadline(t *testing.T) {
 	t.Cleanup(func() { close(release) })
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	if _, err := ToolNames(ctx, ts.URL, ""); err == nil {
+	if _, err := ListTools(ctx, ts.URL, ""); err == nil {
 		t.Fatal("expected an error past the deadline")
 	}
 	select {
@@ -160,7 +167,7 @@ func TestToolNamesCancelsTheRequestAtTheDeadline(t *testing.T) {
 	}
 }
 
-func TestToolNamesKeepsTheTokenFromAnotherHost(t *testing.T) {
+func TestListToolsKeepsTheTokenFromAnotherHost(t *testing.T) {
 	var leaked string
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		leaked = r.Header.Get("Authorization")
@@ -171,7 +178,7 @@ func TestToolNamesKeepsTheTokenFromAnotherHost(t *testing.T) {
 		http.Redirect(w, r, other.URL, http.StatusTemporaryRedirect)
 	}))
 	t.Cleanup(redirect.Close)
-	if _, err := ToolNames(context.Background(), redirect.URL, "secret"); err == nil {
+	if _, err := ListTools(context.Background(), redirect.URL, "secret"); err == nil {
 		t.Fatal("expected an error from the other host")
 	}
 	if leaked != "" {

@@ -122,7 +122,7 @@ type toolRoute struct {
 // openedMcp is one server's session and tools, or why it could not be opened.
 type openedMcp struct {
 	session *mcp.Session
-	tools   []provider.Tool
+	tools   []mcp.Tool
 	err     error
 }
 
@@ -161,7 +161,7 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 			}
 			box.routes[offered] = toolRoute{session: o.session, name: tool.Name}
 			tool.Name = offered
-			box.tools = append(box.tools, tool)
+			box.tools = append(box.tools, tool.Tool)
 		}
 	}
 	return box
