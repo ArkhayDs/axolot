@@ -413,6 +413,26 @@ func TestOpenAIChatSplitsWholeToolCallsSentWithoutIndex(t *testing.T) {
 	}
 }
 
+func TestOpenAIChatNamesToolCallsStreamedWithoutID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, delta := range []string{
+			`{"index":0,"type":"function","function":{"name":"weather","arguments":"{}"}}`,
+			`{"index":1,"type":"function","function":{"name":"weather","arguments":"{}"}}`,
+		} {
+			fmt.Fprintf(w, "data: {\"choices\":[{\"delta\":{\"tool_calls\":[%s]}}]}\n\n", delta)
+		}
+	}))
+	defer srv.Close()
+
+	result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.ToolCalls) != 2 || result.ToolCalls[0].ID != "call_0" || result.ToolCalls[1].ID != "call_1" {
+		t.Fatalf("tool calls = %+v", result.ToolCalls)
+	}
+}
+
 func TestOpenAIChatRejectsToolCallIndexOutOfOrder(t *testing.T) {
 	for index, want := range map[int]string{5: "streamed before call 0", -1: "invalid tool call index -1"} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
