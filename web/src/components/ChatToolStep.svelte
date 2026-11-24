@@ -17,12 +17,13 @@
   /**
    * Sends the user's click to the call waiting for it
    * @param {boolean} allow - true for "Autoriser"
+   * @param {boolean} always - "Toujours autoriser": the tool also switches to Autorisé in Permissions
    */
-  async function decide(allow: boolean): Promise<void> {
+  async function decide(allow: boolean, always = false): Promise<void> {
     if (step.approval === null) return;
     sending = true;
     try {
-      await api.answerApproval(step.approval, allow);
+      await api.answerApproval(step.approval, allow, always);
       allowed = allow;
       error = '';
     } catch (sendError) {
@@ -60,6 +61,7 @@
 {#if waiting}
   <div class="approval">
     <button class="btn btn-primary" type="button" disabled={sending} onclick={() => decide(true)}>Autoriser</button>
+    <button class="btn" type="button" disabled={sending} onclick={() => decide(true, true)}>Toujours autoriser</button>
     <button class="btn" type="button" disabled={sending} onclick={() => decide(false)}>Refuser</button>
     {#if error}<span class="state-critical">{error}</span>{/if}
   </div>

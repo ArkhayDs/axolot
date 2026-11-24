@@ -457,7 +457,8 @@ export const api = {
   providers: (): Promise<Provider[]> => get('/providers'),
   createProvider: (body: { name: string; kind: string; base_url: string; api_key: string }): Promise<{ id: number }> =>
     write('POST', '/providers', body),
-  answerApproval: (id: string, allow: boolean): Promise<void> => write('POST', `/chat/approvals/${encodeURIComponent(id)}`, { allow }),
+  answerApproval: (id: string, allow: boolean, always: boolean): Promise<void> =>
+    write('POST', `/chat/approvals/${encodeURIComponent(id)}`, { allow, always }),
   createBridge: (): Promise<{ id: number }> => write('POST', '/providers/bridge'),
   deleteProvider: (id: number): Promise<void> => write('DELETE', `/providers/${id}`),
   mcpServers: (): Promise<McpServer[]> => get('/mcp'),
