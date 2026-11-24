@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	sdkauth "github.com/modelcontextprotocol/go-sdk/auth"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -39,7 +40,7 @@ func Login(ctx context.Context, endpoint, redirectURL string, fetch sdkauth.Auth
 	if err != nil {
 		return nil, fmt.Errorf("oauth handler: %w", err)
 	}
-	transport := &sdk.StreamableClientTransport{Endpoint: endpoint, OAuthHandler: handler, DisableStandaloneSSE: true, MaxRetries: -1}
+	transport := &sdk.StreamableClientTransport{Endpoint: endpoint, OAuthHandler: &signInOnce{AuthorizationCodeHandler: handler}, DisableStandaloneSSE: true, MaxRetries: -1}
 	session, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		return nil, fmt.Errorf("login %s: %w", endpoint, err)
@@ -49,4 +50,26 @@ func Login(ctx context.Context, endpoint, redirectURL string, fetch sdkauth.Auth
 		return nil, errors.New("server answered without asking to sign in")
 	}
 	return creds, nil
+}
+
+// signInOnce opens the sign-in page once per Login: Connect sends server/discover then initialize,
+// and without it a sign-in refused on the first would open a second page nobody answers.
+type signInOnce struct {
+	*sdkauth.AuthorizationCodeHandler
+	asked bool
+	err   error
+}
+
+// Authorize runs the sign-in the first time, then repeats its outcome.
+func (h *signInOnce) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
+	if h.asked {
+		resp.Body.Close()
+		if h.err == nil {
+			return errors.New("server refused the token it just issued")
+		}
+		return h.err
+	}
+	h.asked = true
+	h.err = h.AuthorizationCodeHandler.Authorize(ctx, req, resp)
+	return h.err
 }
