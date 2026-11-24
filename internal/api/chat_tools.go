@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/arkhayds/axolot/internal/mcp"
 	"github.com/arkhayds/axolot/internal/provider"
@@ -32,10 +31,10 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 	start := time.Now()
 	req.Tools = tools.tools
 	onDelta := func(text string) { send(map[string]any{"type": "delta", "text": text}) }
-	for range chatMaxRounds {
+	for round := range chatMaxRounds {
 		offset := time.Since(start).Milliseconds()
 		result, err := client.Chat(ctx, req, onDelta)
-		if err != nil && len(req.Tools) > 0 && strings.Contains(err.Error(), "does not support tools") {
+		if err != nil && len(req.Tools) > 0 && refusesTools(err) {
 			send(map[string]any{"type": "notice", "text": "Ce modèle n'appelle pas d'outils"})
 			req.Tools = nil
 			offset = time.Since(start).Milliseconds()
@@ -52,12 +51,26 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 			result.TotalMs = time.Since(start).Milliseconds()
 			return result, nil
 		}
+		if round == chatMaxRounds-1 {
+			break
+		}
 		req.Messages = append(req.Messages, provider.Message{Role: "assistant", Content: result.Output, ToolCalls: result.ToolCalls})
 		for _, call := range result.ToolCalls {
 			req.Messages = append(req.Messages, tools.run(ctx, call, send))
 		}
 	}
 	return provider.ChatResult{}, errTooManyRounds
+}
+
+// refusesTools tells whether the model server turned the request down for its tools:
+// Ollama for a model without tool support, vLLM and llama.cpp when started without tool parsing.
+func refusesTools(err error) bool {
+	for _, refusal := range []string{"does not support tools", "--enable-auto-tool-choice", "--jinja"} {
+		if strings.Contains(err.Error(), refusal) {
+			return true
+		}
+	}
+	return false
 }
 
 // run calls one tool for the model and streams the step; a failure becomes the tool's reply, for the model to correct.
@@ -79,10 +92,14 @@ func (t *toolbox) run(ctx context.Context, call provider.ToolCall, send func(map
 
 // cutToolResult keeps the first toolResultMax characters and says the rest was dropped.
 func cutToolResult(text string) string {
-	if utf8.RuneCountInString(text) <= toolResultMax {
-		return text
+	kept := 0
+	for i := range text {
+		if kept == toolResultMax {
+			return text[:i] + toolCutNotice
+		}
+		kept++
 	}
-	return string([]rune(text)[:toolResultMax]) + toolCutNotice
+	return text
 }
 
 // toolbox is what one chat turn may call: the enabled servers' tools, named "<server>__<tool>",
@@ -129,7 +146,7 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 		case signInNeeded(o.err, m):
 			box.warnings = append(box.warnings, m.Name+" : connexion requise, outils absents")
 		case o.err != nil:
-			box.warnings = append(box.warnings, m.Name+" injoignable, outils absents")
+			box.warnings = append(box.warnings, m.Name+" : "+mcpFailure(o.err)+", outils absents")
 		}
 		if o.err != nil {
 			slog.Warn("mcp server left out of the chat", "server", m.Name, "err", o.err)

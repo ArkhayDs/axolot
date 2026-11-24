@@ -60,7 +60,7 @@ func TestToolboxWarnsAboutServersItCannotOpen(t *testing.T) {
 	})
 	defer tools.close()
 
-	want := []string{"down injoignable, outils absents", "lost : connexion requise, outils absents"}
+	want := []string{"down : Jeton refusé ou manquant, outils absents", "lost : connexion requise, outils absents"}
 	if !slices.Equal(tools.warnings, want) || len(tools.tools) != 1 {
 		t.Fatalf("tools=%+v warnings=%v", tools.tools, tools.warnings)
 	}
@@ -158,10 +158,28 @@ func TestAnswerReturnsToolFailuresToTheModel(t *testing.T) {
 func TestAnswerStopsAfterTheRoundCap(t *testing.T) {
 	tools := &toolbox{tools: []provider.Tool{{Name: "srv__get_kpis"}}, routes: map[string]toolRoute{}}
 	model := &scripted{results: []provider.ChatResult{{ToolCalls: []provider.ToolCall{{ID: "c", Name: "srv__get_kpis"}}}}}
-	_, send := recorder()
+	events, send := recorder()
 
 	if _, err := answer(context.Background(), model, question, tools, send); err == nil || len(model.reqs) != chatMaxRounds {
 		t.Fatalf("err=%v after %d calls", err, len(model.reqs))
+	}
+	if len(*events) != 2*(chatMaxRounds-1) {
+		t.Fatalf("the last round's tools ran: %d events", len(*events))
+	}
+}
+
+func TestRefusesTools(t *testing.T) {
+	for _, msg := range []string{
+		`{"error":"gemma3:4b does not support tools"}`,
+		`"auto" tool choice requires --enable-auto-tool-choice and --tool-call-parser to be set`,
+		`tools param requires --jinja flag`,
+	} {
+		if !refusesTools(errors.New(msg)) {
+			t.Errorf("not seen as a refusal: %s", msg)
+		}
+	}
+	if refusesTools(errors.New("connection refused")) {
+		t.Error("network error seen as a refusal")
 	}
 }
 
