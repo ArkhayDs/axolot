@@ -22,7 +22,7 @@ import (
 // loginTimeout leaves the user time to sign in on the server's page.
 const loginTimeout = 5 * time.Minute
 
-// loginStartTimeout covers discovery and client registration until the sign-in page is known, then the token exchange.
+// loginStartTimeout covers discovery and client registration until the sign-in page is known.
 const loginStartTimeout = 15 * time.Second
 
 // mcpLogin is a sign-in waiting for the browser to come back to the callback.
@@ -41,12 +41,12 @@ func (s *Server) loginMcpServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pageURL, err := s.beginLogin(m.URL, "http://"+r.Host+"/api/mcp/callback", func(ctx context.Context, creds *mcp.Creds) error {
+		s.oauthMu.Lock()
+		defer s.oauthMu.Unlock()
 		if err := s.saveOAuth(ctx, m.ID, *creds); err != nil {
 			return err
 		}
-		s.oauthMu.Lock()
 		s.oauthSources[m.ID] = newOAuthSource(*creds)
-		s.oauthMu.Unlock()
 		slog.Info("mcp signed in", "server", m.Name, "client", creds.Config.ClientID)
 		return nil
 	})
@@ -116,7 +116,7 @@ func (s *Server) beginLogin(endpoint, redirectURL string, finish func(context.Co
 }
 
 // mcpCallback is where the server's sign-in page sends the browser back; the first hit hands the code to the waiting login,
-// every hit waits for its outcome.
+// every hit waits for its outcome, which loginTimeout bounds.
 func (s *Server) mcpCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	s.oauthMu.Lock()
@@ -135,9 +135,6 @@ func (s *Server) mcpCallback(w http.ResponseWriter, r *http.Request) {
 	})
 	select {
 	case <-login.finished:
-	case <-time.After(loginStartTimeout):
-		callbackPage(w, failedPage)
-		return
 	case <-r.Context().Done():
 		return
 	}
@@ -193,7 +190,7 @@ func callbackPage(w http.ResponseWriter, v callbackView) {
 	}
 }
 
-// saveOAuth seals and stores a server's OAuth credentials.
+// saveOAuth seals and stores a server's OAuth credentials, bounded in time since callers hold oauthMu.
 func (s *Server) saveOAuth(ctx context.Context, id int64, creds mcp.Creds) error {
 	plain, err := json.Marshal(creds)
 	if err != nil {
@@ -203,7 +200,22 @@ func (s *Server) saveOAuth(ctx context.Context, id int64, creds mcp.Creds) error
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, mcpProbeTimeout)
+	defer cancel()
 	return s.cfg.Store.SetMcpServerOAuth(ctx, id, sealed)
+}
+
+// saveRefreshed saves a refreshed token unless a newer sign-in or a deletion replaced source meanwhile,
+// so a late refresh never overwrites a newer sign-in; oauthMu stays held until the write is done.
+func (s *Server) saveRefreshed(id int64, source *oauthSource) func(context.Context, mcp.Creds) error {
+	return func(ctx context.Context, creds mcp.Creds) error {
+		s.oauthMu.Lock()
+		defer s.oauthMu.Unlock()
+		if s.oauthSources[id] != source {
+			return nil
+		}
+		return s.saveOAuth(ctx, id, creds)
+	}
 }
 
 // oauthToken gives the bearer of a server signed in from the browser, refreshing it when expired.
@@ -227,7 +239,7 @@ func (s *Server) oauthToken(ctx context.Context, m store.McpServer) (string, err
 		s.oauthSources[m.ID] = source
 	}
 	s.oauthMu.Unlock()
-	return source.token(ctx, func(ctx context.Context, creds mcp.Creds) error { return s.saveOAuth(ctx, m.ID, creds) })
+	return source.token(ctx, s.saveRefreshed(m.ID, source))
 }
 
 // errSignInLost means only a new browser sign-in can bring the server back; any other token error may pass on its own.
@@ -249,17 +261,22 @@ func newOAuthSource(creds mcp.Creds) *oauthSource {
 
 // token returns a valid access token, saving it after a refresh so a restart keeps the rotated refresh token.
 // A failed save is retried on the next call; the save outlives ctx, since the refresh already spent the old refresh token.
+// The sign-in is lost when the token expired without a refresh token, or the token server answers 400 (invalid_grant)
+// or 401 (invalid_client); any other failure, a 429 included, may pass on its own.
 func (o *oauthSource) token(ctx context.Context, save func(context.Context, mcp.Creds) error) (string, error) {
 	tok, err := o.tokens.Token()
-	var refused *oauth2.RetrieveError
-	if errors.As(err, &refused) && refused.Response != nil && refused.Response.StatusCode < http.StatusInternalServerError {
-		return "", fmt.Errorf("%w: refresh refused: %v", errSignInLost, err)
-	}
-	if err != nil {
-		return "", fmt.Errorf("refresh token: %w", err)
-	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	var refused *oauth2.RetrieveError
+	switch {
+	case err != nil && o.creds.Token.RefreshToken == "":
+		return "", fmt.Errorf("%w: %v", errSignInLost, err)
+	case errors.As(err, &refused) && refused.Response != nil &&
+		(refused.Response.StatusCode == http.StatusBadRequest || refused.Response.StatusCode == http.StatusUnauthorized):
+		return "", fmt.Errorf("%w: refresh refused: %v", errSignInLost, err)
+	case err != nil:
+		return "", fmt.Errorf("refresh token: %w", err)
+	}
 	if tok.AccessToken != o.creds.Token.AccessToken {
 		creds := o.creds
 		creds.Token = tok

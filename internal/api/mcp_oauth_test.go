@@ -147,10 +147,12 @@ func TestProbeMcpAsksToSignIn(t *testing.T) {
 	ts := mcptest.NewOAuthServer(t)
 	s := newOAuthTestServer(t)
 	revoked := &oauth2.Token{AccessToken: "old", RefreshToken: "revoked", Expiry: time.Now().Add(-time.Minute)}
+	noRefresh := &oauth2.Token{AccessToken: "old", Expiry: time.Now().Add(-time.Minute)}
 	for name, m := range map[string]store.McpServer{
 		"never signed in":       {URL: ts.URL + "/mcp"},
 		"unreadable sign-in":    {ID: 1, URL: ts.URL + "/mcp", OAuthEnc: []byte("garbage")},
 		"refresh token refused": {ID: 2, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, ts.URL+"/token", revoked)},
+		"no refresh token":      {ID: 3, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, ts.URL+"/token", noRefresh)},
 	} {
 		view := s.probeMcp(context.Background(), m)
 		if !view.Login || view.Error != "Connexion requise" {
@@ -161,12 +163,32 @@ func TestProbeMcpAsksToSignIn(t *testing.T) {
 
 func TestProbeMcpKeepsTheSignInWhenTheTokenServerIsDown(t *testing.T) {
 	ts := mcptest.NewOAuthServer(t)
+	busy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(busy.Close)
 	s := newOAuthTestServer(t)
 	expired := &oauth2.Token{AccessToken: "old", RefreshToken: "refresh-1", Expiry: time.Now().Add(-time.Minute)}
-	sealed := sealCreds(t, s, "http://127.0.0.1:1/token", expired)
-	view := s.probeMcp(context.Background(), store.McpServer{ID: 1, URL: ts.URL + "/mcp", OAuthEnc: sealed})
-	if view.Login || view.Error == "" {
-		t.Fatalf("view=%+v", view)
+	for id, tokenURL := range map[int64]string{1: "http://127.0.0.1:1/token", 2: busy.URL} {
+		view := s.probeMcp(context.Background(), store.McpServer{ID: id, URL: ts.URL + "/mcp", OAuthEnc: sealCreds(t, s, tokenURL, expired)})
+		if view.Login || view.Error == "" {
+			t.Errorf("%s: view=%+v", tokenURL, view)
+		}
+	}
+}
+
+// TestSaveRefreshedSkipsAReplacedSignIn relies on the test server having no database: a save reaching it would panic.
+func TestSaveRefreshedSkipsAReplacedSignIn(t *testing.T) {
+	ts := mcptest.NewOAuthServer(t)
+	s := newOAuthTestServer(t)
+	stale := newOAuthSource(mcp.Creds{
+		Config: oauth2.Config{ClientID: "c1", Endpoint: oauth2.Endpoint{TokenURL: ts.URL + "/token"}},
+		Token:  &oauth2.Token{AccessToken: "access-1", RefreshToken: "refresh-1", Expiry: time.Now().Add(-time.Minute)},
+	})
+	s.oauthSources[1] = &oauthSource{}
+
+	if token, err := stale.token(context.Background(), s.saveRefreshed(1, stale)); err != nil || token != "access-2" {
+		t.Fatalf("token=%q err=%v", token, err)
 	}
 }
 
