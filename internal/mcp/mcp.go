@@ -45,7 +45,8 @@ type Session struct {
 	session *sdk.ClientSession
 }
 
-// Open connects to a server in request-response mode: no standing SSE stream, no reconnect, the caller's context bounds it.
+// Open connects to a server in request-response mode: no standing SSE stream, no reconnect.
+// The context bounds the handshake only; the session lives until Close.
 // @param token - plain bearer token, empty when the server needs none
 func Open(ctx context.Context, endpoint, token string) (*Session, error) {
 	parsed, err := url.Parse(endpoint)
