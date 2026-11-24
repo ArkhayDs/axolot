@@ -28,6 +28,8 @@ type mcpServerView struct {
 	store.McpServer
 	Tools []string `json:"tools"`
 	Error string   `json:"error,omitempty"`
+	// Login: signing in from the browser would let the server answer.
+	Login bool `json:"login"`
 }
 
 // listMcpServers returns each server with its live tool names, probed in parallel so unreachable servers wait out one timeout together.
@@ -50,10 +52,17 @@ func (s *Server) listMcpServers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpServerView {
 	view := mcpServerView{McpServer: m, Tools: []string{}}
 	token := ""
-	if len(m.TokenEnc) > 0 {
-		var err error
+	var err error
+	switch {
+	case len(m.TokenEnc) > 0:
 		if token, err = s.cfg.Box.Open(m.TokenEnc); err != nil {
 			view.Error = "Jeton illisible, supprimer et recréer le serveur"
+			return view
+		}
+	case len(m.OAuthEnc) > 0:
+		if token, err = s.oauthToken(ctx, m); err != nil {
+			slog.Warn("mcp sign-in unusable", "server", m.Name, "err", err)
+			view.Error, view.Login = "Connexion requise", true
 			return view
 		}
 	}
@@ -63,6 +72,9 @@ func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpServerView 
 	if err != nil {
 		slog.Warn("mcp probe failed", "server", m.Name, "err", err)
 		view.Error = mcpFailure(err)
+		if errors.Is(err, mcp.ErrUnauthorized) && len(m.TokenEnc) == 0 {
+			view.Error, view.Login = "Connexion requise", true
+		}
 		return view
 	}
 	view.Tools = names
@@ -154,7 +166,7 @@ func (s *Server) setMcpServerEnabled(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// deleteMcpServer removes a server.
+// deleteMcpServer removes a server and forgets its sign-in.
 func (s *Server) deleteMcpServer(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r, "id")
 	if !ok {
@@ -169,5 +181,8 @@ func (s *Server) deleteMcpServer(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
+	s.oauthMu.Lock()
+	delete(s.oauthSources, id)
+	s.oauthMu.Unlock()
 	w.WriteHeader(http.StatusNoContent)
 }
