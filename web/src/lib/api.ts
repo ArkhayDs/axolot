@@ -417,19 +417,24 @@ export async function streamChat(body: ChatBody, onEvent: (event: ChatEvent) => 
   if (!response.body) throw new Error('Flux non supporté');
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) throw new Error('Réponse interrompue');
-    buffer += value;
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      if (!line) continue;
-      const event = JSON.parse(line) as ChatEvent | { type: 'error'; error?: string } | ({ type: 'done' } & ChatMetrics);
-      if (event.type === 'error') throw new Error(event.error ?? 'Erreur du modèle');
-      if (event.type === 'done') return event;
-      onEvent(event);
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) throw new Error('Réponse interrompue');
+      buffer += value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line) continue;
+        const event = JSON.parse(line) as ChatEvent | { type: 'error'; error?: string } | ({ type: 'done' } & ChatMetrics);
+        if (event.type === 'error') throw new Error(event.error ?? 'Erreur du modèle');
+        if (event.type === 'done') return event;
+        onEvent(event);
+      }
     }
+  } finally {
+    // Leaving early closes the connection, so the server stops calling the model and its tools.
+    await reader.cancel().catch(() => undefined);
   }
 }
 
