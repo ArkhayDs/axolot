@@ -6,7 +6,7 @@
   import McpServerList from './McpServerList.svelte';
   import Notice from './Notice.svelte';
   import { api, errorMessage } from '../lib/api';
-  import type { McpProbe, McpServer } from '../lib/api';
+  import type { McpProbe, McpServer, McpTool, McpToolMode } from '../lib/api';
   import { motion } from '../lib/mcp';
 
   let { open, onclose }: { open: boolean; onclose: () => void } = $props();
@@ -79,6 +79,24 @@
   }
 
   /**
+   * Saves a tool's permission, turned back when the server refuses
+   * @param {McpServer} server - server offering the tool
+   * @param {McpTool} tool - tool changed
+   * @param {McpToolMode} mode - permission picked
+   */
+  async function setMode(server: McpServer, tool: McpTool, mode: McpToolMode): Promise<void> {
+    const previous = tool.mode;
+    tool.mode = mode;
+    try {
+      await api.setMcpToolMode(server.id, tool.name, mode);
+      error = '';
+    } catch (saveError) {
+      tool.mode = previous;
+      error = errorMessage(saveError);
+    }
+  }
+
+  /**
    * Deletes a server after confirmation
    * @param {McpServer} server - server to remove
    */
@@ -142,7 +160,7 @@
     <Notice message={error} />
     {#if detail}
       <div class="view" in:fly={{ ...motion, x: 16 }}>
-        <McpServerDetail server={detail} probe={probes[detail.id]} onback={() => (selected = null)} onsignin={signIn} />
+        <McpServerDetail server={detail} probe={probes[detail.id]} onback={() => (selected = null)} onsignin={signIn} onmode={setMode} />
       </div>
     {:else}
       <div class="view" in:fly={{ ...motion, x: -16 }}>
