@@ -16,17 +16,19 @@ type McpServer struct {
 	Enabled  bool   `json:"enabled"`
 	TokenEnc []byte `json:"-"`
 	OAuthEnc []byte `json:"-"`
+	// ToolModes maps a tool name, as the server gives it, to allow, ask or block; unset tools are absent.
+	ToolModes map[string]string `json:"-"`
 }
 
 // McpServers lists MCP servers, oldest first.
 func (s *Store) McpServers(ctx context.Context) ([]McpServer, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, name, url, enabled, token_enc, oauth_enc FROM mcp_servers ORDER BY id`)
+	rows, err := s.pool.Query(ctx, `SELECT id, name, url, enabled, token_enc, oauth_enc, tool_modes FROM mcp_servers ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("list mcp servers: %w", err)
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (McpServer, error) {
 		var m McpServer
-		err := row.Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc)
+		err := row.Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc, &m.ToolModes)
 		return m, err
 	})
 }
@@ -35,8 +37,8 @@ func (s *Store) McpServers(ctx context.Context) ([]McpServer, error) {
 // @returns ErrNotFound when no server has this id
 func (s *Store) McpServer(ctx context.Context, id int64) (McpServer, error) {
 	var m McpServer
-	err := s.pool.QueryRow(ctx, `SELECT id, name, url, enabled, token_enc, oauth_enc FROM mcp_servers WHERE id = $1`, id).
-		Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc)
+	err := s.pool.QueryRow(ctx, `SELECT id, name, url, enabled, token_enc, oauth_enc, tool_modes FROM mcp_servers WHERE id = $1`, id).
+		Scan(&m.ID, &m.Name, &m.URL, &m.Enabled, &m.TokenEnc, &m.OAuthEnc, &m.ToolModes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return McpServer{}, ErrNotFound
 	}
@@ -53,6 +55,21 @@ func (s *Store) SetMcpServerOAuth(ctx context.Context, id int64, oauthEnc []byte
 	tag, err := s.pool.Exec(ctx, `UPDATE mcp_servers SET oauth_enc = $2 WHERE id = $1`, id, oauthEnc)
 	if err != nil {
 		return fmt.Errorf("set mcp server oauth: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetMcpToolMode saves the permission of one tool, keeping the other tools' ones.
+// @param mode - allow, ask or block, checked by the caller
+// @returns ErrNotFound when no server has this id
+func (s *Store) SetMcpToolMode(ctx context.Context, id int64, tool, mode string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE mcp_servers SET tool_modes = tool_modes || jsonb_build_object($2::text, $3::text) WHERE id = $1`,
+		id, tool, mode)
+	if err != nil {
+		return fmt.Errorf("set mcp tool mode: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
