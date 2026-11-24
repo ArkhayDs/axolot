@@ -12,7 +12,7 @@ Vocabulaire commun du code, des docs et des échanges. Un mot présent ici a exa
 
 ### Chat
 
-**Definition**: page pour poser une question libre aux modèles cochés et comparer leurs réponses, avec corpus, document ou image joints en option.
+**Definition**: page pour poser une question libre aux modèles cochés et comparer leurs réponses, avec corpus, document ou image joints et outils des serveurs MCP en option.
 **Examples**: `web/src/pages/Chat.svelte`.
 **Not to be confused with**: Benchmark, seul à noter les réponses.
 

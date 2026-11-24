@@ -68,6 +68,8 @@ Poser une question à plusieurs modèles et comparer les réponses. Jusqu'à 4 m
 
 Serveurs MCP : bouton du même nom, serveurs HTTP ajoutés par nom, URL et jeton facultatif (chiffré comme les clés API). Un serveur qui demande une connexion (OAuth) affiche "Connexion requise" : "Se connecter" ouvre sa page dans un nouvel onglet, la connexion est gardée chiffrée. Chaque ligne affiche l'état de son serveur dès qu'il répond, ses outils sont dans le détail.
 
+Les modèles appellent les outils des serveurs activés avant de répondre (10 tours, 30 s par appel, résultat coupé à 20 000 caractères). Chaque appel s'affiche dans la réponse avec ses arguments, sa durée et son résultat dépliable, plus le total dans les mesures (Outils : nombre d'appels et durée). Un serveur injoignable, ou un modèle qui refuse les outils, est signalé sur la carte et la réponse vient sans eux. Les modèles par abonnement n'ont pas encore d'outils.
+
 ![Chat](docs/captures/chat-desktop.png)
 
 ### Scénarios
