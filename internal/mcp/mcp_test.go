@@ -84,6 +84,7 @@ func TestCallReturnsTheToolText(t *testing.T) {
 	for arguments, want := range map[string]string{
 		`{"scope":"store-12"}`: `kpis for {"scope":"store-12"}`,
 		"":                     "kpis for {}",
+		"null":                 "kpis for {}",
 	} {
 		text, err := session.Call(context.Background(), "get_kpis", arguments)
 		if err != nil || text != want {

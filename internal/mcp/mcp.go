@@ -91,6 +91,10 @@ func (s *Session) Call(ctx context.Context, name, arguments string) (string, err
 			return "", fmt.Errorf("arguments are not a JSON object: %w", err)
 		}
 	}
+	// "null" empties the map to nil, sent as null: servers checking the schema refuse it.
+	if args == nil {
+		args = map[string]any{}
+	}
 	result, err := s.session.CallTool(ctx, &sdk.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
 		return "", fmt.Errorf("call %s: %w", name, err)
