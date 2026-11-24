@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"slices"
 	"sync"
 	"time"
 
@@ -34,21 +33,10 @@ type mcpLogin struct {
 
 // loginMcpServer starts a browser sign-in and answers the page to open in a new tab.
 func (s *Server) loginMcpServer(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathID(w, r, "id")
+	m, ok := s.mcpServerByID(w, r)
 	if !ok {
 		return
 	}
-	servers, err := s.cfg.Store.McpServers(r.Context())
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-	i := slices.IndexFunc(servers, func(m store.McpServer) bool { return m.ID == id })
-	if i < 0 {
-		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
-		return
-	}
-	m := servers[i]
 	pageURL, err := s.beginLogin(m.URL, "http://"+r.Host+"/api/mcp/callback", func(ctx context.Context, creds *mcp.Creds) error {
 		if err := s.saveOAuth(ctx, m.ID, *creds); err != nil {
 			return err
