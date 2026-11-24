@@ -2,7 +2,7 @@
 
 ## Project Config
 - `branch_prefix`: AXO
-- **Linear**: équipe Dust Factory (DSFY), projets `Axolot - …`, label `Axolot`
+- **Linear**: équipe Dust Factory (DSFY), projets `Axolot - …`, label `Axolot`, icône `:test_tube:`, couleur `#e87ea1`
 - **Records**: `docs/records/`
 
 ## Overview
