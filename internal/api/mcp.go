@@ -8,8 +8,8 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -23,34 +23,55 @@ const mcpProbeTimeout = 5 * time.Second
 // mcpName becomes the prefix of the server's tools, and tool names accept only letters, digits, _ and -.
 var mcpName = regexp.MustCompile(`^[a-z0-9_-]{1,32}$`)
 
-// mcpServerView is a saved server with the tools it offers right now, or why it could not be reached.
-type mcpServerView struct {
-	store.McpServer
+// mcpProbe is what a server offers right now, or why it could not be reached.
+type mcpProbe struct {
 	Tools []string `json:"tools"`
 	Error string   `json:"error,omitempty"`
 	// Login: signing in from the browser would let the server answer.
 	Login bool `json:"login"`
 }
 
-// listMcpServers returns each server with its live tool names, probed in parallel so unreachable servers wait out one timeout together.
+// listMcpServers returns the saved servers without contacting them, so the panel shows at once.
 func (s *Server) listMcpServers(w http.ResponseWriter, r *http.Request) {
 	servers, err := s.cfg.Store.McpServers(r.Context())
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-	views := make([]mcpServerView, len(servers))
-	var wg sync.WaitGroup
-	for i, m := range servers {
-		wg.Go(func() { views[i] = s.probeMcp(r.Context(), m) })
+	writeJSON(w, http.StatusOK, servers)
+}
+
+// probeMcpServer asks one server for its tools; the panel calls it per row, so a slow server delays only its own row.
+func (s *Server) probeMcpServer(w http.ResponseWriter, r *http.Request) {
+	m, ok := s.mcpServerByID(w, r)
+	if !ok {
+		return
 	}
-	wg.Wait()
-	writeJSON(w, http.StatusOK, views)
+	writeJSON(w, http.StatusOK, s.probeMcp(r.Context(), m))
+}
+
+// mcpServerByID reads the {id} path value and loads its server, answering the error itself.
+func (s *Server) mcpServerByID(w http.ResponseWriter, r *http.Request) (store.McpServer, bool) {
+	id, ok := pathID(w, r, "id")
+	if !ok {
+		return store.McpServer{}, false
+	}
+	servers, err := s.cfg.Store.McpServers(r.Context())
+	if err != nil {
+		internalError(w, r, err)
+		return store.McpServer{}, false
+	}
+	i := slices.IndexFunc(servers, func(m store.McpServer) bool { return m.ID == id })
+	if i < 0 {
+		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
+		return store.McpServer{}, false
+	}
+	return servers[i], true
 }
 
 // probeMcp lists a server's tools; a failure is data for the panel, not an error.
-func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpServerView {
-	view := mcpServerView{McpServer: m, Tools: []string{}}
+func (s *Server) probeMcp(ctx context.Context, m store.McpServer) mcpProbe {
+	view := mcpProbe{Tools: []string{}}
 	token := ""
 	var err error
 	switch {
