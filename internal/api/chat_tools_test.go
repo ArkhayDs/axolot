@@ -111,11 +111,36 @@ func TestToolboxLeavesBlockedToolsOut(t *testing.T) {
 	})
 	defer tools.close()
 
-	if len(tools.tools) != 0 {
-		t.Fatalf("tools=%+v", tools.tools)
+	if len(tools.tools) != 0 || !slices.Equal(tools.blocked, []string{"sentinelle__get_kpis"}) {
+		t.Fatalf("tools=%+v blocked=%v", tools.tools, tools.blocked)
 	}
 	if _, err := tools.call(context.Background(), "sentinelle__get_kpis", `{}`); err == nil {
 		t.Fatal("blocked tool called")
+	}
+}
+
+func TestAnswerTellsTheModelWhichToolsAreBlocked(t *testing.T) {
+	rag := provider.Message{Role: "system", Content: "Cite tes sources."}
+	for name, messages := range map[string][]provider.Message{
+		"no instruction":  question.Messages,
+		"rag instruction": append([]provider.Message{rag}, question.Messages...),
+	} {
+		tools := &toolbox{routes: map[string]toolRoute{}, blocked: []string{"srv__run_sql"}}
+		model := &scripted{results: []provider.ChatResult{{Output: "Bloqué"}}}
+		_, send := recorder()
+		req := question
+		req.Messages = messages
+
+		if _, err := answer(context.Background(), model, req, tools, send); err != nil {
+			t.Fatal(err)
+		}
+		sent := model.reqs[0].Messages
+		if len(sent) != 2 || sent[0].Role != "system" || !strings.Contains(sent[0].Content, "srv__run_sql") {
+			t.Fatalf("%s: messages=%+v", name, sent)
+		}
+		if name == "rag instruction" && !strings.HasPrefix(sent[0].Content, rag.Content) {
+			t.Fatalf("rag instruction lost: %q", sent[0].Content)
+		}
 	}
 }
 
