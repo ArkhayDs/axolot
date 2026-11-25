@@ -163,9 +163,10 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, "%s\n", line)
 		flusher.Flush()
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), chatTimeout)
-	defer cancel()
+	ctx, clock, stop := startChatClock(r.Context(), chatTimeout)
+	defer stop()
 	tools := s.openToolbox(ctx, servers)
+	tools.clock = clock
 	defer tools.close()
 	for _, warning := range tools.warnings {
 		send(map[string]any{"type": "notice", "text": warning})
@@ -184,8 +185,40 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 
 // chatFailure words a failed answer for its card: a turn past chatTimeout says so in French, other errors stay as the provider wrote them.
 func chatFailure(ctx context.Context, err error) string {
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return fmt.Sprintf("Délai de %d min dépassé", int(chatTimeout.Minutes()))
+	if errors.Is(context.Cause(ctx), errChatTimeout) {
+		return errChatTimeout.Error()
 	}
 	return err.Error()
+}
+
+// errChatTimeout ends an answer past chatTimeout; shown as is in the answer card.
+var errChatTimeout = fmt.Errorf("Délai de %d min dépassé", int(chatTimeout.Minutes()))
+
+// chatClock cancels an answer after its time limit; it stands still while a tool call waits for the user's click.
+type chatClock struct {
+	timer *time.Timer
+	end   time.Time
+}
+
+// startChatClock gives ctx limit of work, then cancels it with errChatTimeout.
+// @returns stop - releases the clock once the answer is over
+func startChatClock(ctx context.Context, limit time.Duration) (context.Context, *chatClock, func()) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	clock := &chatClock{timer: time.AfterFunc(limit, func() { cancel(errChatTimeout) }), end: time.Now().Add(limit)}
+	return ctx, clock, func() {
+		clock.timer.Stop()
+		cancel(nil)
+	}
+}
+
+// pause stops the clock until resume is called; a nil or already rung clock stays as it is.
+func (c *chatClock) pause() (resume func()) {
+	if c == nil || !c.timer.Stop() {
+		return func() {}
+	}
+	left := time.Until(c.end)
+	return func() {
+		c.end = time.Now().Add(left)
+		c.timer.Reset(left)
+	}
 }

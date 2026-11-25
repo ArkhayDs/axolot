@@ -88,7 +88,7 @@ func refusesTools(err error) bool {
 func (t *toolbox) run(ctx context.Context, call provider.ToolCall, send func(map[string]any)) provider.Message {
 	send(map[string]any{"type": "tool_call", "name": call.Name, "arguments": call.Arguments})
 	var err error
-	if route := t.routes[call.Name]; route.ask {
+	if route := t.routes[call.Name]; route.ask && !t.approvals.allowed(route.server, route.name) {
 		err = t.approve(ctx, route, send)
 	}
 	start := time.Now()
@@ -103,14 +103,16 @@ func (t *toolbox) run(ctx context.Context, call provider.ToolCall, send func(map
 		text = "Error: " + err.Error()
 	}
 	text = cutToolResult(text)
-	send(map[string]any{"type": "tool_result", "result": text, "error": err != nil, "ms": time.Since(start).Milliseconds()})
+	send(map[string]any{"type": "tool_result", "result": text, "error": err != nil, "refused": errors.Is(err, errRefused), "ms": time.Since(start).Milliseconds()})
 	return provider.Message{Role: "tool", Content: text, ToolCallID: call.ID, ToolName: call.Name}
 }
 
-// approve waits for the user's click on an asked tool, adding the wait to t.waited.
+// approve waits for the user's click on an asked tool, adding the wait to t.waited; the answer's clock stands still meanwhile.
 func (t *toolbox) approve(ctx context.Context, route toolRoute, send func(map[string]any)) error {
 	start := time.Now()
+	resume := t.clock.pause()
 	allow, err := t.approvals.wait(ctx, route.server, route.name, func(id string) { send(map[string]any{"type": "approval", "id": id}) })
+	resume()
 	t.waited += time.Since(start)
 	if err == nil && !allow {
 		err = errRefused
@@ -118,17 +120,24 @@ func (t *toolbox) approve(ctx context.Context, route toolRoute, send func(map[st
 	return err
 }
 
-// approvals are the tool calls waiting for the user's click in the Chat, by id.
+// approvals are the tool calls waiting for the user's click in the Chat, by id,
+// and the tools "Toujours autoriser" switched to allow, which answers opened before the click would still ask for.
 type approvals struct {
 	mu      sync.Mutex
 	pending map[string]pendingCall
+	always  map[serverTool]bool
 }
 
-// pendingCall is where the click goes, and the tool "Toujours autoriser" switches to allow: server id, name the server knows.
-type pendingCall struct {
-	click  chan bool
+// serverTool is a tool by its server's id and the name its server knows.
+type serverTool struct {
 	server int64
 	tool   string
+}
+
+// pendingCall is where the click goes, and the tool "Toujours autoriser" switches to allow.
+type pendingCall struct {
+	click chan bool
+	serverTool
 }
 
 // wait registers a call to the server's tool, hands its id to announce, and blocks until the user answers or ctx ends.
@@ -140,7 +149,7 @@ func (a *approvals) wait(ctx context.Context, server int64, tool string, announc
 	if a.pending == nil {
 		a.pending = map[string]pendingCall{}
 	}
-	a.pending[id] = pendingCall{click: click, server: server, tool: tool}
+	a.pending[id] = pendingCall{click: click, serverTool: serverTool{server, tool}}
 	a.mu.Unlock()
 	defer func() {
 		a.mu.Lock()
@@ -156,16 +165,46 @@ func (a *approvals) wait(ctx context.Context, server int64, tool string, announc
 	}
 }
 
-// answer hands the user's click to the call waiting under id; ok is false when none waits, answered or turn over.
-func (a *approvals) answer(id string, allow bool) (pendingCall, bool) {
+// find returns the call waiting under id; ok is false when none waits, answered or turn over.
+func (a *approvals) find(id string) (pendingCall, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	call, ok := a.pending[id]
-	if ok {
-		delete(a.pending, id)
-		call.click <- allow
-	}
 	return call, ok
+}
+
+// answer hands the user's click to the call waiting under id, false when none waits;
+// always lets the answers already running call this tool without asking.
+func (a *approvals) answer(id string, allow, always bool) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	call, ok := a.pending[id]
+	if !ok {
+		return false
+	}
+	delete(a.pending, id)
+	call.click <- allow
+	if always {
+		if a.always == nil {
+			a.always = map[serverTool]bool{}
+		}
+		a.always[call.serverTool] = true
+	}
+	return true
+}
+
+// allowed tells whether "Toujours autoriser" was clicked for the tool since its permission was last set in the panel.
+func (a *approvals) allowed(server int64, tool string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.always[serverTool{server, tool}]
+}
+
+// forget drops a tool's "Toujours autoriser": the permission set in the panel rules again.
+func (a *approvals) forget(server int64, tool string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.always, serverTool{server, tool})
 }
 
 // answerApproval passes the user's "Autoriser", "Toujours autoriser" or "Refuser" click to the tool call waiting for it;
@@ -182,18 +221,23 @@ func (s *Server) answerApproval(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Toujours autoriser un appel refusé n'a pas de sens")
 		return
 	}
-	call, ok := s.approvals.answer(r.PathValue("id"), body.Allow)
+	id := r.PathValue("id")
+	call, ok := s.approvals.find(id)
 	if !ok {
 		writeError(w, http.StatusNotFound, "Cet appel n'attend plus de réponse")
 		return
 	}
+	// Saved before the call goes on: a failure leaves it waiting for another click.
 	if body.Always {
-		// The call already runs: only the saved permission is missing, the message says so.
 		if err := s.cfg.Store.SetMcpToolMode(r.Context(), call.server, call.tool, "allow"); err != nil {
 			slog.Error("always allow not saved", "server", call.server, "tool", call.tool, "err", err)
-			writeError(w, http.StatusInternalServerError, "Appel autorisé, mais la permission n'a pas été enregistrée")
+			writeError(w, http.StatusInternalServerError, "Permission non enregistrée, l'appel attend toujours une réponse")
 			return
 		}
+	}
+	if !s.approvals.answer(id, body.Allow, body.Always) {
+		writeError(w, http.StatusNotFound, "Cet appel n'attend plus de réponse")
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -221,6 +265,8 @@ type toolbox struct {
 	// warnings name the servers whose tools are missing, for the reader of the answer.
 	warnings  []string
 	approvals *approvals
+	// clock is the answer's chatTimeout, nil when the caller sets none.
+	clock *chatClock
 	// waited is the turn's time spent waiting for the user's clicks.
 	waited time.Duration
 }
@@ -284,7 +330,10 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 		}
 	}
 	// Two tools can share an offered name: the one offered must not be called blocked.
+	// Two blocked tools can share one too: the model reads it once.
 	box.blocked = slices.DeleteFunc(box.blocked, func(name string) bool { _, offered := box.routes[name]; return offered })
+	slices.Sort(box.blocked)
+	box.blocked = slices.Compact(box.blocked)
 	return box
 }
 
