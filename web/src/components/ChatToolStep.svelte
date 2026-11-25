@@ -7,12 +7,18 @@
 
   let { step, live }: { step: Extract<AnswerPart, { kind: 'tool' }>; live: boolean } = $props();
 
-  let allowed = $state<boolean | null>(null);
+  let answered = $state(false);
   let sending = $state(false);
   let error = $state('');
+  let open = $state(false);
 
   // A stopped answer no longer waits: its buttons would answer nothing.
-  let waiting = $derived(live && step.approval !== null && step.result === null && allowed === null);
+  let waiting = $derived(live && step.approval !== null && step.result === null && !answered);
+
+  // Opened once for the user to read the arguments, then theirs to fold: a click keeps it open.
+  $effect(() => {
+    if (waiting) open = true;
+  });
 
   /**
    * Sends the user's click to the call waiting for it
@@ -24,7 +30,7 @@
     sending = true;
     try {
       await api.answerApproval(step.approval, allow, always);
-      allowed = allow;
+      answered = true;
       error = '';
     } catch (sendError) {
       error = errorMessage(sendError);
@@ -34,7 +40,7 @@
   }
 </script>
 
-<details class="step" open={waiting}>
+<details class="step" bind:open>
   <summary>
     <Icon name="plug" size={16} />
     <code>{step.name}</code>
@@ -44,7 +50,7 @@
       <span class="muted">en cours...</span>
     {:else}
       <span class="muted">{duration(step.ms)}</span>
-      {#if allowed === false}
+      {#if step.refused}
         <span class="muted">refusé</span>
       {:else if step.error}
         <span class="state-critical">échec</span>

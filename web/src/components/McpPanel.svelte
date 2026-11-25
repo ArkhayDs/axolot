@@ -22,12 +22,15 @@
   let error = $state('');
   let saving = $state(false);
   let lastLoad = 0;
+  // Last permission the server confirmed per "server id/tool", what a failed pick falls back to.
+  const savedModes = new Map<string, McpToolMode>();
 
   let detail = $derived(servers?.find((server) => server.id === selected));
 
   /** Lists the servers at once, then asks each one for its tools; only the latest call writes, a slower earlier one is dropped */
   async function load(): Promise<void> {
     const current = ++lastLoad;
+    savedModes.clear();
     try {
       const list = await api.mcpServers();
       if (current !== lastLoad) return;
@@ -85,14 +88,16 @@
    * @param {McpToolMode} mode - permission picked
    */
   async function setMode(server: McpServer, tool: McpTool, mode: McpToolMode): Promise<void> {
-    const previous = tool.mode;
+    const key = `${server.id}/${tool.name}`;
+    if (!savedModes.has(key)) savedModes.set(key, tool.mode);
     tool.mode = mode;
     try {
       await api.setMcpToolMode(server.id, tool.name, mode);
+      savedModes.set(key, mode);
       error = '';
     } catch (saveError) {
-      // A later pick may have saved meanwhile: keep it.
-      if (tool.mode === mode) tool.mode = previous;
+      // A later pick still running owns the value shown.
+      if (tool.mode === mode) tool.mode = savedModes.get(key) ?? mode;
       error = errorMessage(saveError);
     }
   }

@@ -71,18 +71,18 @@ test('text around tool calls stays in order, each result joins its call', () => 
   addEvent(parts, { type: 'delta', text: 'Je ' });
   addEvent(parts, { type: 'delta', text: 'cherche.' });
   addEvent(parts, { type: 'tool_call', name: 'sentinelle__kpis', arguments: '{}' });
-  addEvent(parts, { type: 'tool_result', result: '42', error: false, ms: 300 });
+  addEvent(parts, { type: 'tool_result', result: '42', error: false, refused: false, ms: 300 });
   addEvent(parts, { type: 'delta', text: 'Réponse : 42' });
   assert.deepEqual(parts, [
     { kind: 'text', text: 'Je cherche.' },
-    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300, approval: null },
+    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300, approval: null, refused: false },
     { kind: 'text', text: 'Réponse : 42' },
   ]);
   assert.equal(answerText(parts), 'Je cherche.\n\nRéponse : 42');
 });
 
 test('a tool result without its call fails loudly', () => {
-  assert.throws(() => addEvent([], { type: 'tool_result', result: '42', error: false, ms: 300 }));
+  assert.throws(() => addEvent([], { type: 'tool_result', result: '42', error: false, refused: false, ms: 300 }));
 });
 
 test('an approval request joins the call just before it', () => {
@@ -90,6 +90,13 @@ test('an approval request joins the call just before it', () => {
   addEvent(parts, { type: 'tool_call', name: 'sentinelle__run_sql', arguments: '{}' });
   addEvent(parts, { type: 'approval', id: 'abc' });
   assert.equal(parts[0].kind === 'tool' && parts[0].approval, 'abc');
+});
+
+test('a refused call stays marked refused, apart from a failure', () => {
+  const parts: AnswerPart[] = [];
+  addEvent(parts, { type: 'tool_call', name: 'sentinelle__run_sql', arguments: '{}' });
+  addEvent(parts, { type: 'tool_result', result: 'Error: refused', error: true, refused: true, ms: 0 });
+  assert.equal(parts[0].kind === 'tool' && parts[0].refused, true);
 });
 
 test('an approval request without its call fails loudly', () => {
@@ -100,7 +107,7 @@ test('the tool summary counts calls and their time, a running call adds none', (
   const parts: AnswerPart[] = [];
   assert.deepEqual(toolSummary(parts), { calls: 0, ms: 0 });
   addEvent(parts, { type: 'tool_call', name: 'a', arguments: '{}' });
-  addEvent(parts, { type: 'tool_result', result: 'Error: boom', error: true, ms: 120 });
+  addEvent(parts, { type: 'tool_result', result: 'Error: boom', error: true, refused: false, ms: 120 });
   addEvent(parts, { type: 'tool_call', name: 'b', arguments: '{}' });
   assert.deepEqual(toolSummary(parts), { calls: 2, ms: 120 });
 });
