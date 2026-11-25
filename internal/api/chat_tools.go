@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +39,7 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 	start := time.Now()
 	elapsed := func() int64 { return (time.Since(start) - tools.waited).Milliseconds() }
 	req.Tools = tools.tools
+	req.Messages = tools.tellBlocked(req.Messages)
 	onDelta := func(text string) { send(map[string]any{"type": "delta", "text": text}) }
 	for round := range chatMaxRounds {
 		offset := elapsed()
@@ -214,6 +216,8 @@ type toolbox struct {
 	tools    []provider.Tool
 	routes   map[string]toolRoute
 	sessions []*mcp.Session
+	// blocked are the offered names of the tools the user blocked, told to the model.
+	blocked []string
 	// warnings name the servers whose tools are missing, for the reader of the answer.
 	warnings  []string
 	approvals *approvals
@@ -265,10 +269,11 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 		box.sessions = append(box.sessions, o.session)
 		for _, tool := range o.tools {
 			mode := toolMode(m, tool)
+			offered := offeredName(m.Name, tool.Name)
 			if mode == "block" {
+				box.blocked = append(box.blocked, offered)
 				continue
 			}
-			offered := offeredName(m.Name, tool.Name)
 			if _, taken := box.routes[offered]; taken {
 				slog.Warn("mcp tool left out, its offered name is taken", "server", m.Name, "tool", tool.Name, "offered", offered)
 				continue
@@ -318,6 +323,22 @@ func (t *toolbox) call(ctx context.Context, name, arguments string) (string, err
 		return "", fmt.Errorf("unknown tool %q", name)
 	}
 	return route.session.Call(ctx, route.name, arguments)
+}
+
+// tellBlocked adds the blocked tools to the system instruction, so the model says the user blocked one instead of claiming it does not exist.
+// Appended to an existing instruction: some chat templates read only the first system message.
+func (t *toolbox) tellBlocked(messages []provider.Message) []provider.Message {
+	if len(t.blocked) == 0 {
+		return messages
+	}
+	notice := "The user blocked these tools, you cannot call them: " + strings.Join(t.blocked, ", ") +
+		". When a request needs one of them, say it is blocked by the user."
+	if len(messages) > 0 && messages[0].Role == "system" {
+		messages = slices.Clone(messages)
+		messages[0].Content += "\n\n" + notice
+		return messages
+	}
+	return append([]provider.Message{{Role: "system", Content: notice}}, messages...)
 }
 
 // close ends every session of the turn.
