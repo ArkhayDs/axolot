@@ -272,8 +272,8 @@ func TestClaimChatRefusedDuringCampaign(t *testing.T) {
 }
 
 func TestChatFailureWordsTheTurnTimeout(t *testing.T) {
-	expired, cancel := context.WithDeadline(context.Background(), time.Now())
-	defer cancel()
+	expired, _, stop := startChatClock(context.Background(), 0)
+	defer stop()
 	<-expired.Done()
 	if got := chatFailure(expired, expired.Err()); got != "Délai de 5 min dépassé" {
 		t.Fatalf("expired turn = %q", got)
@@ -282,5 +282,21 @@ func TestChatFailureWordsTheTurnTimeout(t *testing.T) {
 	stop()
 	if got := chatFailure(stopped, errors.New("model not found")); got != "model not found" {
 		t.Fatalf("other failure = %q, want the raw error", got)
+	}
+}
+
+func TestChatClockStandsStillWhileWaitingForAClick(t *testing.T) {
+	ctx, clock, stop := startChatClock(context.Background(), 50*time.Millisecond)
+	defer stop()
+	resume := clock.pause()
+	time.Sleep(100 * time.Millisecond)
+	if ctx.Err() != nil {
+		t.Fatal("the clock ran during the pause")
+	}
+	resume()
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("the clock did not run again after the pause")
 	}
 }

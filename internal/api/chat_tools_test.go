@@ -134,6 +134,22 @@ func TestToolboxDoesNotCallAnOfferedToolBlocked(t *testing.T) {
 	}
 }
 
+func TestToolboxNamesASharedBlockedToolOnce(t *testing.T) {
+	ts := mcpServerWithToken(t)
+	s, sealed := toolboxServer(t)
+	blocked := map[string]string{"get_kpis": "block"}
+
+	tools := s.openToolbox(context.Background(), []store.McpServer{
+		{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed, ToolModes: blocked},
+		{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed, ToolModes: blocked},
+	})
+	defer tools.close()
+
+	if !slices.Equal(tools.blocked, []string{"sentinelle__get_kpis"}) {
+		t.Fatalf("blocked=%v", tools.blocked)
+	}
+}
+
 func TestAnswerTellsTheModelWhichToolsAreBlocked(t *testing.T) {
 	rag := provider.Message{Role: "system", Content: "Cite tes sources."}
 	for name, messages := range map[string][]provider.Message{
@@ -181,7 +197,7 @@ func clicking(s *Server, allow bool, pause time.Duration, send func(map[string]a
 		if e["type"] == "approval" {
 			go func() {
 				time.Sleep(pause)
-				s.approvals.answer(e["id"].(string), allow)
+				s.approvals.answer(e["id"].(string), allow, false)
 			}()
 		}
 	}
@@ -219,8 +235,27 @@ func TestAnswerTellsTheModelTheUserRefused(t *testing.T) {
 	if reply := sent[len(sent)-1]; reply.Role != "tool" || reply.Content != "Error: "+errRefused.Error() {
 		t.Fatalf("reply=%+v", reply)
 	}
-	if (*events)[2]["error"] != true {
+	if (*events)[2]["error"] != true || (*events)[2]["refused"] != true {
 		t.Fatalf("events=%v", *events)
+	}
+}
+
+func TestAnswerStopsAskingOnceAlwaysAllowed(t *testing.T) {
+	s, tools, model := askedTool(t)
+	ids := make(chan string, 1)
+	go s.approvals.wait(context.Background(), 0, "get_kpis", func(id string) { ids <- id })
+	s.approvals.answer(<-ids, true, true)
+	events, send := recorder()
+
+	if _, err := answer(context.Background(), model, question, tools, send); err != nil {
+		t.Fatal(err)
+	}
+	if (*events)[1]["type"] != "tool_result" || (*events)[1]["result"] != "kpis" {
+		t.Fatalf("events=%v", *events)
+	}
+	s.approvals.forget(0, "get_kpis")
+	if s.approvals.allowed(0, "get_kpis") {
+		t.Fatal("a permission set in the panel must rule again")
 	}
 }
 
@@ -282,10 +317,14 @@ func TestApprovalNamesTheToolToAlwaysAllow(t *testing.T) {
 	var a approvals
 	ids := make(chan string, 1)
 	go a.wait(context.Background(), 7, "get_kpis", func(id string) { ids <- id })
+	id := <-ids
 
-	call, ok := a.answer(<-ids, true)
+	call, ok := a.find(id)
 	if !ok || call.server != 7 || call.tool != "get_kpis" {
 		t.Fatalf("call=%+v ok=%v", call, ok)
+	}
+	if !a.answer(id, true, true) || !a.allowed(7, "get_kpis") {
+		t.Fatal("always allow not kept for the running answers")
 	}
 }
 

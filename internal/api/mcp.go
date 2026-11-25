@@ -239,7 +239,8 @@ func (s *Server) setMcpToolMode(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Réglage invalide : allow, ask ou block")
 		return
 	}
-	err := s.cfg.Store.SetMcpToolMode(r.Context(), id, r.PathValue("tool"), body.Mode)
+	tool := r.PathValue("tool")
+	err := s.cfg.Store.SetMcpToolMode(r.Context(), id, tool, body.Mode)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "Serveur MCP introuvable, rouvrir le panneau")
 		return
@@ -248,6 +249,7 @@ func (s *Server) setMcpToolMode(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
+	s.approvals.forget(id, tool)
 	w.WriteHeader(http.StatusNoContent)
 }
 
