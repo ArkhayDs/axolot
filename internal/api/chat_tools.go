@@ -283,6 +283,8 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 			box.tools = append(box.tools, tool.Tool)
 		}
 	}
+	// Two tools can share an offered name: the one offered must not be called blocked.
+	box.blocked = slices.DeleteFunc(box.blocked, func(name string) bool { _, offered := box.routes[name]; return offered })
 	return box
 }
 
@@ -332,7 +334,7 @@ func (t *toolbox) tellBlocked(messages []provider.Message) []provider.Message {
 		return messages
 	}
 	notice := "The user blocked these tools, you cannot call them: " + strings.Join(t.blocked, ", ") +
-		". When a request needs one of them, say it is blocked by the user."
+		". When a request needs one of them, tell the user they blocked it themselves, in the MCP server's Permissions tab."
 	if len(messages) > 0 && messages[0].Role == "system" {
 		messages = slices.Clone(messages)
 		messages[0].Content += "\n\n" + notice
