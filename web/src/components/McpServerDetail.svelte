@@ -120,7 +120,7 @@
       </div>
     {:else}
       <p class="muted">
-        Autorisé : appelé sans demander. Validation requise : le Chat attend votre accord à chaque appel. Bloqué : jamais proposé aux modèles. Vaut pour tous les modèles.
+        Autorisé : appelé sans demander. Validation requise : le Chat attend votre accord à chaque appel. Bloqué : jamais appelé, le modèle sait seulement que vous l'avez bloqué. Vaut pour tous les modèles.
       </p>
       {#if probe && probe.tools.length > 0}
         <ul class="card tools">
