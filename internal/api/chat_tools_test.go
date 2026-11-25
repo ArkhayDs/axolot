@@ -119,6 +119,21 @@ func TestToolboxLeavesBlockedToolsOut(t *testing.T) {
 	}
 }
 
+func TestToolboxDoesNotCallAnOfferedToolBlocked(t *testing.T) {
+	ts := mcpServerWithToken(t)
+	s, sealed := toolboxServer(t)
+
+	tools := s.openToolbox(context.Background(), []store.McpServer{
+		{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed, ToolModes: map[string]string{"get_kpis": "block"}},
+		{Name: "sentinelle", URL: ts.URL, Enabled: true, TokenEnc: sealed, ToolModes: map[string]string{"get_kpis": "allow"}},
+	})
+	defer tools.close()
+
+	if len(tools.tools) != 1 || len(tools.blocked) != 0 {
+		t.Fatalf("tools=%+v blocked=%v", tools.tools, tools.blocked)
+	}
+}
+
 func TestAnswerTellsTheModelWhichToolsAreBlocked(t *testing.T) {
 	rag := provider.Message{Role: "system", Content: "Cite tes sources."}
 	for name, messages := range map[string][]provider.Message{
