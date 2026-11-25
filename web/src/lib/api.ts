@@ -410,7 +410,7 @@ export type ChatEvent =
   | { type: 'notice'; text: string }
   | { type: 'tool_call'; name: string; arguments: string }
   | { type: 'approval'; id: string }
-  | { type: 'tool_result'; result: string; error: boolean; ms: number };
+  | { type: 'tool_result'; result: string; error: boolean; refused: boolean; ms: number };
 
 /**
  * Streams one chat answer
