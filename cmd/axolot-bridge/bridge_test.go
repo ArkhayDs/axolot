@@ -44,7 +44,7 @@ env > %[1]s/env
 	if err := os.WriteFile(cli, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer((&bridge{token: testToken, cli: cli, dir: t.TempDir()}).handler())
+	server := httptest.NewServer((&bridge{token: testToken, cli: cli, dir: t.TempDir(), base: t.Context()}).handler())
 	t.Cleanup(server.Close)
 	return server, dir
 }
@@ -309,16 +309,19 @@ func TestChatKillsCLIWhenClientLeaves(t *testing.T) {
 
 func TestChatRefusesInvalidRequestsWithoutStartingCLI(t *testing.T) {
 	image := provider.Message{Role: "user", Content: "Quoi ?", Images: []string{"aGVsbG8="}}
+	weather := []provider.Tool{{Name: "weather"}}
 	cases := map[string]provider.ChatRequest{
-		"unknown model":    {Model: "opus", Messages: []provider.Message{user("Salut")}},
-		"option as model":  {Model: "--dangerously-skip-permissions", Messages: []provider.Message{user("Salut")}},
-		"image":            {Model: testModel, Messages: []provider.Message{image}},
-		"no question":      {Model: testModel, Messages: []provider.Message{{Role: "system", Content: "Consigne"}}},
-		"assistant last":   {Model: testModel, Messages: []provider.Message{user("Salut"), {Role: "assistant", Content: "Oui"}}},
-		"tool role":        {Model: testModel, Messages: []provider.Message{{Role: "tool", Content: "x"}, user("Salut")}},
-		"tools":            {Model: testModel, Messages: []provider.Message{user("Salut")}, Tools: []provider.Tool{{Name: "weather"}}},
-		"no message":       {Model: testModel},
-		"system mid-story": {Model: testModel, Messages: []provider.Message{user("Un"), {Role: "system", Content: "x"}, user("Deux")}},
+		"tools with a schema":   {Model: testModel, Messages: []provider.Message{user("Salut")}, Tools: weather, Schema: json.RawMessage(`{"type":"object"}`)},
+		"tool schema no object": {Model: testModel, Messages: []provider.Message{user("Salut")}, Tools: []provider.Tool{{Name: "weather", Parameters: json.RawMessage(`{"type":"string"}`)}}},
+		"unknown tool result":   {Model: testModel, Messages: []provider.Message{user("Salut"), {Role: "tool", Content: "21 C", ToolCallID: "toolu_inconnu"}}},
+		"unknown model":         {Model: "opus", Messages: []provider.Message{user("Salut")}},
+		"option as model":       {Model: "--dangerously-skip-permissions", Messages: []provider.Message{user("Salut")}},
+		"image":                 {Model: testModel, Messages: []provider.Message{image}},
+		"no question":           {Model: testModel, Messages: []provider.Message{{Role: "system", Content: "Consigne"}}},
+		"assistant last":        {Model: testModel, Messages: []provider.Message{user("Salut"), {Role: "assistant", Content: "Oui"}}},
+		"tool role":             {Model: testModel, Messages: []provider.Message{{Role: "tool", Content: "x"}, user("Salut")}},
+		"no message":            {Model: testModel},
+		"system mid-story":      {Model: testModel, Messages: []provider.Message{user("Un"), {Role: "system", Content: "x"}, user("Deux")}},
 	}
 	for name, req := range cases {
 		t.Run(name, func(t *testing.T) {

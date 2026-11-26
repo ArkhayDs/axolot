@@ -49,7 +49,7 @@ func run() error {
 	// No write timeout: answers stream for minutes.
 	server := &http.Server{
 		Addr:              net.JoinHostPort("127.0.0.1", port),
-		Handler:           (&bridge{token: token, cli: cli, dir: dir}).handler(),
+		Handler:           (&bridge{token: token, cli: cli, dir: dir, base: ctx}).handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
