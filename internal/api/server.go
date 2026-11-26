@@ -258,19 +258,17 @@ func (s *Server) findCase(id string) (cases.Case, bool) {
 }
 
 // connection builds a live client for a saved connection.
-func (s *Server) connection(ctx context.Context, id int64) (provider.Provider, store.Provider, error) {
+func (s *Server) connection(ctx context.Context, id int64) (provider.Provider, error) {
 	saved, err := s.cfg.Store.Providers(ctx)
 	if err != nil {
-		return nil, store.Provider{}, err
+		return nil, err
 	}
 	for _, p := range saved {
-		if p.ID != id {
-			continue
+		if p.ID == id {
+			return s.client(p)
 		}
-		client, err := s.client(p)
-		return client, p, err
 	}
-	return nil, store.Provider{}, fmt.Errorf("connection %d not found", id)
+	return nil, fmt.Errorf("connection %d not found", id)
 }
 
 // client decrypts the key of a connection and builds its client; the bridge takes its URL and token from the environment.

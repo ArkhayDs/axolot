@@ -208,7 +208,7 @@ func (s *Server) pullModel(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Nom de modèle invalide")
 		return
 	}
-	client, _, err := s.connection(r.Context(), body.ProviderID)
+	client, err := s.connection(r.Context(), body.ProviderID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Connexion inconnue")
 		return

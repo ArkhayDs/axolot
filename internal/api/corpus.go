@@ -212,7 +212,7 @@ func (s *Server) embedConnection(r *http.Request, settings store.Settings) (prov
 		}
 		id = providers[0].ID
 	}
-	client, _, err := s.connection(r.Context(), id)
+	client, err := s.connection(r.Context(), id)
 	return client, err
 }
 
