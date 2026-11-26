@@ -11,7 +11,6 @@ import (
 
 	"github.com/arkhayds/axolot/internal/provider"
 	"github.com/arkhayds/axolot/internal/rag"
-	"github.com/arkhayds/axolot/internal/store"
 )
 
 const (
@@ -133,18 +132,15 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Flux non supporté")
 		return
 	}
-	client, conn, err := s.connection(r.Context(), body.ProviderID)
+	client, err := s.connection(r.Context(), body.ProviderID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Connexion inconnue")
 		return
 	}
-	// shortcut: the bridge gets no tools until it can hand them to the Claude CLI.
-	var servers []store.McpServer
-	if conn.Kind != "bridge" {
-		if servers, err = s.cfg.Store.McpServers(r.Context()); err != nil {
-			internalError(w, r, err)
-			return
-		}
+	servers, err := s.cfg.Store.McpServers(r.Context())
+	if err != nil {
+		internalError(w, r, err)
+		return
 	}
 	if !s.claimChat() {
 		writeError(w, http.StatusConflict, "Un Benchmark est en cours : le chat fausserait ses temps")

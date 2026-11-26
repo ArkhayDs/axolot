@@ -211,7 +211,7 @@ func (s *Server) runCampaign(ctx context.Context, id string, plans []runner.Plan
 	deps := runner.Deps{
 		Results: s.cfg.Store,
 		Provider: func(ctx context.Context, providerID int64) (provider.Provider, error) {
-			client, _, err := s.connection(ctx, providerID)
+			client, err := s.connection(ctx, providerID)
 			return client, err
 		},
 		Search: func(ctx context.Context, question string) ([]rag.Hit, error) {
