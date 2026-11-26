@@ -386,6 +386,29 @@ func TestAnswerReturnsToolFailuresToTheModel(t *testing.T) {
 	}
 }
 
+func TestAnswerAddsUpStartupOverItsModelCalls(t *testing.T) {
+	tools := &toolbox{tools: []provider.Tool{{Name: "srv__get_kpis"}}, routes: map[string]toolRoute{}}
+	ms := func(v int64) *int64 { return &v }
+	model := &scripted{results: []provider.ChatResult{
+		{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "srv__get_kpis", Arguments: `{}`}}, LoadMs: ms(3000), CLIStartupMs: ms(1200)},
+		{Output: "42", LoadMs: ms(10)},
+	}}
+	_, send := recorder()
+
+	result, err := answer(context.Background(), model, question, tools, send)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.LoadMs == nil || *result.LoadMs != 3010 || result.CLIStartupMs == nil || *result.CLIStartupMs != 1200 {
+		t.Fatalf("load=%v startup=%v", result.LoadMs, result.CLIStartupMs)
+	}
+
+	model = &scripted{results: []provider.ChatResult{{Output: "42"}}}
+	if result, _ = answer(context.Background(), model, question, tools, send); result.LoadMs != nil || result.CLIStartupMs != nil {
+		t.Fatalf("load=%v startup=%v", result.LoadMs, result.CLIStartupMs)
+	}
+}
+
 func TestAnswerStopsAfterTheRoundCap(t *testing.T) {
 	tools := &toolbox{tools: []provider.Tool{{Name: "srv__get_kpis"}}, routes: map[string]toolRoute{}}
 	model := &scripted{results: []provider.ChatResult{{ToolCalls: []provider.ToolCall{{ID: "c", Name: "srv__get_kpis"}}}}}
