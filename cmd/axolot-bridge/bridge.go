@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -11,10 +10,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"os/exec"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -43,6 +41,11 @@ type bridge struct {
 	cli   string
 	// dir is the empty working directory, so that no project file reaches the model.
 	dir string
+	// base ends every CLI at shutdown, since a run outlives its request between tool rounds.
+	base context.Context
+	mu   sync.Mutex
+	// waiting are the sessions waiting for tool results, by tool call id.
+	waiting map[string]*session
 }
 
 // handler returns the routes behind the token check.
@@ -50,12 +53,12 @@ func (b *bridge) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", b.listModels)
 	mux.HandleFunc("POST /v1/chat/completions", b.chat)
-	return b.requireToken(mux)
+	return requireToken(b.token, mux)
 }
 
 // requireToken refuses any request without the bearer token.
-func (b *bridge) requireToken(next http.Handler) http.Handler {
-	expected := []byte("Bearer " + b.token)
+func requireToken(token string, next http.Handler) http.Handler {
+	expected := []byte("Bearer " + token)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), expected) != 1 {
 			slog.Warn("bridge request refused", "path", r.URL.Path, "remote", r.RemoteAddr)
@@ -76,11 +79,10 @@ func (b *bridge) listModels(w http.ResponseWriter, _ *http.Request) {
 }
 
 // chatRequest is the part of /v1/chat/completions the CLI can honour: temperature and max_tokens have no CLI option.
-// Tools are read only to be refused: ignored, they would score Claude as never calling them.
 type chatRequest struct {
-	Model          string            `json:"model"`
-	Messages       []chatMessage     `json:"messages"`
-	Tools          []json.RawMessage `json:"tools"`
+	Model          string        `json:"model"`
+	Messages       []chatMessage `json:"messages"`
+	Tools          []chatTool    `json:"tools"`
 	ResponseFormat struct {
 		JSONSchema struct {
 			Schema json.RawMessage `json:"schema"`
@@ -90,13 +92,13 @@ type chatRequest struct {
 
 // chatMessage only takes text content: a message with images comes as parts and fails to decode.
 type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string `json:"role"`
+	Content    string `json:"content"`
+	ToolCallID string `json:"tool_call_id"`
 }
 
 // chat answers /v1/chat/completions, always as a stream, the only form Axolot calls.
-// A failure before the first piece of text returns a status; after it, the connection is cut,
-// since a stream the client reads to its end would pass for a complete answer.
+// A conversation ending with tool results resumes the run that asked for them instead of starting the CLI.
 func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -112,8 +114,27 @@ func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown model "+body.Model)
 		return
 	}
-	if len(body.Tools) > 0 {
-		writeError(w, http.StatusBadRequest, "tools are not supported")
+	out := &eventStream{w: w, flusher: flusher}
+	if results := toolResults(body.Messages); len(results) > 0 {
+		s := b.unpark(results[0].ToolCallID)
+		if s == nil {
+			writeError(w, http.StatusNotFound, "no answer waits for these tool results: it was given up or the bridge restarted")
+			return
+		}
+		for _, result := range results {
+			s.deliver(result.ToolCallID, result.Content)
+		}
+		b.serve(r, out, s)
+		return
+	}
+	schema := body.ResponseFormat.JSONSchema.Schema
+	if len(body.Tools) > 0 && len(schema) > 0 {
+		writeError(w, http.StatusBadRequest, "tools and a JSON schema together are not supported")
+		return
+	}
+	tools, err := mcpTools(body.Tools)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	system, prompt, err := splitMessages(body.Messages)
@@ -121,25 +142,12 @@ func (b *bridge) chat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	out := &eventStream{w: w, flusher: flusher}
-	ctx, cancel := context.WithTimeout(r.Context(), cliTimeout)
-	defer cancel()
-	schema := body.ResponseFormat.JSONSchema.Schema
-	result, err := b.run(ctx, body.Model, system, schema, prompt, out.text)
-	if err == nil && len(schema) > 0 && !out.started {
-		// Prose instead of the StructuredOutput tool is still an answer: grading fails it like any invalid JSON.
-		out.text(result.Result)
-	}
-	switch {
-	case r.Context().Err() != nil:
-	case err != nil && out.started:
-		panic(http.ErrAbortHandler)
-	case err != nil:
+	s, err := b.start(body.Model, system, schema, prompt, tools)
+	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
-	default:
-		out.finish(result.Usage)
+		return
 	}
+	b.serve(r, out, s)
 }
 
 // splitMessages turns the conversation into the CLI's two inputs, since `claude -p` takes a single prompt.
@@ -174,7 +182,8 @@ func splitMessages(messages []chatMessage) (string, string, error) {
 // cliArgs cuts everything local from the CLI: tools, MCP, settings, skills, sessions.
 // --system-prompt is always passed, or Claude Code's own prompt would apply.
 // --json-schema adds the StructuredOutput tool, the only one --tools "" leaves.
-func cliArgs(model, system string, schema json.RawMessage) []string {
+// @param mcpConfig - the session's MCP server, whose tools run without asking: Axolot applies the user's permissions; empty for none
+func cliArgs(model, system string, schema json.RawMessage, mcpConfig string) []string {
 	args := []string{
 		"-p", "--model", model, "--system-prompt", system,
 		"--output-format", "stream-json", "--verbose", "--include-partial-messages",
@@ -183,6 +192,9 @@ func cliArgs(model, system string, schema json.RawMessage) []string {
 	}
 	if len(schema) > 0 {
 		args = append(args, "--json-schema", string(schema))
+	}
+	if mcpConfig != "" {
+		args = append(args, "--mcp-config", mcpConfig, "--allowedTools", "mcp__"+toolServer)
 	}
 	return args
 }
@@ -199,11 +211,15 @@ type cliUsage struct {
 }
 
 // cliEvent holds the fields read from a stream-json line; other line types only leave them empty.
-// initAt and resultAt are when the bridge read the init line and the result line.
+// resultAt is when the bridge read the result line.
 type cliEvent struct {
 	Type    string `json:"type"`
 	Subtype string `json:"subtype"`
-	Event   struct {
+	// Message is an assistant line's content, read for its tool_use blocks.
+	Message struct {
+		Content json.RawMessage `json:"content"`
+	} `json:"message"`
+	Event struct {
 		ContentBlock struct {
 			Type string `json:"type"`
 		} `json:"content_block"`
@@ -211,74 +227,27 @@ type cliEvent struct {
 			Type        string `json:"type"`
 			Text        string `json:"text"`
 			PartialJSON string `json:"partial_json"`
+			StopReason  string `json:"stop_reason"`
 		} `json:"delta"`
+		Usage cliUsage `json:"usage"`
 	} `json:"event"`
 	IsError  bool     `json:"is_error"`
 	Result   string   `json:"result"`
 	Usage    cliUsage `json:"usage"`
-	initAt   time.Time
 	resultAt time.Time
-}
-
-// run executes one generation and passes each piece of text to onText.
-// The prompt goes through stdin: documents can exceed what an argument holds.
-// @param schema - JSON schema the answer must follow, empty for free text
-// @returns result line; an error when the CLI reports one, dies or prints something unreadable
-func (b *bridge) run(ctx context.Context, model, system string, schema json.RawMessage, prompt string, onText func(string)) (cliEvent, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, b.cli, cliArgs(model, system, schema)...)
-	cmd.Dir = b.dir
-	// An API credential would take precedence over the subscription login and bill the API.
-	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
-		return strings.HasPrefix(kv, "ANTHROPIC_API_KEY=") || strings.HasPrefix(kv, "ANTHROPIC_AUTH_TOKEN=")
-	})
-	cmd.Env = append(env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
-	cmd.Stdin = strings.NewReader(prompt)
-	cmd.WaitDelay = cliWaitDelay
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return cliEvent{}, fmt.Errorf("open claude output: %w", err)
-	}
-	start := time.Now()
-	if err := cmd.Start(); err != nil {
-		return cliEvent{}, fmt.Errorf("start claude: %w", err)
-	}
-
-	result, err := readResult(stdout, len(schema) > 0, onText)
-	if err != nil {
-		cancel()
-	}
-	waitErr := cmd.Wait()
-	if ctx.Err() != nil && err == nil {
-		err = ctx.Err()
-	}
-	if err == nil {
-		err = resultError(result, waitErr)
-	}
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			slog.Error("claude failed", "model", model, "err", err, "stderr", string(stderr.Bytes()[:min(stderr.Len(), maxLogged)]))
-		}
-		return cliEvent{}, err
-	}
-	result.Usage.ExitMs = time.Since(result.resultAt).Milliseconds()
-	if !result.initAt.IsZero() {
-		startup := result.initAt.Sub(start).Milliseconds()
-		result.Usage.StartupMs = &startup
-	}
-	return *result, nil
 }
 
 // readResult follows the stream up to its end and returns the result line, nil when none came.
 // With a schema the answer is the StructuredOutput tool's input, streamed like text so that TTFT and
 // tok/s stay measured; free text around it is dropped, and only the first attempt passes, as a local model gets one.
+// Without one, a model call ending on tool use hands its calls and usage to onRound.
+// The CLI's startup time, up to its init line, goes with the first usage handed on.
+// @param started - when the CLI started
 // @param structured - a schema was requested
-func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEvent, error) {
+func readResult(stdout io.Reader, started time.Time, structured bool, onText func(string), onRound func([]toolCall, cliUsage)) (*cliEvent, error) {
 	var result *cliEvent
-	var initAt time.Time
+	var startup *int64
+	var calls []toolCall
 	attempts := 0
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 64*1024), maxLine)
@@ -289,10 +258,23 @@ func readResult(stdout io.Reader, structured bool, onText func(string)) (*cliEve
 		}
 		switch {
 		case event.Type == "system" && event.Subtype == "init":
-			initAt = time.Now()
+			ms := time.Since(started).Milliseconds()
+			startup = &ms
 		case event.Type == "result":
-			event.initAt, event.resultAt = initAt, time.Now()
+			event.resultAt = time.Now()
+			event.Usage.StartupMs, startup = startup, nil
 			result = &event
+		case !structured && event.Type == "assistant":
+			uses, err := toolUses(event.Message.Content)
+			if err != nil {
+				return nil, fmt.Errorf("read claude output: %w", err)
+			}
+			calls = append(calls, uses...)
+		case !structured && event.Event.Delta.StopReason == "tool_use" && len(calls) > 0:
+			usage := event.Event.Usage
+			usage.StartupMs, startup = startup, nil
+			onRound(calls, usage)
+			calls = nil
 		case !structured && event.Event.Delta.Type == "text_delta":
 			onText(event.Event.Delta.Text)
 		case structured && event.Event.Delta.Type == "input_json_delta" && attempts == 1:
@@ -349,6 +331,17 @@ func (s *eventStream) text(content string) {
 		return
 	}
 	s.send(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]string{"content": content}}}})
+}
+
+// toolCalls sends a round's calls in one chunk, named as Axolot offered them, arguments as JSON text.
+// shortcut: assumes the CLI keeps "mcp__axolot__" + the offered name whole; check if a name over 51 characters comes back unknown.
+func (s *eventStream) toolCalls(calls []toolCall) {
+	wire := make([]map[string]any, len(calls))
+	for i, call := range calls {
+		function := map[string]string{"name": strings.TrimPrefix(call.Name, toolPrefix), "arguments": string(call.Input)}
+		wire[i] = map[string]any{"index": i, "id": call.ID, "type": "function", "function": function}
+	}
+	s.send(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{"tool_calls": wire}}}})
 }
 
 // finish sends the usage and closes the stream. The cache parts count as input: they are read by the model
