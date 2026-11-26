@@ -34,10 +34,12 @@ var (
 
 // answer runs one chat turn: the model, then each tool it asks for, until it answers in text.
 // TTFT runs from the turn start to the final answer's first token, tools included; TotalMs is the whole turn;
-// both leave out the time spent waiting for the user's approval (tools.waited); tokens and speed are the last model call's.
+// both leave out the time spent waiting for the user's approval (tools.waited); tokens and speed are the last model call's;
+// model load and CLI startup add up over every call, as they mostly happen in the first one.
 func answer(ctx context.Context, client provider.Provider, req provider.ChatRequest, tools *toolbox, send func(map[string]any)) (provider.ChatResult, error) {
 	start := time.Now()
 	elapsed := func() int64 { return (time.Since(start) - tools.waited).Milliseconds() }
+	var load, startup *int64
 	req.Tools = tools.tools
 	req.Messages = tools.tellBlocked(req.Messages)
 	onDelta := func(text string) { send(map[string]any{"type": "delta", "text": text}) }
@@ -53,12 +55,14 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 		if err != nil {
 			return result, err
 		}
+		load, startup = addMs(load, result.LoadMs), addMs(startup, result.CLIStartupMs)
 		if len(result.ToolCalls) == 0 {
 			if result.TTFTMs != nil {
 				ttft := offset + *result.TTFTMs
 				result.TTFTMs = &ttft
 			}
 			result.TotalMs = elapsed()
+			result.LoadMs, result.CLIStartupMs = load, startup
 			return result, nil
 		}
 		if round == chatMaxRounds-1 {
@@ -70,6 +74,18 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 		}
 	}
 	return provider.ChatResult{}, errTooManyRounds
+}
+
+// addMs adds a call's optional duration to a running total, nil while no call reported one.
+func addMs(total, more *int64) *int64 {
+	if more == nil {
+		return total
+	}
+	sum := *more
+	if total != nil {
+		sum += *total
+	}
+	return &sum
 }
 
 // refusesTools tells whether the model server turned the request down for its tools:
