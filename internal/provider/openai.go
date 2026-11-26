@@ -41,6 +41,7 @@ type openAIChunk struct {
 		CompletionTokens int    `json:"completion_tokens"`
 		CLIStartupMs     *int64 `json:"cli_startup_ms"`
 		CLIExitMs        *int64 `json:"cli_exit_ms"`
+		CLIBuffered      bool   `json:"cli_buffered"`
 	} `json:"usage"`
 }
 
@@ -99,6 +100,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 
 	var output strings.Builder
 	result := ChatResult{DefaultTemperature: reasoning}
+	buffered := false
 	err = lines(resp.Body, func(line []byte) error {
 		payload, ok := bytes.CutPrefix(line, []byte("data:"))
 		payload = bytes.TrimSpace(payload)
@@ -143,6 +145,7 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 			result.PromptTokens = &chunk.Usage.PromptTokens
 			result.OutputTokens = &chunk.Usage.CompletionTokens
 			result.CLIStartupMs, result.CLIExitMs = chunk.Usage.CLIStartupMs, chunk.Usage.CLIExitMs
+			buffered = chunk.Usage.CLIBuffered
 		}
 		return nil
 	})
@@ -152,7 +155,10 @@ func (o *OpenAI) chat(ctx context.Context, req ChatRequest, onDelta func(string)
 	}
 	result.Output = output.String()
 	result.TotalMs = msSince(start)
-	setOpenAIRate(&result)
+	// Text the CLI held to the end came in one block: there is no generation phase to time.
+	if !buffered {
+		setOpenAIRate(&result)
+	}
 	return result, err
 }
 

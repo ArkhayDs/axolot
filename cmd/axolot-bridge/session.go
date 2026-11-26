@@ -46,6 +46,8 @@ type session struct {
 	done       chan outcome
 	// sent is the usage already sent with tool rounds, which the result line counts again.
 	sent cliUsage
+	// toolsRan: the CLI does not stream a model call that follows a tool result, it prints it whole at the end.
+	toolsRan bool
 	// idle ends a run whose tool results do not come; guarded by bridge.mu.
 	idle    *time.Timer
 	mu      sync.Mutex
@@ -162,6 +164,7 @@ func (s *session) read(cmd *exec.Cmd, stdout io.Reader, stderr *bytes.Buffer, mo
 	}
 	result.Usage.ExitMs = time.Since(result.resultAt).Milliseconds()
 	result.Usage = result.Usage.minus(s.sent)
+	result.Usage.Buffered = s.toolsRan
 	s.done <- outcome{result: *result}
 }
 
@@ -181,6 +184,7 @@ func (s *session) text(text string) {
 
 // round hands a tool round to the request serving the session, which ends with it.
 func (s *session) round(calls []toolCall, usage cliUsage) {
+	s.toolsRan = true
 	s.sent.Input += usage.Input
 	s.sent.CacheCreation += usage.CacheCreation
 	s.sent.CacheRead += usage.CacheRead

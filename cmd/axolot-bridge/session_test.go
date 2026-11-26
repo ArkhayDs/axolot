@@ -26,6 +26,7 @@ reply=$(wget -q -O - --header 'Content-Type: application/json' --header 'Accept:
 	--post-data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"weather","arguments":{"city":"Paris"},"_meta":{"claudecode/toolUseId":"toolu_1"}}}' "$url")
 text=$(printf '%s' "$reply" | sed 's/.*"text":"\([^"]*\)".*/\1/')
 printf '{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Il fait %s"}}}\n' "$text"
+sleep 0.05
 cat <<'EOF'
 {"type":"result","is_error":false,"result":"Il fait 21 C","usage":{"input_tokens":230,"cache_read_input_tokens":40,"output_tokens":12}}
 EOF`
@@ -63,6 +64,9 @@ func TestChatHandsToolRoundsToAxolot(t *testing.T) {
 			}
 			if *final.PromptTokens != 150 || *final.OutputTokens != 5 || final.CLIStartupMs != nil {
 				t.Errorf("final usage = %d/%d, startup = %v", *final.PromptTokens, *final.OutputTokens, final.CLIStartupMs)
+			}
+			if final.TokPerSec != nil {
+				t.Errorf("rate = %v, want none: the CLI sends the text after a tool result in one block", *final.TokPerSec)
 			}
 		})
 	}

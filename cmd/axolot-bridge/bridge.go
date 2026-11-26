@@ -201,6 +201,7 @@ func cliArgs(model, system string, schema json.RawMessage, mcpConfig string) []s
 
 // cliUsage is the token count of the result line, the input split over the prompt cache, plus the CLI's
 // own time measured by the bridge: startup before the API call (nil without an init line) and exit after the result.
+// Buffered marks text the CLI printed in one block, too late to time its generation.
 type cliUsage struct {
 	Input         int    `json:"input_tokens"`
 	CacheCreation int    `json:"cache_creation_input_tokens"`
@@ -208,6 +209,7 @@ type cliUsage struct {
 	Output        int    `json:"output_tokens"`
 	StartupMs     *int64 `json:"-"`
 	ExitMs        int64  `json:"-"`
+	Buffered      bool   `json:"-"`
 }
 
 // cliEvent holds the fields read from a stream-json line; other line types only leave them empty.
@@ -354,6 +356,9 @@ func (s *eventStream) finish(usage cliUsage) {
 	}
 	if usage.StartupMs != nil {
 		sent["cli_startup_ms"] = *usage.StartupMs
+	}
+	if usage.Buffered {
+		sent["cli_buffered"] = true
 	}
 	s.send(map[string]any{"choices": []any{}, "usage": sent})
 	_, _ = fmt.Fprint(s.w, "data: [DONE]\n\n")
