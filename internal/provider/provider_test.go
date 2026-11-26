@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 const noThinkingStream = `{"message":{"content":"Bon"},"done":false}
@@ -121,6 +122,26 @@ func TestOpenAIChatReadsBridgeFieldsFromUsage(t *testing.T) {
 	}
 	if result.CLIStartupMs == nil || *result.CLIStartupMs != 430 || result.CLIExitMs == nil || *result.CLIExitMs != 650 {
 		t.Fatalf("result: %+v", result)
+	}
+}
+
+func TestOpenAIChatLeavesTheRateOutWhenTheCLIHeldTheText(t *testing.T) {
+	for usage, wantRate := range map[string]bool{`"cli_buffered":true`: false, `"cli_exit_ms":0`: true} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Oui\"}}]}\n\n")
+			w.(http.Flusher).Flush()
+			time.Sleep(20 * time.Millisecond)
+			fmt.Fprintf(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7,%s}}\n\n", usage)
+			fmt.Fprint(w, "data: [DONE]\n\n")
+		}))
+		result, err := (&OpenAI{BaseURL: srv.URL}).Chat(context.Background(), newChat(), func(string) {})
+		srv.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (result.TokPerSec != nil) != wantRate || result.TTFTMs == nil {
+			t.Errorf("%s: rate = %v, ttft = %v", usage, result.TokPerSec, result.TTFTMs)
+		}
 	}
 }
 
