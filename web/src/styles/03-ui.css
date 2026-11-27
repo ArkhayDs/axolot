@@ -250,6 +250,30 @@ select.input {
   outline-offset: 6px;
 }
 
+/* <details class="fold">: opens and closes by sliding */
+.fold {
+  interpolate-size: allow-keywords;
+}
+
+.fold::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 220ms ease,
+    content-visibility 220ms allow-discrete;
+}
+
+.fold[open]::details-content {
+  block-size: auto;
+}
+
+/* Own rule: ::details-content in the global reduced-motion list would void it where unsupported. */
+@media (prefers-reduced-motion: reduce) {
+  .fold::details-content {
+    transition: none;
+  }
+}
+
 /* -----------------------------------------------------------------------------
    Small parts
    -------------------------------------------------------------------------- */
