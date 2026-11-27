@@ -24,12 +24,15 @@ const (
 	// toolResultMax counts characters: a large result would crowd the model's context out.
 	toolResultMax = 20000
 	toolCutNotice = "\n\n[Résultat tronqué : la suite n'a pas été transmise.]"
+	// approvalTimeout stays under the bridge's 15 min roundGap, after which Claude Code no longer takes the result.
+	approvalTimeout = 14 * time.Minute
 )
 
 var (
 	// errTooManyRounds is shown as is in the answer card.
 	errTooManyRounds = fmt.Errorf("Arrêté après %d tours d'appels d'outils, sans réponse", chatMaxRounds)
 	errRefused       = errors.New("the user refused this tool call")
+	errNoApproval    = fmt.Errorf("the user did not answer within %d minutes, the tool was not called", int(approvalTimeout.Minutes()))
 )
 
 // answer runs one chat turn: the model, then each tool it asks for, until it answers in text.
@@ -124,13 +127,19 @@ func (t *toolbox) run(ctx context.Context, call provider.ToolCall, send func(map
 }
 
 // approve waits for the user's click on an asked tool, adding the wait to t.waited; the answer's clock stands still meanwhile.
+// No click within t.approvalMax leaves the tool uncalled, for the model to go on.
 func (t *toolbox) approve(ctx context.Context, route toolRoute, send func(map[string]any)) error {
 	start := time.Now()
 	resume := t.clock.pause()
-	allow, err := t.approvals.wait(ctx, route.server, route.name, func(id string) { send(map[string]any{"type": "approval", "id": id}) })
+	waitCtx, cancel := context.WithTimeout(ctx, t.approvalMax)
+	allow, err := t.approvals.wait(waitCtx, route.server, route.name, func(id string) { send(map[string]any{"type": "approval", "id": id}) })
+	cancel()
 	resume()
 	t.waited += time.Since(start)
-	if err == nil && !allow {
+	switch {
+	case err != nil && ctx.Err() == nil:
+		err = errNoApproval
+	case err == nil && !allow:
 		err = errRefused
 	}
 	return err
@@ -284,7 +293,8 @@ type toolbox struct {
 	// clock is the answer's chatTimeout, nil when the caller sets none.
 	clock *chatClock
 	// waited is the turn's time spent waiting for the user's clicks.
-	waited time.Duration
+	waited      time.Duration
+	approvalMax time.Duration
 }
 
 // toolRoute is the session running an offered tool, its server's id, the name its server knows it by, and whether the user must allow each call.
@@ -313,7 +323,7 @@ func (s *Server) openToolbox(ctx context.Context, servers []store.McpServer) *to
 		}
 	}
 	wg.Wait()
-	box := &toolbox{tools: []provider.Tool{}, routes: map[string]toolRoute{}, approvals: &s.approvals}
+	box := &toolbox{tools: []provider.Tool{}, routes: map[string]toolRoute{}, approvals: &s.approvals, approvalMax: approvalTimeout}
 	for i, m := range servers {
 		o := opened[i]
 		switch {
