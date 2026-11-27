@@ -157,7 +157,7 @@
   });
 </script>
 
-<dialog class="sheet glass mcp" bind:this={dialog} onclose={onclose} aria-labelledby="mcp-title">
+<dialog class="sheet glass mcp" bind:this={dialog} closedby="any" onclose={onclose} aria-labelledby="mcp-title">
   <div class="head">
     <h2 id="mcp-title">Serveurs MCP</h2>
     <button class="ghost" type="button" onclick={onclose} aria-label="Fermer"><Icon name="cross" /></button>
