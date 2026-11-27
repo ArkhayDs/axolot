@@ -350,6 +350,7 @@
                       {/if}
                     </dd>
                   </div>
+                  <!-- No threshold on purpose: a near-zero startup is a result being compared, not noise. -->
                   {#if startup !== null}
                     <div><dt title={STARTUP_HINT}>Démarrage</dt><dd>{duration(startup)}</dd></div>
                   {/if}
