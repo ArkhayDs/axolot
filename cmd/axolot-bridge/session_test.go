@@ -129,6 +129,25 @@ func TestSecondToolRoundCarriesOnlyItsCalls(t *testing.T) {
 	}
 }
 
+func TestAbandonEndsTheWaitingRun(t *testing.T) {
+	server, _ := startBridge(t, toolRoundCLI(""))
+	question := user("Quel temps à Paris ?")
+	round, err := client(server).Chat(context.Background(), provider.ChatRequest{Model: testModel, Messages: []provider.Message{question}, Tools: []provider.Tool{{Name: "weather"}}}, func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridge := &provider.Bridge{OpenAI: *client(server)}
+	for range 2 {
+		if err := bridge.Abandon(context.Background(), "toolu_1"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	messages := []provider.Message{question, {Role: "assistant", ToolCalls: round.ToolCalls}, {Role: "tool", Content: "21 C", ToolCallID: "toolu_1"}}
+	if _, _, err := ask(t, server, messages...); err == nil || !strings.Contains(err.Error(), "404") {
+		t.Errorf("resume after abandon err = %v", err)
+	}
+}
+
 func TestToolResultsResumeOnlyOnce(t *testing.T) {
 	server, _ := startBridge(t, toolRoundCLI(""))
 	question := user("Quel temps à Paris ?")

@@ -53,6 +53,7 @@ func (b *bridge) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", b.listModels)
 	mux.HandleFunc("POST /v1/chat/completions", b.chat)
+	mux.HandleFunc("DELETE /v1/tool_calls/{id}", b.abandon)
 	return requireToken(b.token, mux)
 }
 

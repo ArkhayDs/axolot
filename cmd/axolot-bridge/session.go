@@ -28,7 +28,7 @@ const (
 	toolServer = "axolot"
 	toolPrefix = "mcp__" + toolServer + "__"
 	// roundGap is how long a CLI waits for the results of its tool calls: Axolot may hold one for the user's click.
-	// shortcut: a turn Axolot gives up (stop, timeout, round cap) keeps its CLI up to roundGap; add a cancel route if orphans pile up.
+	// Axolot drops a run it gives up through abandon; roundGap ends the ones it never comes back to (Axolot stopped).
 	roundGap = 15 * time.Minute
 )
 
@@ -333,6 +333,15 @@ func (b *bridge) unpark(id string) *session {
 	}
 	b.forget(s)
 	return s
+}
+
+// abandon ends the run waiting for the result of a tool call, which Axolot gave up (stop, timeout, round cap).
+// Answers 204 whether or not a run waited: either way none does now.
+func (b *bridge) abandon(w http.ResponseWriter, r *http.Request) {
+	if s := b.unpark(r.PathValue("id")); s != nil {
+		s.cancel(context.Canceled)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // forget drops every call s waits for; the caller holds b.mu.
