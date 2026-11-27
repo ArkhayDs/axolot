@@ -28,6 +28,7 @@ const (
 	toolServer = "axolot"
 	toolPrefix = "mcp__" + toolServer + "__"
 	// roundGap is how long a CLI waits for the results of its tool calls: Axolot may hold one for the user's click.
+	// shortcut: a turn Axolot gives up (stop, timeout, round cap) keeps its CLI up to roundGap; add a cancel route if orphans pile up.
 	roundGap = 15 * time.Minute
 )
 
@@ -105,7 +106,7 @@ func mcpTools(tools []chatTool) ([]*mcp.Tool, error) {
 // @param tools - offered to the model by the session's MCP server, none for a plain answer
 func (b *bridge) start(model, system string, schema json.RawMessage, prompt string, tools []*mcp.Tool) (*session, error) {
 	ctx, cancel := context.WithCancelCause(b.base)
-	s := &session{ctx: ctx, cancel: cancel, structured: len(schema) > 0, items: make(chan item), done: make(chan outcome, 1)}
+	s := &session{ctx: ctx, cancel: cancel, structured: len(schema) > 0, items: make(chan item), done: make(chan outcome, 1), results: map[string]chan string{}}
 	config := ""
 	if len(tools) > 0 {
 		var err error
@@ -156,7 +157,10 @@ func (s *session) read(cmd *exec.Cmd, stdout io.Reader, stderr *bytes.Buffer, mo
 		err = resultError(result, waitErr)
 	}
 	if err != nil {
-		if !errors.Is(err, context.Canceled) {
+		switch {
+		case errors.Is(context.Cause(s.ctx), errNoResults):
+			slog.Info("claude stopped", "model", model, "err", errNoResults)
+		case !errors.Is(err, context.Canceled):
 			slog.Error("claude failed", "model", model, "err", err, "stderr", string(stderr.Bytes()[:min(stderr.Len(), maxLogged)]))
 		}
 		s.done <- outcome{err: err}
@@ -226,6 +230,8 @@ func (s *session) serveTools(tools []*mcp.Tool) (string, error) {
 func (s *session) callTool(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	id, _ := req.Params.Meta["claudecode/toolUseId"].(string)
 	if id == "" {
+		// The key is undocumented: a CLI update renaming it fails every call, and only this log says why.
+		slog.Error("tool call without claudecode/toolUseId", "tool", req.Params.Name)
 		return nil, errors.New("tool call without its claudecode/toolUseId")
 	}
 	select {
@@ -250,9 +256,6 @@ func (s *session) deliver(id, text string) {
 func (s *session) slot(id string) chan string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.results == nil {
-		s.results = map[string]chan string{}
-	}
 	if _, ok := s.results[id]; !ok {
 		s.results[id] = make(chan string, 1)
 	}
