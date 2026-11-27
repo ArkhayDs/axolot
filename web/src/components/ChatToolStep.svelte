@@ -16,6 +16,11 @@
     () => step.result !== null,
   );
 
+  // Answered or stopped: reported as seen so the page drops its off-screen entry.
+  $effect(() => {
+    if (!waiting && step.approval !== null) onseen(step.approval, true);
+  });
+
   $effect(() => {
     if (!buttons || step.approval === null) return;
     const id = step.approval;
