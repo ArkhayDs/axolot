@@ -73,6 +73,25 @@
   let error = $state('');
   let controller: AbortController | null = null;
   let thread: HTMLElement | undefined = $state();
+  // The page follows the conversation's end while the user stays there; scrolling up stops it, coming back down resumes it.
+  let following = true;
+  let lastScrollY = 0;
+
+  /** Keeps following unless the user scrolled up away from the end (a smooth scroll down passes through mid-page). */
+  function onScroll() {
+    const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 80;
+    following = atEnd || (following && scrollY >= lastScrollY);
+    lastScrollY = scrollY;
+  }
+
+  $effect(() => {
+    if (!thread) return;
+    const observer = new ResizeObserver(() => {
+      if (following) scrollTo({ top: document.documentElement.scrollHeight });
+    });
+    observer.observe(thread);
+    return () => observer.disconnect();
+  });
 
   const embedding = $derived(new Set((models?.library ?? []).filter((entry) => entry.role === 'embedding').map((entry) => entry.name)));
   const available = $derived(
@@ -143,7 +162,8 @@
     error = '';
     controller = new AbortController();
     await tick();
-    thread?.lastElementChild?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    following = true;
+    scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
     if (turn.searching) {
       try {
         const found = await api.chatSearch(text, controller.signal);
@@ -229,6 +249,8 @@
     }
   });
 </script>
+
+<svelte:window onscroll={onScroll} />
 
 {#snippet pending(text: string, tone: string)}
   <p class={tone}>{text}<span class="dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
@@ -413,7 +435,6 @@
   .turn {
     display: grid;
     gap: var(--s3);
-    scroll-margin-top: 90px;
   }
 
   .question {
