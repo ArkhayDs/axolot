@@ -58,13 +58,13 @@
   let attaching = $state(false);
   let composerHeight = $state(0);
   let turns = $state<Turn[]>([]);
-  // Approval ids whose buttons are on screen; 76 px is the composer's largest bottom offset (mobile).
-  const approvalsOnScreen = new SvelteSet<string>();
+  // Approval ids whose buttons are off screen (none until the observer says so, or the bar flashes); 76 px is the composer's largest bottom offset (mobile).
+  const approvalsOffScreen = new SvelteSet<string>();
   let hiddenApprovals = $derived(
     turns.flatMap((turn) =>
       turn.answers.flatMap((answer) =>
         answer.parts
-          .filter((part): part is ToolPart => part.kind === 'tool' && awaitsUser(part, answer.state === 'streaming') && !approvalsOnScreen.has(part.approval ?? ''))
+          .filter((part): part is ToolPart => part.kind === 'tool' && awaitsUser(part, answer.state === 'streaming') && approvalsOffScreen.has(part.approval ?? ''))
           .map((step) => ({ model: answer.model, step })),
       ),
     ),
@@ -294,7 +294,7 @@
                     steps={block}
                     live={answer.state === 'streaming'}
                     bottomInset={composerHeight + 76}
-                    onseen={(id, seen) => (seen ? approvalsOnScreen.add(id) : approvalsOnScreen.delete(id))}
+                    onseen={(id, seen) => (seen ? approvalsOffScreen.delete(id) : approvalsOffScreen.add(id))}
                   />
                 {:else if block.kind === 'text'}
                   <div class="text">{block.text}</div>
