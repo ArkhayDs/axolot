@@ -62,7 +62,7 @@ export const STARTUP_HINT = 'Chargement du modèle, ou lancement de Claude Code,
 
 export const BUFFERED_HINT = "Non mesuré : Claude Code envoie la réponse d'un bloc après un appel d'outil.";
 
-export const GROSS_HINT ='Attente réelle, lancement et fermeture de Claude Code compris.';
+export const GROSS_HINT = 'Attente réelle, lancement et fermeture de Claude Code compris.';
 
 export const CONNECTIONS: { value: ConnectionType; label: string }[] = [
   { value: '', label: 'Toutes' },
