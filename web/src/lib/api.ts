@@ -363,8 +363,7 @@ export interface ChatMetrics {
   load_ms: number | null;
   output_tokens: number | null;
   tok_per_sec: number | null;
-  // Time the turn waited for the user's clicks, left out of ttft_ms and total_ms.
-  approval_ms: number;
+  cli_startup_ms: number | null;
 }
 
 export interface ChatPassage {
