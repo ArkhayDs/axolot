@@ -1,6 +1,6 @@
 // Chat model picks: each model gets its own answer column.
 
-import type { ChatEvent, ConnectionType } from './api';
+import type { ChatEvent, ChatMetrics, ConnectionType } from './api';
 
 export const MAX_MODELS = 4;
 export const MAX_LOCAL = 2;
@@ -14,6 +14,20 @@ export type AnswerPart =
   | { kind: 'musing'; word: string; since: number; ms: number | null };
 
 export type ToolPart = Extract<AnswerPart, { kind: 'tool' }>;
+
+// One model's answer card in a Chat turn.
+export interface Answer {
+  key: string;
+  model: string;
+  providerId: number;
+  local: boolean;
+  vision: boolean | undefined;
+  parts: AnswerPart[];
+  notices: string[];
+  state: 'waiting' | 'streaming' | 'done' | 'failed' | 'stopped' | 'no-image';
+  error: string;
+  metrics: ChatMetrics | null;
+}
 
 // Shown while the model reads a tool result, one drawn per wait; some invented, some anagrams (Tolaxo, Gnose for songe).
 export const MUSINGS = [
