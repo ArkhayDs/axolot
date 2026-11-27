@@ -60,13 +60,12 @@
   let turns = $state<Turn[]>([]);
   // Approval ids whose buttons are off screen (none until the observer says so, or the bar flashes); 76 px is the composer's largest bottom offset (mobile).
   const approvalsOffScreen = new SvelteSet<string>();
+  // Only the last turn can still stream, so only it can wait for a click.
   let hiddenApprovals = $derived(
-    turns.flatMap((turn) =>
-      turn.answers.flatMap((answer) =>
-        answer.parts
-          .filter((part): part is ToolPart => part.kind === 'tool' && awaitsUser(part, answer.state === 'streaming') && approvalsOffScreen.has(part.approval ?? ''))
-          .map((step) => ({ model: answer.model, step })),
-      ),
+    (turns.at(-1)?.answers ?? []).flatMap((answer) =>
+      answer.parts
+        .filter((part): part is ToolPart => part.kind === 'tool' && awaitsUser(part, answer.state === 'streaming') && approvalsOffScreen.has(part.approval ?? ''))
+        .map((step) => ({ model: answer.model, step })),
     ),
   );
   let sending = $state(false);
