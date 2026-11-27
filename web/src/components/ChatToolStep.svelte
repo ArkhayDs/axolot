@@ -1,7 +1,6 @@
 <script lang="ts">
   import ChatApproval from './ChatApproval.svelte';
-  import Icon from './Icon.svelte';
-  import { awaitsUser, prettyJson } from '../lib/chat';
+  import { awaitsUser, prettyJson, shortArgs } from '../lib/chat';
   import type { ToolPart } from '../lib/chat';
   import { duration } from '../lib/format';
 
@@ -37,8 +36,7 @@
 
 <details class="step" bind:open>
   <summary>
-    <Icon name="plug" size={16} />
-    <code>{step.name}</code>
+    <code title={step.arguments}>{step.name}({shortArgs(step.arguments)})</code>
     {#if waiting}
       <span class="state-warning">en attente de validation</span>
     {:else if step.result === null}
@@ -87,16 +85,19 @@
 
   summary {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--s2);
     color: var(--ink-2);
+    white-space: nowrap;
     cursor: pointer;
   }
 
+  /* One line per call: long arguments end in an ellipsis, the full text sits under the fold and in the tooltip. */
   code {
+    min-width: 0;
+    overflow: hidden;
     font-family: var(--mono);
-    overflow-wrap: anywhere;
+    text-overflow: ellipsis;
   }
 
   p {

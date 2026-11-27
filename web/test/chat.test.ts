@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addEvent, answerText, askAll, awaitsUser, pickBlock, picksToSave, prettyJson, restorePicks, toolSummary } from '../src/lib/chat.ts';
+import { MUSINGS, addEvent, answerText, askAll, awaitsUser, pickBlock, picksToSave, prettyJson, restorePicks, shortArgs, toolRuns, toolSummary } from '../src/lib/chat.ts';
 import type { AnswerPart, ToolPart } from '../src/lib/chat.ts';
 import { streamChat } from '../src/lib/api.ts';
 import type { ConnectionType } from '../src/lib/api.ts';
@@ -71,11 +71,14 @@ test('text around tool calls stays in order, each result joins its call', () => 
   addEvent(parts, { type: 'delta', text: 'Je ' });
   addEvent(parts, { type: 'delta', text: 'cherche.' });
   addEvent(parts, { type: 'tool_call', name: 'sentinelle__kpis', arguments: '{}' });
-  addEvent(parts, { type: 'tool_result', result: '42', error: false, refused: false, ms: 300 });
-  addEvent(parts, { type: 'delta', text: 'Réponse : 42' });
+  addEvent(parts, { type: 'tool_result', result: '42', error: false, refused: false, ms: 300 }, 1000);
+  addEvent(parts, { type: 'delta', text: 'Réponse : 42' }, 7000);
+  const word = parts[2].kind === 'musing' ? parts[2].word : '';
+  assert.ok(MUSINGS.includes(word));
   assert.deepEqual(parts, [
     { kind: 'text', text: 'Je cherche.' },
     { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300, approval: null, refused: false, decided: false },
+    { kind: 'musing', word, since: 1000, ms: 6000 },
     { kind: 'text', text: 'Réponse : 42' },
   ]);
   assert.equal(answerText(parts), 'Je cherche.\n\nRéponse : 42');
@@ -123,6 +126,45 @@ test('the tool summary counts calls and their time, a running call adds none', (
   addEvent(parts, { type: 'tool_result', result: 'Error: boom', error: true, refused: false, ms: 120 });
   addEvent(parts, { type: 'tool_call', name: 'b', arguments: '{}' });
   assert.deepEqual(toolSummary(parts), { calls: 2, ms: 120 });
+});
+
+test('consecutive tool calls fold into one run, text between runs stays in place', () => {
+  const parts: AnswerPart[] = [];
+  addEvent(parts, { type: 'delta', text: 'Je cherche.' });
+  addEvent(parts, { type: 'tool_call', name: 'a', arguments: '{}' });
+  addEvent(parts, { type: 'tool_call', name: 'b', arguments: '{}' });
+  addEvent(parts, { type: 'delta', text: 'Encore.' });
+  addEvent(parts, { type: 'tool_call', name: 'c', arguments: '{}' });
+  assert.deepEqual(
+    toolRuns(parts).map((block) => (Array.isArray(block) ? block.map((step) => step.name) : block.kind === 'text' ? block.text : block.kind)),
+    ['Je cherche.', ['a', 'b'], 'Encore.', ['c']],
+  );
+  assert.equal((toolRuns(parts)[1] as ToolPart[])[0], parts[1]);
+});
+
+test('a wait between two calls is dropped, the wait before the text keeps its length', () => {
+  const parts: AnswerPart[] = [];
+  addEvent(parts, { type: 'tool_call', name: 'a', arguments: '{}' }, 0);
+  addEvent(parts, { type: 'tool_result', result: '1', error: false, refused: false, ms: 100 }, 100);
+  assert.deepEqual(
+    parts.map((part) => part.kind),
+    ['tool', 'musing'],
+  );
+  addEvent(parts, { type: 'tool_call', name: 'b', arguments: '{}' }, 400);
+  addEvent(parts, { type: 'tool_result', result: '2', error: false, refused: false, ms: 100 }, 500);
+  addEvent(parts, { type: 'delta', text: 'Réponse' }, 2500);
+  assert.deepEqual(
+    parts.map((part) => part.kind),
+    ['tool', 'tool', 'musing', 'text'],
+  );
+  assert.equal(parts[2].kind === 'musing' && parts[2].ms, 2000);
+});
+
+test('short arguments list the values, invalid ones shown as the model wrote them', () => {
+  assert.equal(shortArgs('{"scope":"Sodilandes","month":"2026-10","top":3,"filters":{"a":1}}'), 'Sodilandes, 2026-10, 3, {"a":1}');
+  assert.equal(shortArgs('{}'), '');
+  assert.equal(shortArgs('{scope:'), '{scope:');
+  assert.equal(shortArgs('[1,2]'), '[1,2]');
 });
 
 test('valid arguments are indented, invalid ones shown as the model wrote them', () => {
