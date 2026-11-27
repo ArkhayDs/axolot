@@ -2,33 +2,19 @@
   import { onMount, tick } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
 
-  import ChatApproval from '../components/ChatApproval.svelte';
+  import ChatAnswer from '../components/ChatAnswer.svelte';
+  import ChatApprovalBar from '../components/ChatApprovalBar.svelte';
   import Icon from '../components/Icon.svelte';
-  import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
   import ChatOptions from '../components/ChatOptions.svelte';
   import ChatSources from '../components/ChatSources.svelte';
   import ChatModels from '../components/ChatModels.svelte';
-  import ChatToolRun from '../components/ChatToolRun.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
-  import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { addEvent, answerText, askAll, awaitsUser, picksToSave, restorePicks, toolRuns, toolSummary } from '../lib/chat';
-  import type { AnswerPart, ToolPart } from '../lib/chat';
-  import { BUFFERED_HINT, STARTUP_HINT, duration, number, seriesColor } from '../lib/format';
+  import type { ChatDocument, ChatImage, ChatPassage, Models } from '../lib/api';
+  import { addEvent, answerText, askAll, awaitsUser, picksToSave, restorePicks } from '../lib/chat';
+  import type { Answer, ToolPart } from '../lib/chat';
+  import { seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
-
-  interface Answer {
-    key: string;
-    model: string;
-    providerId: number;
-    local: boolean;
-    vision: boolean | undefined;
-    parts: AnswerPart[];
-    notices: string[];
-    state: 'waiting' | 'streaming' | 'done' | 'failed' | 'stopped' | 'no-image';
-    error: string;
-    metrics: ChatMetrics | null;
-  }
 
   interface Turn {
     question: string;
@@ -251,10 +237,6 @@
 
 <svelte:window onscroll={onScroll} />
 
-{#snippet pending(text: string, tone: string)}
-  <p class={tone}>{text}<span class="dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
-{/snippet}
-
 <div class="page chat">
   <div class="page-head">
     <div>
@@ -294,71 +276,14 @@
         <ChatSources passages={turn.passages} document={turn.document} image={turn.image} />
         <div class="answers">
           {#each turn.answers as answer (answer.key)}
-            <div class="answer">
-              <ModelName name={answer.model} color={seriesColor(answer.key, colorOrder)} />
-              {#if turn.image && answer.vision === undefined}
-                <p class="muted">Ce serveur n'indique pas si le modèle lit les images : réponse à vérifier.</p>
-              {/if}
-              {#each answer.notices as notice, index (index)}
-                <p class="state state-warning"><Icon name="alert" size={16} /> {notice}</p>
-              {/each}
-              {#if answer.state === 'no-image'}
-                <p class="state state-warning"><Icon name="alert" size={16} /> Ce modèle ne lit pas les images</p>
-              {:else if answer.state === 'waiting'}
-                <p class="muted">En attente de l'autre modèle...</p>
-              {:else if answer.state === 'streaming' && answer.parts.length === 0}
-                {@render pending('Chargement du modèle', 'muted')}
-              {/if}
-              {#each toolRuns(answer.parts) as block, index (index)}
-                {#if Array.isArray(block)}
-                  <ChatToolRun
-                    steps={block}
-                    live={answer.state === 'streaming'}
-                    bottomInset={composerHeight + 76}
-                    onseen={(id, seen) => (seen ? approvalsOffScreen.delete(id) : approvalsOffScreen.add(id))}
-                  />
-                {:else if block.kind === 'text'}
-                  <div class="text">{block.text}</div>
-                {:else if block.ms !== null}
-                  <p class="musing muted">{block.word} pendant {duration(block.ms)}</p>
-                {:else if answer.state === 'streaming'}
-                  {@render pending(block.word, 'musing live')}
-                {/if}
-              {/each}
-              {#if answer.state === 'failed'}
-                <p class="state state-critical"><Icon name="cross" size={16} /> {answer.error}</p>
-              {/if}
-              {#if answer.state === 'stopped'}
-                <p class="muted">Arrêté.</p>
-              {/if}
-              {#if answer.metrics}
-                {@const tools = toolSummary(answer.parts)}
-                {@const startup = answer.metrics.load_ms ?? answer.metrics.cli_startup_ms}
-                <dl class="metrics">
-                  {#if turn.searchMs !== null}
-                    <div><dt>Recherche</dt><dd>{duration(turn.searchMs)}</dd></div>
-                  {/if}
-                  <div><dt>1er token</dt><dd>{duration(answer.metrics.ttft_ms)}</dd></div>
-                  <div><dt>Total</dt><dd>{duration(answer.metrics.total_ms)}</dd></div>
-                  <div>
-                    <dt>t/s</dt>
-                    <dd>
-                      {number(answer.metrics.tok_per_sec)}
-                      {#if answer.metrics.tok_per_sec === null && answer.metrics.cli_startup_ms !== null && tools.calls > 0}
-                        <span class="hint" role="img" aria-label={BUFFERED_HINT} title={BUFFERED_HINT}><Icon name="info" size={14} /></span>
-                      {/if}
-                    </dd>
-                  </div>
-                  <!-- No threshold on purpose: a near-zero startup is a result being compared, not noise. -->
-                  {#if startup !== null}
-                    <div><dt title={STARTUP_HINT}>Démarrage</dt><dd>{duration(startup)}</dd></div>
-                  {/if}
-                  {#if tools.calls > 0}
-                    <div><dt>Outils</dt><dd>{tools.calls} {tools.calls > 1 ? 'appels' : 'appel'} · {duration(tools.ms)}</dd></div>
-                  {/if}
-                </dl>
-              {/if}
-            </div>
+            <ChatAnswer
+              {answer}
+              color={seriesColor(answer.key, colorOrder)}
+              imageSent={turn.image !== null}
+              searchMs={turn.searchMs}
+              bottomInset={composerHeight + 76}
+              onseen={(id, seen) => (seen ? approvalsOffScreen.delete(id) : approvalsOffScreen.add(id))}
+            />
           {/each}
         </div>
       </article>
@@ -368,17 +293,7 @@
   </section>
 
   <form class="composer glass" bind:clientHeight={composerHeight} onsubmit={send}>
-    {#if hiddenApprovals.length > 0}
-      <ul class="approvals" aria-label="Appels en attente de votre accord">
-        {#each hiddenApprovals as { model, step } (step.approval)}
-          <li>
-            <span><strong>{model}</strong> attend votre accord · <code>{step.name}</code></span>
-            <button class="btn" type="button" onclick={() => document.getElementById(`approval-${step.approval}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })}>Voir</button>
-            <ChatApproval {step} />
-          </li>
-        {/each}
-      </ul>
-    {/if}
+    <ChatApprovalBar approvals={hiddenApprovals} />
     <div class="compose-row">
       <label class="field">
         <span class="visually-hidden">Votre question</span>
@@ -463,81 +378,6 @@
     gap: var(--s3);
   }
 
-  .answer {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s3);
-    min-width: 0;
-    padding: var(--s4);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius);
-    background: var(--panel);
-  }
-
-  .text {
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-  }
-
-  .musing {
-    font-size: var(--text-sm);
-  }
-
-  .live {
-    color: var(--accent);
-  }
-
-  .dots span {
-    animation: dot 1.2s ease-in-out infinite both;
-  }
-
-  .dots span:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-
-  .dots span:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-
-  @keyframes dot {
-    0%,
-    60%,
-    100% {
-      opacity: 0.2;
-    }
-
-    30% {
-      opacity: 1;
-    }
-  }
-
-  .metrics {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s2) var(--s5);
-    margin: auto 0 0;
-    padding-top: var(--s3);
-    border-top: 1px solid var(--hairline);
-  }
-
-  dt {
-    color: var(--ink-3);
-    font-size: var(--text-sm);
-  }
-
-  dd {
-    margin: 0;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .hint {
-    display: inline-flex;
-    vertical-align: -2px;
-    color: var(--ink-3);
-    cursor: help;
-  }
-
   .composer {
     position: fixed;
     bottom: var(--s4);
@@ -549,32 +389,6 @@
     padding: var(--s3);
     border-radius: var(--radius-lg);
     transform: translateX(-50%);
-  }
-
-  .approvals {
-    display: grid;
-    gap: var(--s2);
-    margin: 0;
-    padding: 0 0 var(--s3);
-    border-bottom: 1px solid var(--hairline);
-    list-style: none;
-    font-size: var(--text-sm);
-  }
-
-  .approvals li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s2) var(--s3);
-  }
-
-  .approvals span {
-    flex: 1 1 16rem;
-  }
-
-  .approvals code {
-    font-family: var(--mono);
-    overflow-wrap: anywhere;
   }
 
   .compose-row {
