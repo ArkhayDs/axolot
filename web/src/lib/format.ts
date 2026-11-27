@@ -58,7 +58,11 @@ export const UNMEASURED_HINT = "La question n'a pas pu être mesurée (pont, quo
 
 export const NET_HINT = 'Modèles Claude : sans le lancement ni la fermeture de Claude Code, mesurés à chaque appel du pont.';
 
-export const GROSS_HINT = 'Attente réelle, lancement et fermeture de Claude Code compris.';
+export const STARTUP_HINT = 'Chargement du modèle, ou lancement de Claude Code, compris dans 1er token et Total.';
+
+export const BUFFERED_HINT = "Non mesuré : Claude Code envoie la réponse d'un bloc après un appel d'outil.";
+
+export const GROSS_HINT ='Attente réelle, lancement et fermeture de Claude Code compris.';
 
 export const CONNECTIONS: { value: ConnectionType; label: string }[] = [
   { value: '', label: 'Toutes' },

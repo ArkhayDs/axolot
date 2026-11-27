@@ -12,7 +12,7 @@
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
   import { addEvent, answerText, askAll, picksToSave, restorePicks, toolSummary } from '../lib/chat';
   import type { AnswerPart } from '../lib/chat';
-  import { duration, number, seriesColor } from '../lib/format';
+  import { BUFFERED_HINT, STARTUP_HINT, duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
   interface Answer {
@@ -286,21 +286,27 @@
               {/if}
               {#if answer.metrics}
                 {@const tools = toolSummary(answer.parts)}
+                {@const startup = answer.metrics.load_ms ?? answer.metrics.cli_startup_ms}
                 <dl class="metrics">
                   {#if turn.searchMs !== null}
                     <div><dt>Recherche</dt><dd>{duration(turn.searchMs)}</dd></div>
                   {/if}
                   <div><dt>1er token</dt><dd>{duration(answer.metrics.ttft_ms)}</dd></div>
                   <div><dt>Total</dt><dd>{duration(answer.metrics.total_ms)}</dd></div>
-                  <div><dt>t/s</dt><dd>{number(answer.metrics.tok_per_sec)}</dd></div>
-                  {#if answer.metrics.load_ms && answer.metrics.load_ms >= 500}
-                    <div><dt>Chargement</dt><dd>{duration(answer.metrics.load_ms)}</dd></div>
+                  <div>
+                    <dt>t/s</dt>
+                    <dd>
+                      {number(answer.metrics.tok_per_sec)}
+                      {#if answer.metrics.tok_per_sec === null && answer.metrics.cli_startup_ms !== null && tools.calls > 0}
+                        <span class="hint" role="img" aria-label={BUFFERED_HINT} title={BUFFERED_HINT}><Icon name="info" size={14} /></span>
+                      {/if}
+                    </dd>
+                  </div>
+                  {#if startup !== null}
+                    <div><dt title={STARTUP_HINT}>Démarrage</dt><dd>{duration(startup)}</dd></div>
                   {/if}
                   {#if tools.calls > 0}
                     <div><dt>Outils</dt><dd>{tools.calls} {tools.calls > 1 ? 'appels' : 'appel'} · {duration(tools.ms)}</dd></div>
-                  {/if}
-                  {#if answer.metrics.approval_ms > 0}
-                    <div><dt>Validation</dt><dd>{duration(answer.metrics.approval_ms)} en attente</dd></div>
                   {/if}
                 </dl>
               {/if}
@@ -433,6 +439,13 @@
     margin: 0;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+  }
+
+  .hint {
+    display: inline-flex;
+    vertical-align: -2px;
+    color: var(--ink-3);
+    cursor: help;
   }
 
   .composer {
