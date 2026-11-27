@@ -259,6 +259,23 @@ func TestAnswerStopsAskingOnceAlwaysAllowed(t *testing.T) {
 	}
 }
 
+func TestAnswerGoesOnWithoutTheToolWhenNobodyAnswers(t *testing.T) {
+	_, tools, model := askedTool(t)
+	tools.approvalMax = 50 * time.Millisecond
+	events, send := recorder()
+
+	if _, err := answer(context.Background(), model, question, tools, send); err != nil {
+		t.Fatal(err)
+	}
+	sent := model.reqs[1].Messages
+	if reply := sent[len(sent)-1]; reply.Content != "Error: "+errNoApproval.Error() {
+		t.Fatalf("reply=%+v", reply)
+	}
+	if (*events)[2]["error"] != true || (*events)[2]["refused"] != false {
+		t.Fatalf("events=%v", *events)
+	}
+}
+
 func TestAnswerStopsWaitingWhenTheTurnEnds(t *testing.T) {
 	_, tools, model := askedTool(t)
 	ctx, cancel := context.WithCancel(context.Background())
