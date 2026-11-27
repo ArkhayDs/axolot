@@ -274,7 +274,7 @@ func (s *Server) connection(ctx context.Context, id int64) (provider.Provider, e
 // client decrypts the key of a connection and builds its client; the bridge takes its URL and token from the environment.
 func (s *Server) client(p store.Provider) (provider.Provider, error) {
 	if p.Kind == "bridge" {
-		return provider.New("openai", s.cfg.BridgeURL, s.cfg.BridgeToken)
+		return &provider.Bridge{OpenAI: provider.OpenAI{BaseURL: s.cfg.BridgeURL, APIKey: s.cfg.BridgeToken}}, nil
 	}
 	apiKey := ""
 	if p.HasAPIKey {

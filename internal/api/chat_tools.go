@@ -46,6 +46,8 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 	req.Tools = tools.tools
 	req.Messages = tools.tellBlocked(req.Messages)
 	onDelta := func(text string) { send(map[string]any{"type": "delta", "text": text}) }
+	// asked are the last round's calls, whose results a bridge run waits for until the next model call carries them.
+	var asked []provider.ToolCall
 	for round := range chatMaxRounds {
 		offset := elapsed()
 		result, err := client.Chat(ctx, req, onDelta)
@@ -56,6 +58,7 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 			result, err = client.Chat(ctx, req, onDelta)
 		}
 		if err != nil {
+			abandon(ctx, client, asked)
 			return result, err
 		}
 		load, startup = addMs(load, result.LoadMs), addMs(startup, result.CLIStartupMs)
@@ -68,6 +71,7 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 			result.LoadMs, result.CLIStartupMs = load, startup
 			return result, nil
 		}
+		asked = result.ToolCalls
 		if round == chatMaxRounds-1 {
 			break
 		}
@@ -76,7 +80,22 @@ func answer(ctx context.Context, client provider.Provider, req provider.ChatRequ
 			req.Messages = append(req.Messages, tools.run(ctx, call, send))
 		}
 	}
+	abandon(ctx, client, asked)
 	return provider.ChatResult{}, errTooManyRounds
+}
+
+// abandon tells a bridge the results its run waits for will not come, so Claude Code stops now rather than after its own delay.
+// Runs after the turn ended (stop, timeout), hence its own short deadline.
+func abandon(ctx context.Context, client provider.Provider, calls []provider.ToolCall) {
+	bridge, ok := client.(provider.Abandoner)
+	if !ok || len(calls) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if err := bridge.Abandon(ctx, calls[0].ID); err != nil {
+		slog.Warn("bridge run not stopped", "err", err)
+	}
 }
 
 // addMs adds a call's optional duration to a running total, nil while no call reported one.

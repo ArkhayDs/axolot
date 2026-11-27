@@ -426,6 +426,40 @@ func TestAnswerAddsUpStartupOverItsModelCalls(t *testing.T) {
 	}
 }
 
+// abandoning is a scripted bridge, recording the runs it is told to drop.
+type abandoning struct {
+	scripted
+	dropped []string
+}
+
+func (p *abandoning) Abandon(_ context.Context, callID string) error {
+	p.dropped = append(p.dropped, callID)
+	return nil
+}
+
+func TestAnswerDropsTheBridgeRunItGivesUp(t *testing.T) {
+	round := provider.ChatResult{ToolCalls: []provider.ToolCall{{ID: "c1", Name: "srv__get_kpis"}, {ID: "c2", Name: "srv__get_kpis"}}}
+	for name, tc := range map[string]struct {
+		errs    []error
+		dropped []string
+	}{
+		"answered":       {dropped: nil},
+		"given up":       {errs: []error{nil, context.Canceled}, dropped: []string{"c1"}},
+		"failed at once": {errs: []error{errors.New("down")}, dropped: nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			tools := &toolbox{tools: []provider.Tool{{Name: "srv__get_kpis"}}, routes: map[string]toolRoute{}}
+			model := &abandoning{scripted: scripted{results: []provider.ChatResult{round, {Output: "42"}}, errs: tc.errs}}
+			_, send := recorder()
+
+			_, _ = answer(context.Background(), model, question, tools, send)
+			if !slices.Equal(model.dropped, tc.dropped) {
+				t.Fatalf("dropped=%v, want %v", model.dropped, tc.dropped)
+			}
+		})
+	}
+}
+
 func TestAnswerStopsAfterTheRoundCap(t *testing.T) {
 	tools := &toolbox{tools: []provider.Tool{{Name: "srv__get_kpis"}}, routes: map[string]toolRoute{}}
 	model := &scripted{results: []provider.ChatResult{{ToolCalls: []provider.ToolCall{{ID: "c", Name: "srv__get_kpis"}}}}}
