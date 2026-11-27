@@ -9,10 +9,10 @@
   import ChatOptions from '../components/ChatOptions.svelte';
   import ChatSources from '../components/ChatSources.svelte';
   import ChatModels from '../components/ChatModels.svelte';
-  import ChatToolStep from '../components/ChatToolStep.svelte';
+  import ChatToolRun from '../components/ChatToolRun.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { addEvent, answerText, askAll, awaitsUser, picksToSave, restorePicks, toolSummary } from '../lib/chat';
+  import { addEvent, answerText, askAll, awaitsUser, picksToSave, restorePicks, toolRuns, toolSummary } from '../lib/chat';
   import type { AnswerPart, ToolPart } from '../lib/chat';
   import { BUFFERED_HINT, STARTUP_HINT, duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
@@ -230,6 +230,10 @@
   });
 </script>
 
+{#snippet pending(text: string, tone: string)}
+  <p class={tone}>{text}<span class="dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></p>
+{/snippet}
+
 <div class="page chat">
   <div class="page-head">
     <div>
@@ -282,18 +286,22 @@
               {:else if answer.state === 'waiting'}
                 <p class="muted">En attente de l'autre modèle...</p>
               {:else if answer.state === 'streaming' && answer.parts.length === 0}
-                <p class="muted">Chargement du modèle...</p>
+                {@render pending('Chargement du modèle', 'muted')}
               {/if}
-              {#each answer.parts as part, index (index)}
-                {#if part.kind === 'text'}
-                  <div class="text">{part.text}</div>
-                {:else}
-                  <ChatToolStep
-                    step={part}
+              {#each toolRuns(answer.parts) as block, index (index)}
+                {#if Array.isArray(block)}
+                  <ChatToolRun
+                    steps={block}
                     live={answer.state === 'streaming'}
                     bottomInset={composerHeight + 76}
                     onseen={(id, seen) => (seen ? approvalsOnScreen.add(id) : approvalsOnScreen.delete(id))}
                   />
+                {:else if block.kind === 'text'}
+                  <div class="text">{block.text}</div>
+                {:else if block.ms !== null}
+                  <p class="musing muted">{block.word} pendant {duration(block.ms)}</p>
+                {:else if answer.state === 'streaming'}
+                  {@render pending(block.word, 'musing live')}
                 {/if}
               {/each}
               {#if answer.state === 'failed'}
@@ -448,6 +456,38 @@
   .text {
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  .musing {
+    font-size: var(--text-sm);
+  }
+
+  .live {
+    color: var(--accent);
+  }
+
+  .dots span {
+    animation: dot 1.2s ease-in-out infinite both;
+  }
+
+  .dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes dot {
+    0%,
+    60%,
+    100% {
+      opacity: 0.2;
+    }
+
+    30% {
+      opacity: 1;
+    }
   }
 
   .metrics {

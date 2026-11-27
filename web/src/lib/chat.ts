@@ -7,11 +7,37 @@ export const MAX_LOCAL = 2;
 
 // A tool part's result is null while the call runs; approval is the id the user's click answers, null when the tool needs none;
 // refused: the user turned the call down, its error is that refusal; decided: the user's click went through, set by the page.
+// A musing is the model's silence after a tool result; ms stays null until its next text arrives.
 export type AnswerPart =
   | { kind: 'text'; text: string }
-  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null; approval: string | null; refused: boolean; decided: boolean };
+  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null; approval: string | null; refused: boolean; decided: boolean }
+  | { kind: 'musing'; word: string; since: number; ms: number | null };
 
 export type ToolPart = Extract<AnswerPart, { kind: 'tool' }>;
+
+// Shown while the model reads a tool result, one drawn per wait; some invented, some anagrams (Tolaxo, Gnose for songe).
+export const MUSINGS = [
+  'Réflexion',
+  'Cogitation',
+  'Mijotage',
+  'Gambergeage',
+  'Phosphorage',
+  'Ruminage',
+  'Remue-méninges',
+  'Élucubration',
+  'Tergiversation',
+  'Décantation',
+  'Infusion',
+  'Triturage',
+  'Moulinage',
+  'Pensouillage',
+  'Turlupinage',
+  'Réfléchissage',
+  'Turbinage',
+  'Tolaxo',
+  'Gnose',
+];
+type OtherPart = Exclude<AnswerPart, { kind: 'tool' }>;
 
 /**
  * Whether a call still waits for the user's click
@@ -27,9 +53,17 @@ export function awaitsUser(step: ToolPart, live: boolean): boolean {
  * Adds one streamed event to an answer, text and tool steps kept in the order the model produced them
  * @param {AnswerPart[]} parts - answer so far, changed in place
  * @param {ChatEvent} event - delta, tool step or its approval request; notices are not parts
+ * @param {number} now - arrival time in ms, times the model's silence after a tool result
  */
-export function addEvent(parts: AnswerPart[], event: ChatEvent): void {
-  const last = parts.at(-1);
+export function addEvent(parts: AnswerPart[], event: ChatEvent, now: number = performance.now()): void {
+  let last = parts.at(-1);
+  if (last?.kind === 'musing' && event.type === 'tool_call') {
+    // A silence between two calls stays inside their run: only the one before the text is shown.
+    parts.pop();
+    last = parts.at(-1);
+  } else if (last?.kind === 'musing' && event.type === 'delta') {
+    last.ms = now - last.since;
+  }
   if (event.type === 'delta') {
     if (last?.kind === 'text') last.text += event.text;
     else parts.push({ kind: 'text', text: event.text });
@@ -44,6 +78,7 @@ export function addEvent(parts: AnswerPart[], event: ChatEvent): void {
     last.error = event.error;
     last.refused = event.refused;
     last.ms = event.ms;
+    parts.push({ kind: 'musing', word: MUSINGS[Math.floor(Math.random() * MUSINGS.length)], since: now, ms: null });
   }
 }
 
@@ -64,6 +99,40 @@ export function answerText(parts: AnswerPart[]): string {
 export function toolSummary(parts: AnswerPart[]): { calls: number; ms: number } {
   const tools = parts.filter((part) => part.kind === 'tool');
   return { calls: tools.length, ms: tools.reduce((sum, part) => sum + (part.ms ?? 0), 0) };
+}
+
+/**
+ * Groups each stretch of consecutive tool calls, so a run folds behind one line and text keeps its place
+ * @param {AnswerPart[]} parts - answer so far
+ * @returns {(OtherPart | ToolPart[])[]} - other parts as is, each run of calls as one array of the same steps
+ */
+export function toolRuns(parts: AnswerPart[]): (OtherPart | ToolPart[])[] {
+  const blocks: (OtherPart | ToolPart[])[] = [];
+  for (const part of parts) {
+    const last = blocks.at(-1);
+    if (part.kind !== 'tool') blocks.push(part);
+    else if (Array.isArray(last)) last.push(part);
+    else blocks.push([part]);
+  }
+  return blocks;
+}
+
+/**
+ * Tool arguments on one line, values only, like `get_kpis(2026-10, Sodilandes)`
+ * @param {string} text - model's raw JSON, possibly invalid
+ * @returns {string} - values joined by commas, or the text as is when not a JSON object
+ */
+export function shortArgs(text: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return text;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return text;
+  return Object.values(parsed)
+    .map((value) => (typeof value === 'string' ? value : JSON.stringify(value)))
+    .join(', ');
 }
 
 /**
