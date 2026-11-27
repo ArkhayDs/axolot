@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { addEvent, answerText, askAll, pickBlock, picksToSave, prettyJson, restorePicks, toolSummary } from '../src/lib/chat.ts';
-import type { AnswerPart } from '../src/lib/chat.ts';
+import { addEvent, answerText, askAll, awaitsUser, pickBlock, picksToSave, prettyJson, restorePicks, toolSummary } from '../src/lib/chat.ts';
+import type { AnswerPart, ToolPart } from '../src/lib/chat.ts';
 import { streamChat } from '../src/lib/api.ts';
 import type { ConnectionType } from '../src/lib/api.ts';
 
@@ -75,7 +75,7 @@ test('text around tool calls stays in order, each result joins its call', () => 
   addEvent(parts, { type: 'delta', text: 'Réponse : 42' });
   assert.deepEqual(parts, [
     { kind: 'text', text: 'Je cherche.' },
-    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300, approval: null, refused: false },
+    { kind: 'tool', name: 'sentinelle__kpis', arguments: '{}', result: '42', error: false, ms: 300, approval: null, refused: false, decided: false },
     { kind: 'text', text: 'Réponse : 42' },
   ]);
   assert.equal(answerText(parts), 'Je cherche.\n\nRéponse : 42');
@@ -97,6 +97,19 @@ test('a refused call stays marked refused, apart from a failure', () => {
   addEvent(parts, { type: 'tool_call', name: 'sentinelle__run_sql', arguments: '{}' });
   addEvent(parts, { type: 'tool_result', result: 'Error: refused', error: true, refused: true, ms: 0 });
   assert.equal(parts[0].kind === 'tool' && parts[0].refused, true);
+});
+
+test('a call waits for the user until clicked, answered or its answer stops', () => {
+  const parts: AnswerPart[] = [];
+  addEvent(parts, { type: 'tool_call', name: 'sentinelle__run_sql', arguments: '{}' });
+  const step = parts[0] as ToolPart;
+  assert.equal(awaitsUser(step, true), false);
+  addEvent(parts, { type: 'approval', id: 'abc' });
+  assert.equal(awaitsUser(step, true), true);
+  assert.equal(awaitsUser(step, false), false);
+  assert.equal(awaitsUser({ ...step, decided: true }, true), false);
+  addEvent(parts, { type: 'tool_result', result: '42', error: false, refused: false, ms: 300 });
+  assert.equal(awaitsUser(step, true), false);
 });
 
 test('an approval request without its call fails loudly', () => {

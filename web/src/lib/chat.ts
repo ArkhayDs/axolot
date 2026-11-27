@@ -6,10 +6,22 @@ export const MAX_MODELS = 4;
 export const MAX_LOCAL = 2;
 
 // A tool part's result is null while the call runs; approval is the id the user's click answers, null when the tool needs none;
-// refused: the user turned the call down, its error is that refusal.
+// refused: the user turned the call down, its error is that refusal; decided: the user's click went through, set by the page.
 export type AnswerPart =
   | { kind: 'text'; text: string }
-  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null; approval: string | null; refused: boolean };
+  | { kind: 'tool'; name: string; arguments: string; result: string | null; error: boolean; ms: number | null; approval: string | null; refused: boolean; decided: boolean };
+
+export type ToolPart = Extract<AnswerPart, { kind: 'tool' }>;
+
+/**
+ * Whether a call still waits for the user's click
+ * @param {ToolPart} step - tool step
+ * @param {boolean} live - its answer still streams: a stopped one waits for nothing
+ * @returns {boolean} - true while "Autoriser" / "Refuser" would answer something
+ */
+export function awaitsUser(step: ToolPart, live: boolean): boolean {
+  return live && step.approval !== null && step.result === null && !step.decided;
+}
 
 /**
  * Adds one streamed event to an answer, text and tool steps kept in the order the model produced them
@@ -22,7 +34,7 @@ export function addEvent(parts: AnswerPart[], event: ChatEvent): void {
     if (last?.kind === 'text') last.text += event.text;
     else parts.push({ kind: 'text', text: event.text });
   } else if (event.type === 'tool_call') {
-    parts.push({ kind: 'tool', name: event.name, arguments: event.arguments, result: null, error: false, ms: null, approval: null, refused: false });
+    parts.push({ kind: 'tool', name: event.name, arguments: event.arguments, result: null, error: false, ms: null, approval: null, refused: false, decided: false });
   } else if (event.type === 'approval') {
     if (last?.kind !== 'tool' || last.result !== null) throw new Error("Demande de validation reçue sans son appel d'outil");
     last.approval = event.id;

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
 
+  import ChatApproval from '../components/ChatApproval.svelte';
   import Icon from '../components/Icon.svelte';
   import ModelName from '../components/ModelName.svelte';
   import Notice from '../components/Notice.svelte';
@@ -10,8 +12,8 @@
   import ChatToolStep from '../components/ChatToolStep.svelte';
   import { api, errorMessage, streamChat } from '../lib/api';
   import type { ChatDocument, ChatImage, ChatMetrics, ChatPassage, Models } from '../lib/api';
-  import { addEvent, answerText, askAll, picksToSave, restorePicks, toolSummary } from '../lib/chat';
-  import type { AnswerPart } from '../lib/chat';
+  import { addEvent, answerText, askAll, awaitsUser, picksToSave, restorePicks, toolSummary } from '../lib/chat';
+  import type { AnswerPart, ToolPart } from '../lib/chat';
   import { BUFFERED_HINT, STARTUP_HINT, duration, number, seriesColor } from '../lib/format';
   import { live } from '../lib/live.svelte';
 
@@ -56,6 +58,17 @@
   let attaching = $state(false);
   let composerHeight = $state(0);
   let turns = $state<Turn[]>([]);
+  // Approval ids whose buttons are on screen; 76 px is the composer's largest bottom offset (mobile).
+  const approvalsOnScreen = new SvelteSet<string>();
+  let hiddenApprovals = $derived(
+    turns.flatMap((turn) =>
+      turn.answers.flatMap((answer) =>
+        answer.parts
+          .filter((part): part is ToolPart => part.kind === 'tool' && awaitsUser(part, answer.state === 'streaming') && !approvalsOnScreen.has(part.approval ?? ''))
+          .map((step) => ({ model: answer.model, step })),
+      ),
+    ),
+  );
   let sending = $state(false);
   let error = $state('');
   let controller: AbortController | null = null;
@@ -275,7 +288,12 @@
                 {#if part.kind === 'text'}
                   <div class="text">{part.text}</div>
                 {:else}
-                  <ChatToolStep step={part} live={answer.state === 'streaming'} />
+                  <ChatToolStep
+                    step={part}
+                    live={answer.state === 'streaming'}
+                    bottomInset={composerHeight + 76}
+                    onseen={(id, seen) => (seen ? approvalsOnScreen.add(id) : approvalsOnScreen.delete(id))}
+                  />
                 {/if}
               {/each}
               {#if answer.state === 'failed'}
@@ -320,6 +338,17 @@
   </section>
 
   <form class="composer glass" bind:clientHeight={composerHeight} onsubmit={send}>
+    {#if hiddenApprovals.length > 0}
+      <ul class="approvals" aria-label="Appels en attente de votre accord">
+        {#each hiddenApprovals as { model, step } (step.approval)}
+          <li>
+            <span><strong>{model}</strong> attend votre accord · <code>{step.name}</code></span>
+            <button class="btn" type="button" onclick={() => document.getElementById(`approval-${step.approval}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })}>Voir</button>
+            <ChatApproval {step} />
+          </li>
+        {/each}
+      </ul>
+    {/if}
     <div class="compose-row">
       <label class="field">
         <span class="visually-hidden">Votre question</span>
@@ -406,8 +435,8 @@
   }
 
   .answer {
-    display: grid;
-    align-content: start;
+    display: flex;
+    flex-direction: column;
     gap: var(--s3);
     min-width: 0;
     padding: var(--s4);
@@ -425,7 +454,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--s2) var(--s5);
-    margin: 0;
+    margin: auto 0 0;
     padding-top: var(--s3);
     border-top: 1px solid var(--hairline);
   }
@@ -459,6 +488,32 @@
     padding: var(--s3);
     border-radius: var(--radius-lg);
     transform: translateX(-50%);
+  }
+
+  .approvals {
+    display: grid;
+    gap: var(--s2);
+    margin: 0;
+    padding: 0 0 var(--s3);
+    border-bottom: 1px solid var(--hairline);
+    list-style: none;
+    font-size: var(--text-sm);
+  }
+
+  .approvals li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s2) var(--s3);
+  }
+
+  .approvals span {
+    flex: 1 1 16rem;
+  }
+
+  .approvals code {
+    font-family: var(--mono);
+    overflow-wrap: anywhere;
   }
 
   .compose-row {
