@@ -3,31 +3,22 @@
   import Icon from './Icon.svelte';
   import { awaitsUser, toolSummary } from '../lib/chat';
   import type { ToolPart } from '../lib/chat';
+  import { approvalFold } from '../lib/fold.svelte';
   import { duration } from '../lib/format';
 
   // Consecutive tool calls folded behind one line; props other than steps go through to each step.
   let { steps, live, bottomInset, onseen }: { steps: ToolPart[]; live: boolean; bottomInset: number; onseen: (id: string, seen: boolean) => void } = $props();
 
-  let open = $state(false);
-  let openedForApproval = false;
-
   let waiting = $derived(steps.some((step) => awaitsUser(step, live)));
   let running = $derived(steps.some((step) => step.result === null));
   let summary = $derived(toolSummary(steps));
-
-  // Same rule as a step: opened so its buttons show, folded again once answered, unless the user opened it.
-  $effect(() => {
-    if (waiting) {
-      open = true;
-      openedForApproval = true;
-    } else if (openedForApproval && !running) {
-      open = false;
-      openedForApproval = false;
-    }
-  });
+  const fold = approvalFold(
+    () => waiting,
+    () => !running,
+  );
 </script>
 
-<details class="run" bind:open>
+<details class="run fold" bind:open={fold.open}>
   <summary>
     <Icon name="plug" size={16} />
     <span>{summary.calls} {summary.calls > 1 ? 'appels' : 'appel'} · {duration(summary.ms)}</span>
@@ -47,19 +38,6 @@
 <style>
   .run {
     font-size: var(--text-sm);
-    interpolate-size: allow-keywords;
-  }
-
-  .run::details-content {
-    block-size: 0;
-    overflow: hidden;
-    transition:
-      block-size 220ms ease,
-      content-visibility 220ms allow-discrete;
-  }
-
-  .run[open]::details-content {
-    block-size: auto;
   }
 
   summary {
@@ -77,12 +55,5 @@
     margin-top: var(--s2);
     padding-left: var(--s3);
     border-left: 1px solid var(--hairline);
-  }
-
-  /* Own rule: ::details-content in the global reduced-motion list would void it where unsupported. */
-  @media (prefers-reduced-motion: reduce) {
-    .run::details-content {
-      transition: none;
-    }
   }
 </style>

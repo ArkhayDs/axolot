@@ -2,27 +2,19 @@
   import ChatApproval from './ChatApproval.svelte';
   import { awaitsUser, prettyJson, shortArgs } from '../lib/chat';
   import type { ToolPart } from '../lib/chat';
+  import { approvalFold } from '../lib/fold.svelte';
   import { duration } from '../lib/format';
 
   // onseen: whether the approval buttons are on screen, bottomInset left out (the composer covers it).
   let { step, live, bottomInset, onseen }: { step: ToolPart; live: boolean; bottomInset: number; onseen: (id: string, seen: boolean) => void } = $props();
 
-  let open = $state(false);
   let buttons = $state<HTMLElement>();
-  let openedForApproval = false;
 
   let waiting = $derived(awaitsUser(step, live));
-
-  // Opened for the user to read the arguments, folded again once the call is done; a step the user opened stays open.
-  $effect(() => {
-    if (waiting) {
-      open = true;
-      openedForApproval = true;
-    } else if (openedForApproval && step.result !== null) {
-      open = false;
-      openedForApproval = false;
-    }
-  });
+  const fold = approvalFold(
+    () => waiting,
+    () => step.result !== null,
+  );
 
   $effect(() => {
     if (!buttons || step.approval === null) return;
@@ -34,7 +26,7 @@
   });
 </script>
 
-<details class="step" bind:open>
+<details class="step fold" bind:open={fold.open}>
   <summary>
     <code title={step.arguments}>{step.name}({shortArgs(step.arguments)})</code>
     {#if waiting}
@@ -68,19 +60,6 @@
     display: grid;
     gap: var(--s1);
     font-size: var(--text-sm);
-    interpolate-size: allow-keywords;
-  }
-
-  .step::details-content {
-    block-size: 0;
-    overflow: hidden;
-    transition:
-      block-size 220ms ease,
-      content-visibility 220ms allow-discrete;
-  }
-
-  .step[open]::details-content {
-    block-size: auto;
   }
 
   summary {
@@ -115,12 +94,5 @@
     font-family: var(--mono);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-  }
-
-  /* Own rule: ::details-content in the global reduced-motion list would void it where unsupported. */
-  @media (prefers-reduced-motion: reduce) {
-    .step::details-content {
-      transition: none;
-    }
   }
 </style>
